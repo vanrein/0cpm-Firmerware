@@ -13,7 +13,6 @@
 
 mainmenu "Configuration for firmly.0cpm SIP telephony"
 
-
 choice
 	prompt "Target platform"
 	default TARGET_LINUX_RAWSOCK
@@ -100,3 +99,6 @@ config TARGET_SMC_WSP100_DSP200
 	  TODO: Demo entry. Not implemented yet.
 
 endchoice
+
+
+source "src/net/Kconfig"

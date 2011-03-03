@@ -23,7 +23,7 @@ extern uint8_t ether_broadcast [ETHER_ADDR_LEN];
 uint8_t ether_zero [ETHER_ADDR_LEN] = { 0, 0, 0, 0, 0, 0 };
 uint8_t prefix_6bed4 [8] = {
 			0x20, 0x01, 0xab, 0xba, 0x6b, 0xed, 0x00, 0x04 };
-uint32_t ip4_6bed4 = ( 123 << 24 | 45 << 16 | 67 << 8 | 89 );
+extern uint32_t ip4_6bed4;
 uint8_t ip4_mine [4] = { 192, 168, 3, 13 };
 
 extern uint8_t linklocal_mine [];
