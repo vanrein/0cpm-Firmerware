@@ -1,0 +1,99 @@
+firmly.0cpm
+===========
+
+Digital phones are small computers and are thus equipped
+with built-in software.  This is usually called firmware
+to reflect the fact that this software isn't really very
+soft, as it is difficult to create or replace.
+
+This project is alternate firmware for digital phones,
+named "firmly.0cpm" and hosted on http://firmly.0cpm.org/
+
+This alternate firmware is special in various ways.  The
+idea of being able to innovate telephony is the major
+driving force behind them.
+
+This work is Copyright (c) 2011 OpenFortress, Rick van Rein
+but it may be used freely; read the LICENCSE for details.
+
+
+Open source
+-----------
+
+The problem with many current phones is that each
+manufacturer wants to invent their own firmware.  This lack
+of sharing makes the market situation one hampered by
+just-functioning phones.  The result is a lock-in of
+phone manufacturers and telecom operators, who have come
+to a standstill with a service that does little more than
+simulate old-fashioned analog telephony.
+
+Digital telephony means that you are using a communications
+device with generic computing abilities.  You can do a
+lot more if you control the firmware in a software fashion.
+
+This firmware was created to give control back to the
+users of such phones.  And to break through the mutual
+impairment between telecom operators and phone manufacturers.
+
+Manufacturers of phones would be wise to adopt this openly
+shared firmware, but they should also realise that they
+will be obliged to share any improvements that they make,
+including porting to their platform, and that they are
+formally obliged to permit end users to replace the firmware
+with their own.  This is a legal obligation, as a direct
+result of the open source licensing.  There is of course
+no obligation for a manufacturer to support such different
+versions of firmware, as long as they don't try to block
+it from being used.
+
+If you own a phone that is not currently able to run a port
+of this firmware, you may want to contact a hacker who will
+usually enjoy the challenge of replacing the firmware for
+you.  Unlike what a cracker does, this is usually legal as
+it is just reverse engineering, rather than abusive access
+to someone else's device.  Depending on the make and model
+of your phone the hacker may fail or succeed; depending on
+those same factors and the level of determination/payment
+of your hacker, it may end up in a software-based install
+or it may require per-device hardware tinkering.  Please
+realise that your hacker too will want to, and usually
+be obliged by our license, to share the results of his
+work publicly.  You may want to look for others who can
+contribute in the work so you benefit from sharing too.
+
+
+The 0cpm network
+----------------
+
+We provide a calling network that you may use with this phone,
+although you are not in any way obliged to do so.  Please do
+keep in mind that the firmware was created in support of the
+0cpm calling network, which in itself aims at innovating the
+area of digital telephony, and that it aims to profitably
+integrate open source solutions and external service
+providers as part of a "calling service community".
+
+We have created other tools as well, to help this network
+to flourish.  These are a few pointers of interest:
+
+http://0cpm.com/  --  Phone service, free or commercial.
+http://0cpm.org/  --  Software development.
+http://0cpm.net/  --  Calling service community.
+
+
+Direct connections
+------------------
+
+Privacy
+-------
+
+Zero configuration
+------------------
+
+POTS integration
+----------------
+
+LAN integration
+---------------
+

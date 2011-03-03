@@ -1,0 +1,39 @@
+Building and Installing firmly.0cpm
+===================================
+
+You can build firmly.0cpm for any of the target
+architectures included.  If you intend to port
+to another target, please fork off your own git
+repository, work on it until stable, and then
+inform us.  We will be happy to re-integrate
+your work.
+
+If you intend to build a predefined target, please
+read the helping instructions for that target to
+learn how to upload the firmware to your phone.
+It may not always be a matter of toggling a few
+switches; serious hardware tinkering is involved
+on some platforms.  On 0cpm.org you can find a
+list of people inclined to help you with this work
+on your phones.
+
+
+To build the firmware, please run from the main
+directory of the software
+
+	make menuconfig
+
+The first thing you should select is the target
+which is basically make and model of your phone.
+After that, you may have to choose a driver for
+devices like network device chips, if you are
+working on a device that changes its hardware
+without changing its serial numbers.  This may
+imply opening the case and looking at the numbers
+on the chips (best done in broad daylight).
+
+
+Good luck,
+
+Rick van Rein
+OpenFortress / 0cpm

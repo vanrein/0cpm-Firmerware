@@ -1,0 +1,49 @@
+TODO for firmly.0cpm
+====================
+
+The current code is a demonstration of a core principle, an alpha
+level implementation that does work.  It demonstrates a way of getting
+an IPv6 address anywhere, so as to enable embedded firmware to be
+written as IPv6-only software.  The framework presented requires no
+network stack from the supporting OS, and indeed it can be built
+directly on hardware after adding drivers for specific chips.
+
+The current code contains a few things that may or may not be so good
+in the end.  After gaining some experience, it is good to have a good
+look at:
+
+* Pointers are cast back and forth to uint32_t values.  This makes the
+  code unsuitable for 64-bit architectures and, much more of a problem,
+  for 16-bit architectures such as 16-bit digital signal processors.
+
+* Parsing and checksumming is not sufficiently paranoid.  The current
+  netinput code assumes proper behaviour from its networking partners.
+  That is not a proper assumption for an internetworking device :-)
+  Specifically, no effort has been done to check the packet size where
+  indices and offsets are applied.  Before this is handled, the code
+  MUST NOT be released as anything but alpha.
+
+* The use of BPF-style commands in netinput.c -- it can be made fairly
+  compact if matched up with machine commands, but is it really more
+  efficient than an optimising C compiler?  If the difference is
+  negligable, then this code should go, even if it brings advantages
+  on some platforms.  The style is then simply "too inventive".
+
+* The mem[] array is untyped, calling for lots of cast commands.  This
+  is not handy, and a result of the BPF-style architecture for netinput.
+  (The original idea was to do the entire processing in that style, but
+  it turned out not to be sufficiently flexible for that.)
+
+* The replies from netinput.c are functions to be called.  Decide if
+  this is enough, and if it can cover netreply_* as well as netdb_*
+  with the same setup.  Is this all typesafe?
+
+* Must join multicast addresses for local addresses, as described in
+  http://tools.ietf.org/html/rfc4291 section 2.7.1, ff02::1:ff00:0/102
+  for solicited-node address.  WIDE DHCPv6 server actually needs this.
+  Also join ff02::1 as the all-nodes address.
+
+* The netdb module is underdeveloped.  The bindings are not used as
+  they could be, there is no neighbour or ARP cache, there is no
+  storage for servers for dns, ntp, sip-proxy.
+
