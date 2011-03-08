@@ -101,10 +101,10 @@ package; you should not incllude it in the source tree.
 In additon, there are a few include files that define the
 upcall and downcall interface:
 
-* ``src/include/downcall.h`` contains the functions that must
+* ``include/0cpm/downcall.h`` contains the functions that must
   be implemented in all bottom halves.
 
-* ``src/include/upcall.h`` contains the only functions that a
+* ``include/0cpm/upcall.h`` contains the only functions that a
   bottom half may invoke on the top half.
 
 The data types exchanged between bottom and top halves should be
@@ -222,8 +222,8 @@ during an upcall.  The top half should never block in a
 critical region, nor should it do complex things.  The
 functions supporting asynchronous upcall blocking are::
 
-	void bottom_critical_begin (void);
-	void bottom_critical_end   (void);
+	void bottom_critical_region_begin (void);
+	void bottom_critical_region_end   (void);
 
 The definition of these functions may well be an
 assembler inline function to disable and enable interrupts.
@@ -235,21 +235,22 @@ The code structure for a critical region is::
 	#include <bottom.h>
 
 	// non-critical code
-	bottom_criticital_begin ();
+	bottom_criticital_region_begin ();
 	// critical region
-	bottom_criticital_end ();
+	bottom_criticital_region_end ();
 	// non-critical code
 
 When the bottom invokes ``top_main()``, it has not yet
 enabled asynchronous upcalls, so after some setup this
 function must start by releasing the critical region::
 
+	#include <stdbool.h>
 	#include <bottom.h>
 
 	void top_main (void) {
 		// top-half setup code
 		bottom_critical_region_end ();
-		while (1) {
+		while (true) {
 			// main loop, normal operation
 		}
 	}
@@ -523,7 +524,7 @@ should select such a precision that times of up to a day in the
 past or future can be represented.  The function definition for
 setting the next timer interval is::
 
-	uint32_t bottom_timer_set (uint32_t timeout);
+	timing_t bottom_timer_set (timing_t timeout);
 
 The value returned is the previous value in the timer.  The special
 value ``TIMER_NULL`` is used to represent no timer setting.  By
@@ -565,6 +566,7 @@ Network events relate to a few events:
 
 * Network connectivity going offline and coming online
 * The arrival of a network packet
+* The ability to send another network packet
 
 When booted, the network connectivity is assumed to be
 down.  Upon activation of upcalls, a check is made to
@@ -580,26 +582,118 @@ calls apply to the uplink, and the downlink is
 ignored.  Switching between downlink and uplink
 is part of the bottom half responsibilities.
 
-The bottom half is also responsible for selecting
-packets destined for the phone.  It will make this
-distinction at the ethernet level, so based on the
-MAC address of incoming packets.  Unicast messages
-as well as broadcast packets are welcomed.  For each
-of those, an upcall exists::
+The bottom half is also the interface that permits or
+stops network reads and writes, as a result of available
+buffer space and arrival of traffic.
 
-	top_network_unicast   (uint8_t *pkt, uint16_t pktlen, uint16_t ether_t);
-	top_network_broadcast (uint8_t *pkt, uint16_t pktlen, uint16_t ether_t);
+The following function reports arrival of a packet
+over the network::
 
-The ``pkt`` in both functions points to the part of the
-network packet after ethernet headers; only the
-ethernet type field is added as a 16-bit integer (after
-changing from network to host-local byte order) to guide
-further demultiplexing.
+	void top_network_can_recv (void);
 
-At the ethernet level, there is no separate addressing
-mode for multicast traffic, so any multicast traffic
-results in a broadcasting upcall.
+This function must be called when a packet arrives
+while there were none available before that.  The
+function may also be called for any subsequent
+arrives.  This optimally reflects the variations in
+available hardware, and it should not be a problem
+if the implementation of this top function only does
+a few simple administrative things.  The subsequent
+handling of network packets is (of course) done in a
+polling loop, to handle the uncertainty of the number
+of available packets.
 
+Mirrorring this function, the following reports the
+ability to send a packet over the network::
+
+	void top_network_can_send (void);
+
+The buffer space available should be at least the MTU
+for the network, so 1500 plus ethernet headers.  The
+optimal position may however be different.  The function
+need not be called when the network interface comes up.
+
+Any high-priority traffic is always immediately offered
+for sending, and if that fails it is queued along with
+the lower-priority traffic until this interrupt function
+is called.  If the network card has internal buffer
+space, this is good to use.  However, it makes no sense
+to simulate it in main memory at the driver level, as
+the top half can do that instead.
+
+To receive packets from the network interface, the following
+function is called::
+
+	bool bottom_network_recv (uint8_t *pkt, uint16_t *pktlen);
+
+This function only returns ``true`` if a packet was
+available.  A good cause for failure is not having any
+packets available for reception.  The ``pkt`` will
+be filled with at most ``pktlen`` bytes of data,
+and the latter variable will be update upon return to
+reflect the length used.  When reporting failure, the
+value returned in ``pktlen`` is unchanged and the
+``pkt`` may have changed over that length; the results
+of that however, are not reliable for processing.
+
+In case of an error, for example a false checksum,
+the function returns ``true`` but sets ``pktlen``
+to 0.  This means that further polling is sensible.
+Some code to poll and process network packets would
+be::
+
+	uint16_t buflen;
+	uint8_t buf [MTU + 16];
+	bool more = true;
+	while (more) {
+		buflen = sizeof (buf);
+		more = bottom_network_recv (buf, &buflen);
+		if (buflen > 0) {
+			process_packet (buf, buflen);
+		}
+	}
+
+After the ``bottom_network_recv`` has returned ``false``,
+the top layer will await invocation of ``top_network_can_recv``
+before it tries again.
+
+The function to send data out to the network card is
+the mirror image of receiving::
+
+	bool bottom_network_send (uint8_t *pkt, uint16_t pktlen);
+
+This function only returns ``true`` if the packet could
+be sent to a point where the network takes over.  The
+place where this would be is decided by the bottom layer,
+but the more certainty this can give about internal
+processing, the more reliable the entire application gets.
+
+It is possible to submit multiple packets, until no more
+could be delivered.  After the ``bottom_network_send``
+has returned ``false``, the top layer will await
+invocation of ``top_network_can_send`` before it tries again.
+
+Some example code, not taking priorities into account, that
+would write data out to the network would be::
+
+	qitem = netsendqueue;
+	bool more = true;
+	while (more) {
+		if (!qitem) {
+			break;
+		}
+		more = bottom_network_send (qitem->buf, qitem->buflen);
+		if (more) {
+			qitem = qitem->next;
+		}
+	}
+	//...free netsendqueue items up to but excluding qitem...
+	netsendqueue = cursend;
+
+The mechanisms for dealing with the upcalls are simple
+enough; a flag can be used that is reset just before
+making the networking downcall, and that is set by the
+corresponding upcall.  This way, no signalling is ever
+lost.  This is not shown in the examples above.
 
 
 Display

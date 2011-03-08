@@ -8,8 +8,10 @@
  */
 
 
-#include <string.h>
+#include <stdint.h>
+#include <stdbool.h>
 
+#include <string.h>
 
 #include <netinet/ip.h>
 #include <netinet/udp.h>
@@ -17,6 +19,9 @@
 #include <netinet/icmp6.h>
 #include <netinet/if_ether.h>
 
+#include <config.h>
+
+#include <0cpm/cpu.h>
 #include <0cpm/netfun.h>
 #include <0cpm/netdb.h>
 
@@ -88,14 +93,14 @@ uint8_t ipv6_router_solicitation [] = {
  * Some fields are filled later: h_proto
  * TODO: When to use the broadcast address?
  */
-uint8_t *netsend_ether (uint8_t *pout, uint32_t *mem) {
+uint8_t *netsend_ether (uint8_t *pout, intptr_t *mem) {
 	struct ethhdr *eth = (struct ethhdr *) pout;
 	memcpy (eth->h_source, ether_mine, ETHER_ADDR_LEN);
 	memcpy (eth->h_dest, (void *) mem [MEM_ETHER_DST], ETHER_ADDR_LEN);
 	if (mem [MEM_VLAN_ID] != 0) {
 		// TODO: Setup VLAN with mem [MEM_VLAN] number
 	}
-	mem [MEM_ETHER_HEAD] = (uint32_t) eth;
+	mem [MEM_ETHER_HEAD] = (intptr_t) eth;
 	return pout + sizeof (struct ethhdr);
 }
 
@@ -103,7 +108,7 @@ uint8_t *netsend_ether (uint8_t *pout, uint32_t *mem) {
  * This may be used for local protocols (DNS, DHCPv4) or as a 6bed4 carrier.
  * Some IPv4 fields are filled later: protocol, tot_len, check.
  */
-uint8_t *netsend_ip4 (uint8_t *pout, uint32_t *mem) {
+uint8_t *netsend_ip4 (uint8_t *pout, intptr_t *mem) {
 	pout = netsend_ether (pout, mem);
 	struct iphdr *ip4 = (struct iphdr *) pout;
 	bzero (ip4, sizeof (struct iphdr));
@@ -120,20 +125,20 @@ uint8_t *netsend_ip4 (uint8_t *pout, uint32_t *mem) {
 /* Send an UDPv4 header.
  * Some fields are filled later: len, check.
  */
-uint8_t *netsend_udp4 (uint8_t *pout, uint32_t *mem) {
+uint8_t *netsend_udp4 (uint8_t *pout, intptr_t *mem) {
 	// TODO: Setup MEM_ETHER_DST with router's address
 	pout = netsend_ip4 (pout, mem);
 	struct udphdr *udp = (struct udphdr *) pout;
 	udp->source = htons (mem [MEM_UDP4_PORTS] & 0xffff);
 	udp->dest   = htons (mem [MEM_UDP4_PORTS] >> 16);
-	mem [MEM_UDP4_HEAD] = (uint32_t) udp;
+	mem [MEM_UDP4_HEAD] = (intptr_t) udp;
 	return &pout [sizeof (struct udphdr)];
 }
 
 /* Send an UDPv4 header for 6bed4.
  * Some fields are filled later: len, check.
  */
-uint8_t *netsend_udp4_6bed4 (uint8_t *pout, uint32_t *mem) {
+uint8_t *netsend_udp4_6bed4 (uint8_t *pout, intptr_t *mem) {
 	struct ip6binding *bnd = (struct ip6binding *) mem [MEM_BINDING6];
 	mem [MEM_IP4_SRC] = bnd->ip4binding->ip4addr;
 	mem [MEM_IP4_DST] = ip4_6bed4;
@@ -143,15 +148,15 @@ uint8_t *netsend_udp4_6bed4 (uint8_t *pout, uint32_t *mem) {
 	//TODO:dyn.ports?// udp->source = htons (bnd->ip4binding->ip4port);
 	udp->source = htons (3653);
 	udp->dest   = htons (3653);
-	mem [MEM_UDP4_HEAD] = (uint32_t) udp;
-	mem [MEM_6BED4_PLOAD] = (uint32_t) (pout + sizeof (struct udphdr));
+	mem [MEM_UDP4_HEAD] = (intptr_t) udp;
+	mem [MEM_6BED4_PLOAD] = (intptr_t) (pout + sizeof (struct udphdr));
 	return (uint8_t *) mem [MEM_6BED4_PLOAD];
 }
 
 /* Send an IPv6 header, and wrap it in 6bed4 if needed.
  * Some fields are filled later: plen, nxt.
  */
-uint8_t *netsend_ip6 (uint8_t *pout, uint32_t *mem) {
+uint8_t *netsend_ip6 (uint8_t *pout, intptr_t *mem) {
 	struct ip6binding *bnd = (struct ip6binding *) mem [MEM_BINDING6];
 	if (bnd->flags & I6B_ROUTE_SOURCE_6BED4_FLAG) {
 		// Use 6bed4 for destination address
@@ -166,20 +171,20 @@ uint8_t *netsend_ip6 (uint8_t *pout, uint32_t *mem) {
 	ip6->ip6_hlim = 64;
 	memcpy (&ip6->ip6_src, bnd->ip6addr, 16);
 	memcpy (&ip6->ip6_dst, (uint8_t *) mem [MEM_IP6_DST], 16);
-	mem [MEM_IP6_HEAD] = (uint32_t) ip6;
+	mem [MEM_IP6_HEAD] = (intptr_t) ip6;
 	return &pout [sizeof (struct ip6_hdr)];
 }
 
 /* Send an UDP6 header over IPv6.
  * Some fields are filled later: len, check.
  */
-uint8_t *netsend_udp6 (uint8_t *pout, uint32_t *mem) {
+uint8_t *netsend_udp6 (uint8_t *pout, intptr_t *mem) {
 	// TODO: Setup MEM_ETHER_DST with router's address
 	pout = netsend_ip6 (pout, mem);
 	struct udphdr *udp = (struct udphdr *) pout;
 	udp->source = htons (mem [MEM_UDP6_PORTS] & 0xffff);
 	udp->dest   = htons (mem [MEM_UDP6_PORTS] >> 16);
-	mem [MEM_UDP6_HEAD] = (uint32_t) udp;
+	mem [MEM_UDP6_HEAD] = (intptr_t) udp;
 	return &pout [sizeof (struct udphdr)];
 }
 
@@ -190,8 +195,8 @@ uint8_t *netsend_udp6 (uint8_t *pout, uint32_t *mem) {
 
 /* Create an ICMPv6 Router Solicitation.
  */
-uint8_t *netsend_icmp6_router_solicit (uint8_t *pout, uint32_t *mem) {
-	mem [MEM_ETHER_DST] = (uint32_t) ether_broadcast;
+uint8_t *netsend_icmp6_router_solicit (uint8_t *pout, intptr_t *mem) {
+	mem [MEM_ETHER_DST] = (intptr_t) ether_broadcast;
 	struct ip6binding *bnd = (struct ip6binding *) mem [MEM_BINDING6];
 	if (bnd->flags & I6B_ROUTE_SOURCE_6BED4_FLAG) {
 		// Use 6bed4 for destination address
@@ -204,8 +209,8 @@ uint8_t *netsend_icmp6_router_solicit (uint8_t *pout, uint32_t *mem) {
 	memcpy (pout + 40 + 8 + 2, ether_mine, ETHER_ADDR_LEN);
 	memcpy (pout + 8, linklocal_mine, 16);
 	//ADDS_NOTHING// memcpy (pout + 8, linklocal_mine, 16);
-	mem [MEM_IP6_HEAD] = (uint32_t) pout;
-	mem [MEM_ICMP6_HEAD] = (uint32_t) pout + 40;
+	mem [MEM_IP6_HEAD] = (intptr_t) pout;
+	mem [MEM_ICMP6_HEAD] = (intptr_t) pout + 40;
 	return pout + sizeof (ipv6_router_solicitation);
 }
 
@@ -213,13 +218,13 @@ uint8_t *netsend_icmp6_router_solicit (uint8_t *pout, uint32_t *mem) {
  * Some fields are filled later: icmp6_cksum
  * TODO: Set multicast target address for IPv6
  */
-uint8_t *netsend_icmp6_ngb_sol (uint8_t *pout, uint32_t *mem) {
-	mem [MEM_ETHER_DST] = (uint32_t) ether_broadcast;
-	mem [MEM_IP6_DST] = (uint32_t) ip6_multicast_all_hosts;
+uint8_t *netsend_icmp6_ngb_sol (uint8_t *pout, intptr_t *mem) {
+	mem [MEM_ETHER_DST] = (intptr_t) ether_broadcast;
+	mem [MEM_IP6_DST] = (intptr_t) ip6_multicast_all_hosts;
 	pout = netsend_ip6 (pout, mem);
 	struct icmp6_hdr *icmp6 = (struct icmp6_hdr *) pout;
 	struct ip6binding *bnd = (struct ip6binding *) mem [MEM_BINDING6];
-	mem [MEM_ICMP6_HEAD] = (uint32_t) pout;
+	mem [MEM_ICMP6_HEAD] = (intptr_t) pout;
 	icmp6->icmp6_type = ND_NEIGHBOR_SOLICIT;
 	icmp6->icmp6_code = 0;
 	icmp6->icmp6_data32 [0] = 0;
@@ -232,10 +237,10 @@ uint8_t *netsend_icmp6_ngb_sol (uint8_t *pout, uint32_t *mem) {
 
 /* Send a DHCPv4 DISCOVER packet to initiatie IPv4 LAN configuration.
  */
-uint8_t *netsend_dhcp4_discover (uint8_t *pout, uint32_t *mem) {
+uint8_t *netsend_dhcp4_discover (uint8_t *pout, intptr_t *mem) {
 	mem [MEM_UDP4_PORTS] = 0x00430044;
 	mem [MEM_IP4_DST] = 0xffffffff;
-	mem [MEM_ETHER_DST] = (uint32_t) ether_broadcast;
+	mem [MEM_ETHER_DST] = (intptr_t) ether_broadcast;
 	pout = netsend_udp4 (pout, mem);
 	bzero (pout, 576);	// erase the acceptable package size
 	pout [0] = 1;		// bootrequest
@@ -267,11 +272,11 @@ uint8_t *netsend_dhcp4_discover (uint8_t *pout, uint32_t *mem) {
 
 /* Send a DHCPv6 SOLICIT packet to initiatie native IPv6 configuration.
  */
-uint8_t *netsend_dhcp6_solicit (uint8_t *pout, uint32_t *mem) {
+uint8_t *netsend_dhcp6_solicit (uint8_t *pout, intptr_t *mem) {
 	mem [MEM_UDP6_PORTS] = 0x02230222;
-	mem [MEM_BINDING6] = (uint32_t) binding_linklocal;
-	mem [MEM_IP6_DST] = (uint32_t) ip6_multicast_all_dhcp6_servers;
-	mem [MEM_ETHER_DST] = (uint32_t) ether_multicast_all_dhcp6_servers;
+	mem [MEM_BINDING6] = (intptr_t) binding_linklocal;
+	mem [MEM_IP6_DST] = (intptr_t) ip6_multicast_all_dhcp6_servers;
+	mem [MEM_ETHER_DST] = (intptr_t) ether_multicast_all_dhcp6_servers;
 	pout = netsend_udp6 (pout, mem);
 	pout [0] = 1;
 	memcpy (pout + 1, ether_mine + 3, 3);
@@ -296,7 +301,7 @@ uint8_t *netsend_dhcp6_solicit (uint8_t *pout, uint32_t *mem) {
 	memcpy (pout + 4          , dhcp6_options, sizeof (dhcp6_options));
 	memcpy (pout + 4 + 4+4    , ether_mine, ETHER_ADDR_LEN);
 	memcpy (pout + 4 + 4+4+6+4, ether_mine, ETHER_ADDR_LEN);
-	mem [MEM_DHCP6_HEAD] = (uint32_t) pout;
+	mem [MEM_DHCP6_HEAD] = (intptr_t) pout;
 	return pout + 4 + sizeof (dhcp6_options);
 }
 

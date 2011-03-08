@@ -6,8 +6,9 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdint.h>
 #include <stdarg.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include <fcntl.h>
 
@@ -22,21 +23,42 @@
 #include <netinet/icmp6.h>
 #include <net/ethernet.h>
 
-#include <linux/if.h>
-#include <linux/if_tun.h>
-#include <linux/if_ether.h>
+#include <config.h>
 
+#include <0cpm/cpu.h>
 #include <0cpm/netfun.h>
 #include <0cpm/netdb.h>
+#include <0cpm/irq.h>
+#include <0cpm/timer.h>
+
+
+/* Network configuration states */
+
+enum netcfgstate {
+	NCS_OFFLINE,	// Await top_network_online()
+	NCS_AUTOCONF,	// A few LAN autoconfiguration attempts
+	NCS_DHCPV6,	// A few LAN DHCPv6 attempts
+	NCS_DHCPV4,	// A few LAN DHCPv4 attempts
+	NCS_6BED4,	// A few 6BED4 attempts over IPv4
+	NCS_ONLINE,	// Stable online performance
+	NCS_RENEW,	// Stable online, but renewing DHCPv6/v4
+	NCS_PANIC,	// Not able to bootstrap anything
+	NCS_HAVE_ALT = NCS_6BED4,
+};
 
 
 /* Global variables
  */
 
-extern struct tunbuf rbuf, wbuf;	// TODO: Testing setup
-extern int tunsox;			// TODO: Testing setup
+static enum netcfgstate boot_state   = NCS_OFFLINE;
+static uint8_t          boot_retries = 1;
+
+static irqtimer_t netboottimer;
+
+extern packet_t rbuf, wbuf;	// TODO: Testing setup
 
 extern uint8_t ether_mine [ETHER_ADDR_LEN];
+
 
 /* netcore_checksum_areas (void *area0, uint16_t len0, ..., NULL)
  * Calculate the Internet checksum over the given areas
@@ -69,7 +91,7 @@ uint16_t netcore_checksum_areas (void *area0, ...) {
  * This calculates length and checksum fields, then sends the
  * message into the world.
  */
-int netcore_send_buffer (int tunsox, uint32_t *mem, struct tunbuf *wbuf) {
+void netcore_send_buffer (intptr_t *mem, uint8_t *wbuf) {
 	struct icmp6_hdr *icmp6 = (void *) mem [MEM_ICMP6_HEAD];
 	struct icmp      *icmp4 = (void *) mem [MEM_ICMP4_HEAD];
 	struct udphdr *udp4 = (void *) mem [MEM_UDP4_HEAD];
@@ -147,32 +169,21 @@ int netcore_send_buffer (int tunsox, uint32_t *mem, struct tunbuf *wbuf) {
 	//
 	// Determine the tunnel prefix info and ethernet protocol
 	if (ip4) {
-		wbuf->prefix.proto = htons (ETH_P_IP);
+		eth->h_proto = htons (ETH_P_IP);
 	} else if (ip6) {
-		wbuf->prefix.proto = htons (ETH_P_IPV6);
+		eth->h_proto = htons (ETH_P_IPV6);
 	} else if (arp) {
-		wbuf->prefix.proto = htons (ETH_P_ARP);
+		eth->h_proto = htons (ETH_P_ARP);
 	} else {
-		return -1;
+		return;
 	}
-	eth->h_proto = wbuf->prefix.proto;
-	wbuf->prefix.flags = 0;
 	//
-	// Actually send the packet
-	int alen = mem [MEM_ALL_DONE] - mem [MEM_ETHER_HEAD] + sizeof (struct tun_pi);
-	if ((alen > 0) && (alen < 1500+12)) {
-		int wlen = write (tunsox, wbuf, alen);
-printf ("Written %d out of %d:\n", wlen, alen); int i; for (i=0; i<alen; i++) { printf ("%02x%s", ((uint8_t *) wbuf) [i], (i%16 == 0? "\n": " ")); }; printf ("\n");
-		if (wlen != alen) {
-			if (wlen < 0) {
-				return -1;
-			} else {
-				// No guaranteed delivery -- swallow problem
-				return 0;
-			}
-		}
+	// Actually have the packet sent
+	// TODO: Defer if priority lower than current CPU priority level
+	uint16_t wlen = mem [MEM_ALL_DONE] - mem [MEM_ETHER_HEAD];
+	if (!bottom_network_send (wbuf, wlen)) {
+		// TODO: Queue packet for future delivery
 	}
-	return 0;
 }
 
 
@@ -180,14 +191,14 @@ printf ("Written %d out of %d:\n", wlen, alen); int i; for (i=0; i<alen; i++) { 
  */
 static void solicit_router (void) {
 	uint8_t *start = wbuf.data;
-	uint32_t mem [MEM_NETVAR_COUNT];
+	intptr_t mem [MEM_NETVAR_COUNT];
 	bzero (mem, sizeof (mem));
-	mem [MEM_BINDING6] = (uint32_t) &ip6binding [0];
+	mem [MEM_BINDING6] = (intptr_t) &ip6binding [0];
 	uint8_t *stop = netsend_icmp6_router_solicit (start, mem);
-	mem [MEM_ALL_DONE] = (uint32_t) stop;
+	mem [MEM_ALL_DONE] = (intptr_t) stop;
 	uint32_t len = mem [MEM_ALL_DONE] - mem [MEM_ETHER_HEAD];
 	if ((len > 0) && (len < 1500 + 18)) {
-		netcore_send_buffer (tunsox, mem, &wbuf);
+		netcore_send_buffer (mem, wbuf.data);
 	}
 }
 
@@ -196,90 +207,145 @@ static void solicit_router (void) {
  */
 static void get_dhcp4_lease (void) {
 	uint8_t *start = wbuf.data;
-	uint32_t mem [MEM_NETVAR_COUNT];
+	intptr_t mem [MEM_NETVAR_COUNT];
 	bzero (mem, sizeof (mem));
 	uint8_t *stop = netsend_dhcp4_discover (start, mem);
-	mem [MEM_ALL_DONE] = (uint32_t) stop;
+	mem [MEM_ALL_DONE] = (intptr_t) stop;
 	uint32_t len = mem [MEM_ALL_DONE] - mem [MEM_ETHER_HEAD];
 	if ((len > 0) && (len < 1500 + 18)) {
-		netcore_send_buffer (tunsox, mem, &wbuf);
+		netcore_send_buffer (mem, wbuf.data);
 	}
 }
+
 
 /* Start to obtain an IPv6 address.
  */
 static void get_dhcp6_lease (void) {
 	uint8_t *start = wbuf.data;
-	uint32_t mem [MEM_NETVAR_COUNT];
+	intptr_t mem [MEM_NETVAR_COUNT];
 	bzero (mem, sizeof (mem));
 	uint8_t *stop = netsend_dhcp6_solicit (start, mem);
-	mem [MEM_ALL_DONE] = (uint32_t) stop;
+	mem [MEM_ALL_DONE] = (intptr_t) stop;
 	uint32_t len = mem [MEM_ALL_DONE] - mem [MEM_ETHER_HEAD];
 	if ((len > 0) && (len < 1500 + 18)) {
-		netcore_send_buffer (tunsox, mem, &wbuf);
+		netcore_send_buffer (mem, wbuf.data);
 	}
 }
 
 
+/* Is an IPv6 address available?
+ */
+static bool have_ipv6 (void) {
+	int i;
+	for (i=0; i < IP6BINDING_COUNT; i++) {
+		if (ip6binding [i].flags & (I6B_TENTATIVE | I6B_EXPIRED) == 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/* Is an IPv4 address available?
+ */
+static bool have_ipv4 (void) {
+	int i;
+	for (i=0; i < IP4BINDING_COUNT; i++) {
+		if (ip4binding [i].ip4addr != 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
+
 /* Boot the network: Obtain an IPv6 address, possibly based on an IPv4
- * and a 6bed4 tunnel.  The routine returns success as nonzero.
+ * and a 6bed4 tunnel.  This is implemented as a state diagram made
+ * with closures.
  *
  * The booting procedure works through the following 1-second steps:
  *  - ensure that the interface is connected to a network
- *  - try IPv6 autoconfiguration a few times (random number)
- *     - first try to reuse an older IPv6 address, even if it was DHCPv6
+ *  - try IPv6 autoconfiguration a few times
+ *     - first try to reuse an older IPv6 address, even if it was DHCPv6 (TODO)
  *  - try DHCPv6 a few times
- *     - first try to reuse an older IPv6 address, even if it was autoconfig
+ *     - first try to reuse an older IPv6 address, even if it was autoconfig (TODO)
  *  - try DHCPv4 a few times
- *     - first try to reuse an older IPv4 address
- *     - when an IPv4 address is acquired, autoconfigure 6bed4 over it
+ *     - first try to reuse an older IPv4 address (TODO)
+ *     - when an IPv4 address was acquired, autoconfigure 6bed4 over it
  */
-int netcore_bootstrap (void) {
-	int process_packets (int sox, int secs); //TODO:NOTHERE
-	int i;
-	int rnd1 = 2 + ((ether_mine [5] & 0x1c) >> 2);
-	int rnd2 =       ether_mine [5] & 0x03;
-	//
-	// TODO: better wipe bindings at physical boot
-	bzero (ip4binding, sizeof (ip4binding));
-	bzero (ip6binding, sizeof (ip6binding));
-	//
-	// TODO: ensure physical network connectivity
-	//
-	// Obtain an IPv6 address through stateless autoconfiguration
-	i = rnd1;
-	while (i-- > 0) {
+bool netcore_bootstrap_step (irq_t *tmrirq) {
+	printf ("Taking a step in network bootstrapping\n");
+	timing_t delay = 0;
+	if (boot_retries > 0) {
+		boot_retries--;
+	} else {
+		boot_retries = 3;
+		if (boot_state <= NCS_HAVE_ALT) {
+			boot_state++;
+		} else {
+			boot_state = NCS_PANIC;
+		}
+	}
+	switch (boot_state) {
+	case NCS_6BED4:		// A few 6BED4 attempts over IPv4
+		if (!have_ipv6 ()) {
+			ip6binding [0].ip4binding = &ip4binding [0];
+			ip6binding [0].flags |= I6B_ROUTE_SOURCE_6BED4_FLAG;
+		}
+		// Continue into NCS_AUTOCONF for Router Solicitation
+	case NCS_AUTOCONF:	// A few LAN autoconfiguration attempts
+		if (have_ipv6 ()) {
+			return true;
+		}
 		solicit_router ();
-		process_packets (tunsox, 2);
-		// TODO: return 1 if bound
-	}
-	//
-	// Obtain an IPv6 address through DHCPv6
-	i = 3;
-	while (i-- > 0) {
+		delay = 500 * TIME_MSEC;
+		break;
+	case NCS_DHCPV6:	// A few LAN DHCPv6 attempts
+		if (have_ipv6 ()) {
+			return true;
+		}
 		get_dhcp6_lease ();
-		process_packets (tunsox, 3);
-		// TODO: return 1 if bound
-	}
-	//
-	// Obtain an IPv4 address through DHCPv4
-	i = 3;
-	while (i-- > 0) {
+		delay = 1000 * TIME_MSEC;
+		break;
+	case NCS_DHCPV4:	// A few LAN DHCPv4 attempts
+		if (have_ipv4 ()) {
+			return true;
+		}
 		get_dhcp4_lease ();
-		process_packets (tunsox, rnd2);
-		// TODO: break if bound
+		delay = 5000 * TIME_MSEC;
+		break;
+	case NCS_ONLINE:	// Stable online performance
+		return true;
+	case NCS_RENEW:		// Stable online, but renewing DHCPv6/v4
+		// TODO: Inspect timers or resend renewal request
+		return true;
+	case NCS_OFFLINE:	// Await top_network_online()
+		break;
+	case NCS_PANIC:		// Not able to bootstrap anything
+		// delay = 15 * 60 * TIME_MSEC;
+		// break;
+		return true;
+	default:
+		break;
 	}
-	// TODO: fail (return 0) if no IPv4 connection
-	//
-	// Obtain an IPv6 address through 6bed4 over IPv4
-	i = rnd1;
-	while (i-- > 0) {
-		ip6binding [0].ip4binding = &ip4binding [0];
-		ip6binding [0].flags |= I6B_ROUTE_SOURCE_6BED4_FLAG;
-		solicit_router ();	//TODO: Over 6bed4
-		sleep (1);
-		// TODO:return 1 if bound
-	}
-	return 0;
+	irqtimer_restart ((irqtimer_t *) tmrirq, delay);
+	return true;
+}
+
+/* Initiate the bootstrapping process, returning its closure
+ */
+void netcore_bootstrap_initiate (void) {
+	bzero (&netboottimer, sizeof (netboottimer));
+	boot_retries = 3 + (ether_mine [5] & 0x03);	// 3..7
+	boot_state = NCS_AUTOCONF;
+	printf ("Initiating network bootstrapping procedures\n");
+	irqtimer_start (&netboottimer, 0, netcore_bootstrap_step, CPU_PRIO_LOW);
+}
+
+/* Shutdown the bootstrapping process, if any
+ */
+void netcore_bootstrap_shutdown (void) {
+	boot_retries = 1;
+	boot_state   = NCS_OFFLINE;
+	irqtimer_stop (&netboottimer);
 }
 

@@ -1,0 +1,13 @@
+Configuration Utility from the Linux Kernel
+===========================================
+
+This interactive configuration utilty was kindly taken from the
+Linux kernel, as there seemed no point in rebuilding such a fancy
+tool.  Everything that was broken should not be reported to the
+Linux maintainers, but to the 0cpm project.  Or better even, send
+a patch containing your wisdom to share.
+
+The utility is withdrawn from the Linux build infrastructure and
+has been setup with a crude facility for making at least the
+"make menuconfig" target function well.
+

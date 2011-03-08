@@ -53,7 +53,6 @@ struct ip6binding {
 
 /* An autoconfig ip6binding has a preference; tunnels are always lower */
 #define I6B_PREFERENCE_MASK		0x000f
-// #define I6B_PREFERENCE_TUNNEL		TODO
 
 /* An ip6binding can be obtained from one of a few sources */
 #define I6B_ROUTE_SOURCE_MASK		0x00f0

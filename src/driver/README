@@ -1,0 +1,12 @@
+=====================================
+README for 0cpm firmerware driver dir
+=====================================
+
+net	Network chip drivers
+
+soc	System-on-chip drivers
+
+ata	SLIC/Codec chips for analog telephony
+
+util	Special utilities, such as testing on Linux
+

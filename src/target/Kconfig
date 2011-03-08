@@ -102,3 +102,4 @@ endchoice
 
 
 source "src/net/Kconfig"
+source "src/phone/Kconfig"

@@ -1,0 +1,27 @@
+==========
+src/kernel
+==========
+
+This directory contains generic kernel code, written in pure C.
+
+Kernel components provide basic functions such as control over LEDs or
+buttons of the telephone device, but also timers and sound control.
+The part in the kernel directory is the generic top-half of these
+drivers, while the src/drive/ directory holds the corresponding,
+device-specific bottom-half.
+
+The task of the kernel source files together with macro definitions
+in include files is to provide a programmer-friendly level of access
+to hardware devices.  This includes resource control and handling of
+resource contention -- for example, if a device lacks certain keys
+or buttons, the kernel may try to replace it with a menu entry.  And
+if a phone has no dedicated line buttons, a flash button or a short
+hangup is accepted as a flash command, to switch between lines.
+
+Where resources are shared, this is either done by scrolling through
+them, or by assigning priorities to the claims on resources.  For
+instance, if a call comes in, then its display requests take
+precedence over information shown for the current call, and certainly
+over a background clock.  Such priorities help to determine what is
+shown at each time, and how resource struggles are resolved.
+

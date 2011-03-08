@@ -5,12 +5,17 @@
 
 
 #include <stdint.h>
+#include <stdbool.h>
+
 #include <time.h>
 
+#include <netinet/icmp6.h>
+
+#include <config.h>
+
+#include <0cpm/cpu.h>
 #include <0cpm/netfun.h>
 #include <0cpm/netdb.h>
-
-#include <netinet/icmp6.h>
 
 
 /* A few useful global variables
@@ -55,7 +60,7 @@ void util_mac2ifid (uint8_t *ip6address, const uint8_t *mac) {
  */
 // TODO: Process retractions (life set to 0)
 // TODO: Generate ND packet for DAD and start timeout
-uint8_t *netdb_router_advertised (uint8_t *pout, uint32_t *mem) {
+uint8_t *netdb_router_advertised (uint8_t *pout, intptr_t *mem) {
 	printf ("Received & Processing: Router Advertisement\n");
 	struct icmp6_hdr *icmp6 = (struct icmp6_hdr *) mem [MEM_ICMP6_HEAD];
 	uint32_t routerlife = (uint32_t) icmp6->icmp6_data16 [1];
@@ -65,11 +70,11 @@ uint8_t *netdb_router_advertised (uint8_t *pout, uint32_t *mem) {
 	uint8_t *ip6prefix = NULL;
 	int ip6prefixlen = -1;
 	int best_pref = -1, cur_pref = -1;
-	int ok = 1;
-	int needDHCP = 0;
-	while (ok && (mem [MEM_ALL_DONE] > (uint32_t) options)) {
-		if (((uint32_t) options) + 8 * options [1] > mem [MEM_ALL_DONE]) {
-			ok = 0;
+	bool ok = true;
+	bool needDHCP = true;
+	while (ok && (mem [MEM_ALL_DONE] > (intptr_t) options)) {
+		if (((intptr_t) options) + 8 * options [1] > mem [MEM_ALL_DONE]) {
+			ok = false;
 			break;
 		}
 		switch (options [0] + 256 * options [1]) {
@@ -79,7 +84,7 @@ uint8_t *netdb_router_advertised (uint8_t *pout, uint32_t *mem) {
 		case ND_OPT_MTU + 256:
 			if (ntohl (*(uint32_t *)(options + 4)) < 1280) {
 				// MTU under 1280 is illegal, higher ignored
-				ok = 0;
+				ok = false;
 				break;
 			}
 			break;
@@ -88,14 +93,14 @@ uint8_t *netdb_router_advertised (uint8_t *pout, uint32_t *mem) {
 			// best one continues.
 			// Autoconfiguration: 8 + 2 * prefix_pref_if_any
 			// DHCPv6: 0
-			if (options [3] & 0x40) {
-				cur_pref = 8;
-				needDHCP = 0;
-			} else {
+			if (options [3] & 0x80) {
+				// we prefer autoconfiguration, so DHCPv6 ranks low
 				cur_pref = 0;
-				if (best_pref == -1) {
-					needDHCP = 1;
-				}
+			} else {
+				// preferences according to RFC 4191
+				static int preferencemap [4] = { 8, 10, /*reserved:*/ 8, 6 };
+				cur_pref = preferencemap [(options [3] >> 3) & 0x03];
+				needDHCP = false;
 			}
 			// Accept only /64 or /112 prefixes, prefer /64
 			if (options [2] == 64) {
@@ -114,12 +119,12 @@ uint8_t *netdb_router_advertised (uint8_t *pout, uint32_t *mem) {
 			best_pref = cur_pref;
 			break;
 		default:
-			ok = 0;
+			ok = false;
 			break;
 		}
 		options = options + 8 * options [1];
 	}
-	ok = ok && (mem [MEM_ALL_DONE] == (uint32_t) options);
+	ok = ok && (mem [MEM_ALL_DONE] == (intptr_t) options);
 	ok = ok && (best_pref >= 0);
 	if (!ok) {
 		return NULL;
@@ -174,16 +179,12 @@ uint8_t *netdb_router_advertised (uint8_t *pout, uint32_t *mem) {
 	}
 	ip6binding [bindidx].ip6timeout = 0xffffffff;		//TODO
 	if (bindflags & I6B_ROUTE_SOURCE_6BED4_FLAG) {
-		//TODO:OLD// ip6binding [bindidx].ip4timeout = 0xffffffff;	//TODO
-		//TODO:OLD// ip6binding [bindidx].ip4uplink = ip4gateway;
-		//TODO:OLD// ip6binding [bindidx].ip4addr = htonl (mem [MEM_IP4_DST]);
-		//TODO:OLD// ip6binding [bindidx].ip4port = htons (mem [MEM_UDP4_PORTS] & 0xffff);
 		ip6binding [bindidx].ip4binding = &ip4binding[0]; //TODO:mk_dyn
 	}
 	ip6binding [bindidx].flags = bindflags;
 	// Finally, if needed, send a packet for duplicate address detection
 	if (ip6binding [bindidx].flags & I6B_TENTATIVE) {
-		mem [MEM_BINDING6] = (uint32_t) &ip6binding [bindidx];
+		mem [MEM_BINDING6] = (intptr_t) &ip6binding [bindidx];
 		return netsend_icmp6_ngb_sol (pout, mem);
 	} else {
 		return NULL;
@@ -192,7 +193,7 @@ uint8_t *netdb_router_advertised (uint8_t *pout, uint32_t *mem) {
 
 /* A neighbour advertisement was received.  Store it for future reference.
  */
-uint8_t *netdb_neighbour_advertised (uint8_t *pout, uint32_t *mem) {
+uint8_t *netdb_neighbour_advertised (uint8_t *pout, intptr_t *mem) {
 	printf ("Received: Neighbour Advertisement\n");
 	//TODO -- embodyment of this function//
 	return NULL;
@@ -200,7 +201,7 @@ uint8_t *netdb_neighbour_advertised (uint8_t *pout, uint32_t *mem) {
 
 /* DHCPv4 sends an acknowledgement.  Create a ip6binding for that.
  */
-uint8_t *netdb_dhcp4_ack (uint8_t *pout, uint32_t *mem) {
+uint8_t *netdb_dhcp4_ack (uint8_t *pout, intptr_t *mem) {
 	printf ("Received: DHCP4 ACK\n");
 	uint8_t *opt = (uint8_t *) (mem [MEM_DHCP4_HEAD] + 240);
 	static const uint8_t cookie [4] = { 99, 130, 83, 99 };
@@ -250,7 +251,7 @@ uint8_t *netdb_dhcp4_ack (uint8_t *pout, uint32_t *mem) {
 
 /* DHCPv4 sends a negative acknowledgement.  Whatever :)
  */
-uint8_t *netdb_dhcp4_nak (uint8_t *pout, uint32_t *mem) {
+uint8_t *netdb_dhcp4_nak (uint8_t *pout, intptr_t *mem) {
 	printf ("Received: DHCP4 NAK\n");
 	// Drop this, it is non-information to us
 	return NULL;
@@ -258,7 +259,7 @@ uint8_t *netdb_dhcp4_nak (uint8_t *pout, uint32_t *mem) {
 
 /* DHCPv6 sends a reply to confirm allocation of an IPv6 address
  */
-uint8_t *netdb_dhcp6_reply (uint8_t *pout, uint32_t *mem) {
+uint8_t *netdb_dhcp6_reply (uint8_t *pout, intptr_t *mem) {
 	// TODO: Validate offer to be mine + store configuration data
 	printf ("Received: DHCP6 REPLY\n");
 	return NULL;
@@ -266,9 +267,17 @@ uint8_t *netdb_dhcp6_reply (uint8_t *pout, uint32_t *mem) {
 
 /* DHCPv6 wants to reconfigure our settings
  */
-uint8_t *netdb_dhcp6_reconfigure (uint8_t *pout, uint32_t *mem) {
+uint8_t *netdb_dhcp6_reconfigure (uint8_t *pout, intptr_t *mem) {
 	// TODO: Validate offer to be mine + update configuration data
 	printf ("Received: DHCP6 RECONFIGURE\n");
 	return NULL;
+}
+
+
+/* Initialise the networking database after a restart
+ */
+void netdb_initialise (void) {
+	bzero (ip6binding, sizeof (ip6binding));
+	bzero (ip4binding, sizeof (ip4binding));
 }
 

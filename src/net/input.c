@@ -27,11 +27,15 @@
 
 
 #include <stdint.h>
-
-#include <0cpm/netcmd.h>
-#include <0cpm/netfun.h>
+#include <stdbool.h>
 
 #include <netinet/icmp6.h>
+
+#include <config.h>
+
+#include <0cpm/cpu.h>
+#include <0cpm/netcmd.h>
+#include <0cpm/netfun.h>
 
 
 
@@ -70,7 +74,7 @@
 
 /* Declare an efficient network packet analysis function:
  *
- * uint32_t netinput (uint8_t *pkt, uint32_t pktlen, uint32_t *mem) {
+ * intptr_t netinput (uint8_t *pkt, uint32_t pktlen, intptr_t *mem) {
  * 	...possibly assembly...
  * }
  *
@@ -78,6 +82,8 @@
  * TODO: Verify checksums
  */
 BPF_BEGIN(netinput)
+
+	return NULL;		//TODO// Early bail-out
 
 	STX_MEM (MEM_ETHER_HEAD)		// Store the ethernet header
 	LDW_LEN ()

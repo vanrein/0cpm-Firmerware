@@ -5,6 +5,7 @@
 
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include <netinet/ip.h>
 #include <netinet/udp.h>
@@ -13,6 +14,9 @@
 #include <netinet/icmp6.h>
 #include <netinet/if_ether.h>
 
+#include <config.h>
+
+#include <0cpm/cpu.h>
 #include <0cpm/netfun.h>
 #include <0cpm/netdb.h>
 
@@ -39,7 +43,7 @@ uint16_t bootsecs = 0;
 /* Create an Ethernet header.
  * Some fields are filled later: h_proto
  */
-uint8_t *netreply_ether (uint8_t *pout, uint32_t *mem) {
+uint8_t *netreply_ether (uint8_t *pout, intptr_t *mem) {
 	struct ethhdr *ethin  = (struct ethhdr *) mem [MEM_ETHER_HEAD];
 	struct ethhdr *ethout = (struct ethhdr *) pout;
 	if (mem [MEM_ETHER_DST] != 0) {
@@ -50,14 +54,14 @@ uint8_t *netreply_ether (uint8_t *pout, uint32_t *mem) {
 		memset (ethout->h_dest, 0xff, ETHER_ADDR_LEN);  // Broadcast
 	}
 	memcpy (ethout->h_source, ether_mine, ETHER_ADDR_LEN);
-	mem [MEM_ETHER_HEAD] = (uint32_t) ethout;
+	mem [MEM_ETHER_HEAD] = (intptr_t) ethout;
 	return &pout [sizeof (struct ethhdr)];
 }
 
 /* Create an IPv4 header.
  * Some IPv4 fields are filled later: protocol, tot_len, check.
  */
-uint8_t *netreply_ip4 (uint8_t *pout, uint32_t *mem) {
+uint8_t *netreply_ip4 (uint8_t *pout, intptr_t *mem) {
 	pout = netreply_ether (pout, mem);
 	struct iphdr *ip4in  = (struct iphdr *) mem [MEM_IP4_HEAD];
 	struct iphdr *ip4out = (struct iphdr *) pout;
@@ -75,33 +79,33 @@ uint8_t *netreply_ip4 (uint8_t *pout, uint32_t *mem) {
 /* Create an UDPv4 header.
  * Some fields are filled later: len, check.
  */
-uint8_t *netreply_udp4 (uint8_t *pout, uint32_t *mem) {
+uint8_t *netreply_udp4 (uint8_t *pout, intptr_t *mem) {
 	pout = netreply_ip4 (pout, mem);
 	struct udphdr *udp = (struct udphdr *) pout;
 	udp->source = htons (mem [MEM_UDP4_PORTS] & 0xffff);
 	udp->dest   = htons (mem [MEM_UDP4_PORTS] >> 16);
-	mem [MEM_UDP4_HEAD] = (uint32_t) udp;
+	mem [MEM_UDP4_HEAD] = (intptr_t) udp;
 	return &pout [sizeof (struct udphdr)];
 }
 
 /* Create an UDPv4 header for 6bed4.
  * Some fields are filled later: len, check.
  */
-uint8_t *netreply_udp4_6bed4 (uint8_t *pout, uint32_t *mem) {
+uint8_t *netreply_udp4_6bed4 (uint8_t *pout, intptr_t *mem) {
 	mem [MEM_IP4_SRC] = htonl (ip4_6bed4);
 	pout = netreply_ip4 (pout, mem);
 	struct udphdr *udp = (struct udphdr *) pout;
 	udp->source = htons (mem [MEM_UDP4_PORTS] & 0xffff);
 	udp->dest   = htons (3653);
 	mem [MEM_6BED4_PLOAD] =
-	mem [MEM_UDP4_HEAD] = (uint32_t) udp;
+	mem [MEM_UDP4_HEAD] = (intptr_t) udp;
 	return &pout [sizeof (struct udphdr)];
 }
 
 /* Create an IPv6 header.
  * Some fields are filled later: plen, nxt.
  */
-uint8_t *netreply_ip6 (uint8_t *pout, uint32_t *mem) {
+uint8_t *netreply_ip6 (uint8_t *pout, intptr_t *mem) {
 	struct ip6_hdr *in6 = (struct ip6_hdr *) mem [MEM_IP6_HEAD];
 	if (mem [MEM_6BED4_PLOAD] != 0) {
 		// Use 6bed4 for destination address
@@ -115,19 +119,19 @@ uint8_t *netreply_ip6 (uint8_t *pout, uint32_t *mem) {
 	ip6->ip6_hlim = 64;
 	memcpy (&ip6->ip6_src, &in6->ip6_dst, 16);
 	memcpy (&ip6->ip6_dst, &in6->ip6_src, 16);
-	mem [MEM_IP6_HEAD] = (uint32_t) ip6;
+	mem [MEM_IP6_HEAD] = (intptr_t) ip6;
 	return &pout [sizeof (struct ip6_hdr)];
 }
 
 /* Create an UDPv6 header.
  * Some fields are filled later: len, check.
  */
-uint8_t *netreply_udp6 (uint8_t *pout, uint32_t *mem) {
+uint8_t *netreply_udp6 (uint8_t *pout, intptr_t *mem) {
 	pout = netreply_ip6 (pout, mem);
 	struct udphdr *udp = (struct udphdr *) pout;
 	udp->source = htons (mem [MEM_UDP6_PORTS] & 0xffff);
 	udp->dest   = htons (mem [MEM_UDP6_PORTS] >> 16);
-	mem [MEM_UDP6_HEAD] = (uint32_t) udp;
+	mem [MEM_UDP6_HEAD] = (intptr_t) udp;
 	return &pout [sizeof (struct udphdr)];
 }
 
@@ -138,7 +142,7 @@ uint8_t *netreply_udp6 (uint8_t *pout, uint32_t *mem) {
 /* Create an ARP Reply packet to respond to an ARP Query
  * There are no checksum or length fields in ARP.
  */
-uint8_t *netreply_arp_query (uint8_t *pout, uint32_t *mem) {
+uint8_t *netreply_arp_query (uint8_t *pout, intptr_t *mem) {
 	printf ("Received an ARP Request; replying\n");
 	pout = netreply_ether (pout, mem);
 	struct ether_arp *arpout  = (struct ether_arp *) pout;
@@ -163,7 +167,7 @@ uint8_t *netreply_arp_query (uint8_t *pout, uint32_t *mem) {
 /* Create an ICMPv4 Echo Reply packet to respond to Echo Request
  * Some fields are filled later: icmp_cksum.
  */
-uint8_t *netreply_icmp4_echo_req (uint8_t *pout, uint32_t *mem) {
+uint8_t *netreply_icmp4_echo_req (uint8_t *pout, intptr_t *mem) {
 	printf ("Received an ICMPv4 Echo Request; replying\n");
 	pout = netreply_ip4 (pout, mem);
 	struct icmphdr *icmp4out = (struct icmphdr *) pout;
@@ -178,14 +182,14 @@ uint8_t *netreply_icmp4_echo_req (uint8_t *pout, uint32_t *mem) {
 		memcpy (&icmp4out [1], &icmp4in [1], alen);
 		pout += alen;
 	}
-	mem [MEM_ICMP4_HEAD] = (uint32_t) icmp4out;
+	mem [MEM_ICMP4_HEAD] = (intptr_t) icmp4out;
 	return pout;
 }
 
 /* Create an ICMPv6 Echo Reply packet to respond to Echo Request
  * Some fields are filled later: icmp6_cksum.
  */
-uint8_t *netreply_icmp6_echo_req (uint8_t *pout, uint32_t *mem) {
+uint8_t *netreply_icmp6_echo_req (uint8_t *pout, intptr_t *mem) {
 	printf ("Received an ICMPv6 Echo Request; replying\n");
 	pout = netreply_ip6 (pout, mem);
 	struct icmp6_hdr *icmp6 = (struct icmp6_hdr *) pout;
@@ -195,7 +199,7 @@ uint8_t *netreply_icmp6_echo_req (uint8_t *pout, uint32_t *mem) {
 	memcpy (&icmp6->icmp6_data8,
 			(void *) (mem [MEM_ICMP6_HEAD] + 4),
 			len - 4);
-	mem [MEM_ICMP6_HEAD] = (uint32_t) icmp6;
+	mem [MEM_ICMP6_HEAD] = (intptr_t) icmp6;
 	return pout + len;
 }
 
@@ -205,7 +209,7 @@ uint8_t *netreply_icmp6_echo_req (uint8_t *pout, uint32_t *mem) {
  *
  * Some fields are filled later: icmp6_cksum.
  */
-uint8_t *netreply_icmp6_ngb_disc (uint8_t *pout, uint32_t *mem) {
+uint8_t *netreply_icmp6_ngb_disc (uint8_t *pout, intptr_t *mem) {
 	printf ("Received an ICMPv6 Neighbour Discovery; replying\n");
 	int bndidx = IP6BINDING_COUNT;
 	uint8_t *addr = linklocal_mine;
@@ -234,7 +238,7 @@ uint8_t *netreply_icmp6_ngb_disc (uint8_t *pout, uint32_t *mem) {
 	icmp6->icmp6_data8 [20] = ND_OPT_TARGET_LINKADDR;
 	icmp6->icmp6_data8 [21] = 1;	// 1x 8 bytes
 	memcpy (icmp6->icmp6_data8 + 22, ether_mine, ETHER_ADDR_LEN);
-	mem [MEM_ICMP6_HEAD] = (uint32_t) icmp6;
+	mem [MEM_ICMP6_HEAD] = (intptr_t) icmp6;
 	return pout + 8 + 16 + 8;
 }
 
@@ -242,11 +246,11 @@ uint8_t *netreply_icmp6_ngb_disc (uint8_t *pout, uint32_t *mem) {
  * offered in the yiaddr field (offset 16) of the DHCP packet, but
  * that will also be repeated in the future DHCP ACK.
  */
-uint8_t *netreply_dhcp4_offer (uint8_t *pout, uint32_t *mem) {
+uint8_t *netreply_dhcp4_offer (uint8_t *pout, intptr_t *mem) {
 	uint8_t *yiaddrptr = (uint8_t *) (mem [MEM_DHCP4_HEAD] + 16);
 	printf ("DHCPv4 offer for %d.%d.%d.%d received -- requesting its activation\n", (int) yiaddrptr [0], (int) yiaddrptr [1], (int) yiaddrptr [2], (int) yiaddrptr [3]);
 	// TODO: Validate offer to be mine
-	mem [MEM_ETHER_DST] = (uint32_t) ether_broadcast;
+	mem [MEM_ETHER_DST] = (intptr_t) ether_broadcast;
 	pout = netreply_udp4 (pout, mem);
 	((struct iphdr *) mem [MEM_IP4_HEAD])->daddr = 0xffffffff;
 	bzero (pout, 576);	// erase the acceptable package size
@@ -287,7 +291,7 @@ uint8_t *netreply_dhcp4_offer (uint8_t *pout, uint32_t *mem) {
  * be reachable over as many IPv6 addresses as are available, so it
  * will actually take hold of all the IPv6 space that it can get.
  */
-uint8_t *netreply_dhcp6_advertise (uint8_t *pout, uint32_t *mem) {
+uint8_t *netreply_dhcp6_advertise (uint8_t *pout, intptr_t *mem) {
 	printf ("DHCPv6 advertisement\n");
 	// TODO: Validate offer to be mine
 	uint32_t adlen = mem [MEM_ALL_DONE] - mem [MEM_DHCP6_HEAD];
@@ -299,7 +303,7 @@ uint8_t *netreply_dhcp6_advertise (uint8_t *pout, uint32_t *mem) {
 	udp->dest = htons (547);
 	memcpy (pout, (void *) mem [MEM_DHCP6_HEAD], adlen);
 	pout [0] = 3;
-	mem [MEM_DHCP6_HEAD] = (uint32_t) pout;
+	mem [MEM_DHCP6_HEAD] = (intptr_t) pout;
 	return pout + adlen;
 }
 
