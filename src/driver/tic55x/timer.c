@@ -68,51 +68,43 @@ timing_t bottom_time (void) {
  */
 timing_t bottom_timer_set (timing_t tim) {
 	timing_t intval, previous;
+	uint16_t cnt1, cnt2;
 	/* First of all, reset timer0 so it can be configured */
-	GPTGCTL1_0 &= ~ ( REGVAL_GCTL_TIM12RS | REGVAL_GCTL_TIM34RS );
+	GPTGCTL1_0 &= ~ ( REGVAL_GCTL_TIM12RS | REGVAL_GCTL_TIM34RS);
 	IFR0 = (1 << REGBIT_IER0_TINT0);
+	/* Juggle timing values to return the current setting */
 	previous = current_timer;
 	current_timer = tim;
+	/* Setup counter and period registers for timer0 */
+	GPTCNT3_0 = GPTCNT3_1; // Read CNT3, copy CNT4 to shadow
+	GPTCNT4_0 = GPTCNT4_1; // Load CNT4 from shadow copy
+	GPTCNT1_0 = GPTCNT1_1; // Read CNT1, copy CNT2 to shadow
+	GPTCNT2_0 = GPTCNT2_1; // Load CNT2 from shadow copy
+	GPTPRD2_0 = (uint16_t) (tim >> 16   );
+	GPTPRD1_0 = (uint16_t)  tim          ;
 	/* Poll the running timer1 */
-	// tim = bottom_time () + TIME_MSEC(1500);
-	intval = tim - bottom_time ();
-// intval = intval & 0x0000ffff;
+	cnt1 = GPTCNT1_0;
+	cnt2 = GPTCNT2_0;
+	intval = tim - ((GPTCNT2_0 << 16) | GPTCNT1_0);
 	if ((intval == 0) || (intval >> 31)) {
-		/* Cause interrupt right now, do not run the timer */
+		// Invoke handler right now, do not run timer0
 		top_timer_expiration (tim);
 		current_timer = 0;
-bottom_led_set (0, 1);
-{ uint32_t ctr = 6500000; while (ctr > 0) ctr--; }
-bottom_led_set (0, 0);
-{ uint32_t ctr = 6500000; while (ctr > 0) ctr--; }
 		return previous;
 	}
-	/* Setup counter value and period */
-	GPTCNT3_0 = GPTCNT3_1;	/* also copies GPTCNT4_1 to shadow register */
-	GPTCNT4_0 = GPTCNT4_1;	/* retrieve shadow register for GPTCNT4_1 */
-	GPTCNT2_0 =
-	GPTCNT1_0 = 0x0000;
-	GPTPRD2_0 = (uint16_t) (intval >> 16   );
-	GPTPRD1_0 = (uint16_t)  intval          ; //(intval & 0xffff);
-	/* Finally, enable timer1 so it can cause interrupts */
+	/* Finally, enable timer1 so it starts counting time */
 	GPTGCTL1_0 |= REGVAL_GCTL_TIM12RS | REGVAL_GCTL_TIM34RS;
-bottom_led_set (0, 1);
-{ uint32_t ctr = 650000; while (ctr > 0) ctr--; }
-bottom_led_set (0, 0);
-{ uint32_t ctr = 650000; while (ctr > 0) ctr--; }
 	return previous;
 }
 
 
 /* Timer interrupt handler for timer0 expiration */
 interrupt void tic55x_tint0_isr (void) {
-#if 0
-	extern bool tic55x_top_has_been_interrupted;
+	extern volatile bool tic55x_top_has_been_interrupted;
 	timing_t now = bottom_time ();
 	current_timer = 0;
 	top_timer_expiration (now);
 	tic55x_top_has_been_interrupted = true;
-#endif
 }
 
 
@@ -134,8 +126,9 @@ void tic55x_setup_timers (void) {
 	GPTCTL1_0 = REGVAL_CTL12_ENAMODE_ONETIME;
 	GPTCTL1_1 = REGVAL_CTL12_ENAMODE_CONTINUOUS;
 	GPTGCTL1_0 = REGVAL_GCTL_TIMMODE_DUAL32CHAINED;
-	GPTGCTL1_1 = REGVAL_GCTL_TIMMODE_DUAL32CHAINED | REGVAL_GCTL_TIM12RS | REGVAL_GCTL_TIM34RS;
+	GPTGCTL1_1 = REGVAL_GCTL_TIMMODE_DUAL32CHAINED | REGVAL_GCTL_TIM34RS | REGVAL_GCTL_TIM12RS;
 	/* Clear, then permit interrupts from timer0 */
 	IFR0  = (1 << REGBIT_IER0_TINT0);
+	IER0 |= (1 << REGBIT_IER0_TINT0);
 }
 

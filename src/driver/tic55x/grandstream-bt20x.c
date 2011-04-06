@@ -48,14 +48,15 @@ void main (void) {
 	tic55x_setup_interrupts ();
 	//TODO// IER0 = 0xdefc;
 	//TODO// IER1 = 0x00ff;
-	IER0 = (1 << REGBIT_IER0_TINT0);
 	PCR0 = (1 << REGBIT_PCR_XIOEN) | (1 << REGBIT_PCR_RIOEN);
+#if 0
 	while (true) {
 		uint32_t ctr;
 		bottom_led_set (LED_IDX_MESSAGE, led);
 		for (ctr=6500000; ctr>0; ctr--) { ; }
 		led ^= LED_STABLE_ON ^ LED_STABLE_OFF;
 	}
+#endif
 	top_main ();
 }
 

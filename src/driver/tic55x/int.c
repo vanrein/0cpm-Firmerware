@@ -19,10 +19,9 @@
  * immediately if the flag has been set meanwhile, as the top may
  * have missed incoming work.
  */
-bool tic55x_top_has_been_interrupted;
+volatile bool tic55x_top_has_been_interrupted;
 
 
-#if 0
 void bottom_sleep_prepare (void) {
 	tic55x_top_has_been_interrupted = false;
 }
@@ -42,16 +41,13 @@ void bottom_sleep_commit (sleep_depth_t depth) {
 	}
 	bottom_critical_region_end ();
 }
-#endif
 
 interrupt void tic55x_no_isr (void) {
-#if 0
 	/* No action */ ;
-#endif
 }
 
 
-// TODO -- probably do this in the trampoline code?
+// Setup interrupts -- probably move this to the trampoline code?
 void tic55x_setup_interrupts (void) {
 	// extern uint32_t interrupt_table;
 	// IVPD = (uint16_t) (((uint32_t) interrupt_table) >> 8);
