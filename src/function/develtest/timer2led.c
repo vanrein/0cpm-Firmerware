@@ -68,12 +68,7 @@ void irqpolling_top_main (void) {
 			top_timer_expiration (nextirq);
 		}
 #else
-		// Flaky-timed code example for TIC55x follows
-		if (IFR0 & (1 << REGBIT_IER0_TINT0)) {
-			IFR0 = (1 << REGBIT_IER0_TINT0);
-			nextirq += TIME_MSEC(500);
-			top_timer_expiration (nextirq);
-		}
+		// your code here... if you think this is a useful step
 #endif
 	}
 }
