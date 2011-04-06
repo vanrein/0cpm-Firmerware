@@ -12,23 +12,6 @@ The current code contains a few things that may or may not be so good
 in the end.  After gaining some experience, it is good to have a good
 look at:
 
-* Pointers are cast back and forth to uint32_t values.  This makes the
-  code unsuitable for 64-bit architectures and, much more of a problem,
-  for 16-bit architectures such as 16-bit digital signal processors.
-
-* Parsing and checksumming is not sufficiently paranoid.  The current
-  netinput code assumes proper behaviour from its networking partners.
-  That is not a proper assumption for an internetworking device :-)
-  Specifically, no effort has been done to check the packet size where
-  indices and offsets are applied.  Before this is handled, the code
-  MUST NOT be released as anything but alpha.
-
-* The use of BPF-style commands in netinput.c -- it can be made fairly
-  compact if matched up with machine commands, but is it really more
-  efficient than an optimising C compiler?  If the difference is
-  negligable, then this code should go, even if it brings advantages
-  on some platforms.  The style is then simply "too inventive".
-
 * The mem[] array is untyped, calling for lots of cast commands.  This
   is not handy, and a result of the BPF-style architecture for netinput.
   (The original idea was to do the entire processing in that style, but

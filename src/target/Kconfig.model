@@ -1,0 +1,9 @@
+# Model selection (includes with a separate setup for each brand)
+
+source "src/target/Kconfig.posix"
+source "src/target/Kconfig.grandstream"
+source "src/target/Kconfig.gigaset"
+#TODO# source "src/target/Kconfig.fritzbox"
+#TODO# source "src/target/Kconfig.sipura"
+source "src/target/Kconfig.smc"
+

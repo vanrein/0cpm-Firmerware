@@ -72,7 +72,7 @@ uint8_t *netreply_ip4 (uint8_t *pout, intptr_t *mem) {
 	ip4out->frag_off = htons (0x4000);	// Don't fragment
 	ip4out->saddr = ip4in->daddr;
 	ip4out->daddr = ip4in->saddr;
-	mem [MEM_IP4_HEAD] = (uint32_t) ip4out;
+	mem [MEM_IP4_HEAD] = (uintptr_t) ip4out;
 	return &pout [sizeof (struct iphdr)];
 }
 
@@ -82,8 +82,8 @@ uint8_t *netreply_ip4 (uint8_t *pout, intptr_t *mem) {
 uint8_t *netreply_udp4 (uint8_t *pout, intptr_t *mem) {
 	pout = netreply_ip4 (pout, mem);
 	struct udphdr *udp = (struct udphdr *) pout;
-	udp->source = htons (mem [MEM_UDP4_PORTS] & 0xffff);
-	udp->dest   = htons (mem [MEM_UDP4_PORTS] >> 16);
+	udp->source = htons (mem [MEM_UDP4_DST_PORT]);
+	udp->dest   = htons (mem [MEM_UDP4_SRC_PORT]);
 	mem [MEM_UDP4_HEAD] = (intptr_t) udp;
 	return &pout [sizeof (struct udphdr)];
 }
@@ -95,7 +95,7 @@ uint8_t *netreply_udp4_6bed4 (uint8_t *pout, intptr_t *mem) {
 	mem [MEM_IP4_SRC] = htonl (ip4_6bed4);
 	pout = netreply_ip4 (pout, mem);
 	struct udphdr *udp = (struct udphdr *) pout;
-	udp->source = htons (mem [MEM_UDP4_PORTS] & 0xffff);
+	udp->source = htons (mem [MEM_UDP4_DST_PORT]);
 	udp->dest   = htons (3653);
 	mem [MEM_6BED4_PLOAD] =
 	mem [MEM_UDP4_HEAD] = (intptr_t) udp;
@@ -129,8 +129,8 @@ uint8_t *netreply_ip6 (uint8_t *pout, intptr_t *mem) {
 uint8_t *netreply_udp6 (uint8_t *pout, intptr_t *mem) {
 	pout = netreply_ip6 (pout, mem);
 	struct udphdr *udp = (struct udphdr *) pout;
-	udp->source = htons (mem [MEM_UDP6_PORTS] & 0xffff);
-	udp->dest   = htons (mem [MEM_UDP6_PORTS] >> 16);
+	udp->source = htons (mem [MEM_UDP6_DST_PORT]);
+	udp->dest   = htons (mem [MEM_UDP6_SRC_PORT]);
 	mem [MEM_UDP6_HEAD] = (intptr_t) udp;
 	return &pout [sizeof (struct udphdr)];
 }

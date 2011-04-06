@@ -1,0 +1,14 @@
+==============================================
+README for source directory of 0cpm firmerware
+==============================================
+
+kernel	Mainly holds the entrance routines top_xxx
+
+net	Protocols, checksums, packet construction/interpretation
+
+phone	Telephony logic, user experience
+
+target	Platform definitions, platform being make + model
+
+driver	Drivers for specific chips in the design
+

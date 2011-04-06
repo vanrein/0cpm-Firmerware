@@ -36,7 +36,7 @@ static bool zero_timeout (irq_t irq) {
  * time and then fall asleep.
  */
 void zero_start (void) {
-	timer_start (&zero_sleeptimer, 60 * TIME_SEC, zero_timeout);
+	timer_start (&zero_sleeptimer, TIME_MIN(1), zero_timeout);
 }
 
 

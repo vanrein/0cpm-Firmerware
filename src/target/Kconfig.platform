@@ -1,0 +1,21 @@
+# Platform-specific settings (platforms are usually a SoC or CPU type)
+
+choice
+	prompt "3. Hardware platform (SoC/CPU/DSP class)"
+
+config PLATFORM_LOCAL
+	bool "Local POSIX system"
+	depends on TARGET_POSIX
+	default y
+
+config PLATFORM_TIC54x
+	bool "tic54x"
+	depends on TARGET_GRANDSTREAM_BT10x
+	default y
+
+config PLATFORM_TIC55x
+	bool "tic55x"
+	depends on TARGET_GRANDSTREAM_BT20x || TARGET_GRANDSTREAM_GXP20xx
+	default y
+
+endchoice

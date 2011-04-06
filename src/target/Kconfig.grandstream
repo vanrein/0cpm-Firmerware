@@ -1,0 +1,38 @@
+# Grandstream phone models
+
+choice
+	prompt "2. Grandstream phone models"
+	depends on TARGET_GRANDSTREAM
+	default TARGET_GRANDSTREAM_BT20x
+
+config TARGET_GRANDSTREAM_BT10x
+	bool "Budgetone 100, 101, 102"
+	select PLATFORM_TIC54x
+	help
+	  Budgetone is the entry-level speaker phone from Grandstream.
+	  The older models were numbered 10x, the newer ones are 20x.
+	  These older models have one or two 10 Mbps ethernet jacks.
+
+	  They look like simple phones, with no line selection facilities
+	  beyond a simple flash button.  They do however have buttons for
+	  conferences and call transfer and hold.
+
+config TARGET_GRANDSTREAM_BT20x
+	bool "Budgetone 200, 201"
+	select PLATFORM_TIC54x
+	help
+	  Budgetone is the entry-level speaker phone from Grandstream.
+	  The older models were numbered 10x, the newer ones are 20x.
+	  These newer models have one or two 100 Mbps ethernet jacks.
+
+	  They look like simple phones, with no line selection facilities
+	  beyond a simple flash button.  They do however have buttons for
+	  conferences and call transfer and hold.
+
+config TARGET_GRANDSTREAM_GXP20xx
+	bool "GXP 2000, 2010, 2020"
+	depends on UNIMPLEMENTED
+	select PLATFORM_TIC55x
+
+endchoice
+

@@ -11,95 +11,22 @@
 #
 
 
-mainmenu "Configuration for firmly.0cpm SIP telephony"
+mainmenu "Configure 0cpm Firmerware for SIP telephony"
 
-choice
-	prompt "Target platform"
-	default TARGET_LINUX_RAWSOCK
+# 0. Meta configuration
+source "src/target/Kconfig.meta"
 
-config TARGET_AVM_FRITZBOX
-	depends on TODO_IMPLEMENT_FIRST
-	bool "AVM Fritz!Box"
-	help
-	  Depending on the model, AVM Fritz!Box can use any of a variety
-	  of telephony chips.  The firmware will build a program that
-	  can be incorporated into Freetz (see http://freetz.org/ for
-	  details).
+# 1. Brand selection
+source "src/target/Kconfig.brand"
 
-# config TARGET_GRANDSTREAM_HANDYTONE
-# config TARGET_GRANDSTREAM_BUDGETONE
-# config TARGET_GRANDSTREAM_GXP
+# 2. Model within brand
+source "src/target/Kconfig.model"
 
-# config TARGET_LINKSYS_SPA3000
-# config TARGET_LINKSYS_SPA9xx
+# 3. Hardware platform for model
+source "src/target/Kconfig.platform"
 
-config TARGET_LINUX_RAWSOCK
-	depends on TODO_IMPLEMENT_FIRST
-	bool "Linux desktop"
-	select TARGET_POSIX_RAWSOCK
-	help
-	  This is a platform intended to run on the same platform as
-	  used for building.  It is built on a raw socket, so it does
-	  not require IPv6 support in the kernel.  It will obtain its
-	  own network leases, so it should be tested for non-interference
-	  if any other software is run on the same platform.
-
-	  Once built, run the command src/target/rawsock/firmly0cpm.bin
-	  on your current platform.  It will configure itself automatically.
-
-	  TODO: sound devices?  keyboard?  display?
-
-	  TODO: Demo entry. Not implemented yet.
-
-config TARGET_LINUX_TUNTEST
-	bool "Linux tunnel device"
-	help
-	  Test and demonstration target intended for development.
-
-	  This creates a tunnel interface behind which the firmly.0cpm
-	  firmware is working.  You can route/bridge/filter/simulate
-	  the surrounding network in any way you like.
-
-	  Once built, run the command src/target/tuntest/firmly0cpm.bin
-	  on your current platform.  It will configure itself automatically.
-
-	  TODO: sound devices?  keyboard?  display?
-
-config TARGET_SIEMENS_GIGASET
-	depends on TODO_IMPLEMENT_FIRST
-	bool "Siemens Gigaset xnnnIP"
-	help
-	  The Siemens Gigaset platform has DECT/SIP phones with numbers
-	  like C470IP or A580IP.  Important in this is the "IP" postfix.
-	  There has been a short-lived clone from Target, the DIP450.
-
-	  The platforms contain LGPL-licensed software so they permit
-	  uploading new firmware from their web interface.
-
-	  Once built, upload src/target/gigaset/firmly0cpm.bin to a
-	  webserver and set the firmware location in your phone to the
-	  proper URL to migrate to the new platform.
-
-	  TODO: Demo entry. Not implemented yet.
-
-config TARGET_SMC_WSP100_DSP200
-	depends on TODO_IMPLEMENT_FIRST
-	bool "SMC WSP100, WSKP100, DSP200"
-	help
-	  This covers the wireless models WSP100 and WSKP100, as well
-	  as the table model DSP200.  The WSKP100 is a special version
-	  that runs Skype, not SIP.  The space in these devices varies.
-
-	  This DSP200 seems to resist configuration with any common SIP
-	  telephony service.  You can revive the phone by compiling the
-	  firmly.0cpm platform for it.
-
-	  Once built, install by ...TODO...
-
-	  TODO: Demo entry. Not implemented yet.
-
-endchoice
-
+# 4. Intended functionality
+source "src/function/Kconfig"
 
 source "src/net/Kconfig"
 source "src/phone/Kconfig"

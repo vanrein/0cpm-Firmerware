@@ -129,8 +129,8 @@ uint8_t *netsend_udp4 (uint8_t *pout, intptr_t *mem) {
 	// TODO: Setup MEM_ETHER_DST with router's address
 	pout = netsend_ip4 (pout, mem);
 	struct udphdr *udp = (struct udphdr *) pout;
-	udp->source = htons (mem [MEM_UDP4_PORTS] & 0xffff);
-	udp->dest   = htons (mem [MEM_UDP4_PORTS] >> 16);
+	udp->source = htons (mem [MEM_UDP4_SRC_PORT]);
+	udp->dest   = htons (mem [MEM_UDP4_DST_PORT]);
 	mem [MEM_UDP4_HEAD] = (intptr_t) udp;
 	return &pout [sizeof (struct udphdr)];
 }
@@ -182,8 +182,8 @@ uint8_t *netsend_udp6 (uint8_t *pout, intptr_t *mem) {
 	// TODO: Setup MEM_ETHER_DST with router's address
 	pout = netsend_ip6 (pout, mem);
 	struct udphdr *udp = (struct udphdr *) pout;
-	udp->source = htons (mem [MEM_UDP6_PORTS] & 0xffff);
-	udp->dest   = htons (mem [MEM_UDP6_PORTS] >> 16);
+	udp->source = htons (mem [MEM_UDP6_SRC_PORT]);
+	udp->dest   = htons (mem [MEM_UDP6_DST_PORT]);
 	mem [MEM_UDP6_HEAD] = (intptr_t) udp;
 	return &pout [sizeof (struct udphdr)];
 }
@@ -238,7 +238,8 @@ uint8_t *netsend_icmp6_ngb_sol (uint8_t *pout, intptr_t *mem) {
 /* Send a DHCPv4 DISCOVER packet to initiatie IPv4 LAN configuration.
  */
 uint8_t *netsend_dhcp4_discover (uint8_t *pout, intptr_t *mem) {
-	mem [MEM_UDP4_PORTS] = 0x00430044;
+	mem [MEM_UDP4_SRC_PORT] = 68;
+	mem [MEM_UDP4_DST_PORT] = 67;
 	mem [MEM_IP4_DST] = 0xffffffff;
 	mem [MEM_ETHER_DST] = (intptr_t) ether_broadcast;
 	pout = netsend_udp4 (pout, mem);
@@ -273,7 +274,8 @@ uint8_t *netsend_dhcp4_discover (uint8_t *pout, intptr_t *mem) {
 /* Send a DHCPv6 SOLICIT packet to initiatie native IPv6 configuration.
  */
 uint8_t *netsend_dhcp6_solicit (uint8_t *pout, intptr_t *mem) {
-	mem [MEM_UDP6_PORTS] = 0x02230222;
+	mem [MEM_UDP6_SRC_PORT] = 546;
+	mem [MEM_UDP6_DST_PORT] = 547;
 	mem [MEM_BINDING6] = (intptr_t) binding_linklocal;
 	mem [MEM_IP6_DST] = (intptr_t) ip6_multicast_all_dhcp6_servers;
 	mem [MEM_ETHER_DST] = (intptr_t) ether_multicast_all_dhcp6_servers;

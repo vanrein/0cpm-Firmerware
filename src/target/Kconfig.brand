@@ -1,0 +1,65 @@
+# Manufacturers / brands
+
+choice
+	prompt "1. Hardware manufacturer"
+	default TARGET_GRANDSTREAM
+
+config TARGET_GRANDSTREAM
+	bool "Grandstream"
+	help
+	  Grandstream phones, shown on http://www.grandstream.com/
+	  are built around Texas Instruments' DSP processor ranges
+	  TMS320VC5401 and TMS320VC5501.  You would have to scratch
+	  paint off of the DSP before being able to read that, but
+	  given the model it is possible to establish the target.
+
+	  Reverse engineering information is available on
+	  http://devel.0cpm.org/reverse/grandstream/
+
+config TARGET_POSIX
+	bool "POSIX platforms"
+	help
+	  Not all firmware runs as a standalone image.  Several run
+	  on top of POSIX-compliant platforms like Linux.
+	  Select this target to include those platforms.
+
+config TARGET_APPLE
+	bool "Apple"
+	depends on UNIMPLEMENTED
+	help
+	  The Apple platforms run on top of Darwin, their own brand of
+	  FreeBSD.  This target sets up potential Apple targets.
+
+config TARGET_SIPURA
+	bool "Sipura/Linksys/Cisco SPA"
+	depends on UNIMPLEMENTED
+	help
+
+config TARGET_FRITZBOX
+	bool "AVM Fritz!Box"
+	depends on UNIMPLEMENTED
+	help
+	  Depending on the model, AVM Fritz!Box can use any of a variety
+	  of telephony chips.  The firmware will build a program that
+	  can be incorporated into Freetz (see http://freetz.org/ for
+	  details).
+
+config TARGET_GIGASET
+	bool "Siemens Gigaset xnnnIP"
+	depends on UNIMPLEMENTED
+	help
+	  The Siemens Gigaset platform has DECT/SIP phones with numbers
+	  like C470IP or A580IP.  Important in this is the "IP" postfix.
+	  There has been a short-lived clone from Target, the DIP450.
+
+	  The platforms contain LGPL-licensed software so they permit
+	  uploading new firmware from their web interface.
+
+	  Once built, upload src/target/gigaset/firmly0cpm.bin to a
+	  webserver and set the firmware location in your phone to the
+	  proper URL to migrate to the new platform.
+
+	  TODO: Demo entry. Not implemented yet.
+
+endchoice
+

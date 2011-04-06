@@ -27,49 +27,49 @@
 
 #define LED_IDX_LINEKEYS 0
 
-#if HAS_LED_LINEKEYS
+#if HAVE_LED_LINEKEYS
 #   define LED_IDX_GENERIC (LED_IDX_LINEKEYS+NUM_LINEKEYS)
 #else
 #   define LED_IDX_GENERIC LED_IDX_LINEKEYS
 #endif
 
-#if HAS_LED_GENERIC
-#   define LED_IDX_MESSAGE (LED_IDX_GENERIC+HAS_KBD_GENERIC)
+#if HAVE_LED_GENERIC
+#   define LED_IDX_MESSAGE (LED_IDX_GENERIC+HAVE_KBD_GENERIC)
 #else
 #   define LED_IDX_MESSAGE LED_IDX_GENERIC
 #endif
 
-#if HAS_LED_MESSAGE
-#   define LED_IDX_MUTE (LED_IDX_GENERIC+1)
+#if HAVE_LED_MESSAGE
+#   define LED_IDX_MUTE (LED_IDX_MESSAGE+1)
 #else
-#   define LED_IDX_MUTE LED_IDX_GENERIC
+#   define LED_IDX_MUTE LED_IDX_MESSAGE
 #endif
 
-#if HAS_LED_MUTE
+#if HAVE_LED_MUTE
 #   define LED_IDX_HANDSET (LED_IDX_MUTE+1)
 #else
 #   define LED_IDX_HANDSET LED_IDX_MUTE
 #endif
 
-#if HAS_LED_HANDSET
+#if HAVE_LED_HANDSET
 #   define LED_IDX_HEADSET (LED_IDX_HANDSET+1)
 #else
 #   define LED_IDX_HEADSET LED_IDX_HANDSET
 #endif
 
-#if HAS_LED_HEADSET
+#if HAVE_LED_HEADSET
 #   define LED_IDX_SPEAKERPHONE (LED_IDX_HEADSET+1)
 #else
 #   define LED_IDX_SPEAKERPHONE LED_IDX_HEADSET
 #endif
 
-#if HAS_LED_SPEAKERPHONE
+#if HAVE_LED_SPEAKERPHONE
 #   define LED_IDX_BACKLIGHT (LED_IDX_SPEAKERPHONE+1)
 #else
 #   define LED_IDX_BACKLIGHT LED_IDX_SPEAKERPHONE
 #endif
 
-#if HAS_LED_BACKLIGHT
+#if HAVE_LED_BACKLIGHT
 #   define LED_IDX_COUNT (LED_IDX_BACKLIGHT+1)
 #else
 #   define LED_IDX_COUNT LED_IDX_BACKLIGHT
@@ -107,10 +107,10 @@ typedef uint8_t led_colour_t;
  * NONE for no flashing at all.
  */
 typedef timing_t led_flashtime_t;
-#define LED_FLASHTIME_NONE	((led_flashtime_t) (   0 * TIME_MSEC))
-#define LED_FLASHTIME_FAST	((led_flashtime_t) ( 500 * TIME_MSEC))
-#define LED_FLASHTIME_MEDIUM	((led_flashtime_t) (1000 * TIME_MSEC))
-#define LED_FLASHTIME_SLOW	((led_flashtime_t) (2000 * TIME_MSEC))
+#define LED_FLASHTIME_NONE	((led_flashtime_t) (TIME_MSEC(0)   ))
+#define LED_FLASHTIME_FAST	((led_flashtime_t) (TIME_MSEC(500) ))
+#define LED_FLASHTIME_MEDIUM	((led_flashtime_t) (TIME_MSEC(1000)))
+#define LED_FLASHTIME_SLOW	((led_flashtime_t) (TIME_MSEC(2000)))
 
 
 /* Top-half operations to manipulate LED states */

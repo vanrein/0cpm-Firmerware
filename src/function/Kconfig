@@ -1,0 +1,128 @@
+# Function for the target image
+
+menu "Firmerware functions"
+
+choice
+	prompt "Functionality to build"
+	default MAINFUNCTION_SIP_PHONE
+
+source "src/function/Kconfig.devel"
+
+config MAINFUNCTION_SIP_PHONE
+	bool "SIP phone over IPv6"
+	help
+	  This is the main target for the 0cpm firmerware.  It implements
+	  SIP phone functionality over IPv6.  Included are facilities to
+	  obtain IPv6 connectivity on all networks.
+
+
+config MAINFUNCTION_SIP_DOORBELL
+	bool "SIP doorbell"
+	help
+	  This is an alternative main target for the 0cpm firmerware.
+	  It implements a doorbell that is switched off until a button
+	  is pressed.  As soon as the device boots, it will dial out to
+	  a predefined number on a predefined server.
+
+	  This is not quite the same as a phone configured as a hotline.
+	  Such a phone would always be switched on, even though normal
+	  use would not include calling to the device.  So, to save
+	  energy, the doorbell application assumes that a phone is
+	  switched off when not in use.  The device will keep itself
+	  switched on until it is done with its task.
+
+
+config MAINFUNCTION_SIP_ALARMCLOCK
+	bool "SIP alarm clock"
+	help
+	  This is an alternate main target for the 0cpm firmerware.
+	  It implements an alarm clock that does not ring the phone,
+	  but rather picks up immediately and plays whatever sound
+	  is sent to it.  It is imagined that a network service would
+	  wake up all those souls who have a hard time hearing a
+	  rooster nearby.
+
+	  To furhter implement the logic of an alarm clock, use of the
+	  hook contact will make it speak out the current time.  There
+	  is a facility for a button that will set the alarm to go a
+	  predefined number of hours after it was pressed.  You might
+	  go as far as to wire that to your bed!
+
+
+config MAINFUNCTION_BOOTLOADER
+	bool "Bootloader"
+	help
+	  Some phones have less RAM than Flash on board.  On such phones,
+	  stability improves with the installation of a small bootloader
+	  that is smaller than RAM.  More in general, it helps to upgrade
+	  the firmerware under tight local control.
+
+	  The bootloader is initiated after a power cycle if (and as long as)
+	  the horn is off-hook.  This is not usually the case, so normally
+	  the bootloader is skipped quickly.
+
+	  While the bootloader is active, all nonvolatile partitions are
+	  made available over TFTP for reading and writing.  To aid in
+	  automation, the bootloader will push the availability of this
+	  TFTP service out over DNS-SD and mDNS, although it will not
+	  continue to function as a general DNS-SD server.
+
+	  The bootloader does not run over IPv6 and is only routed locally;
+	  to that end, it acquires an IP4LL "zeroconfig" IP address.  These
+	  addresses are not intended to be routed, and are not welcome on
+	  the general Internet infrastructure.  This means that bootloader
+	  image functions are protected from remote attacks.
+
+endchoice
+
+config FUNCTION_DEVEL_NETCONSOLE
+	bool "LAN-based console"
+	default y if DEVEL=y 
+	default n if DEVEL=n
+	help
+	  Direct console traffic for the main application to the network.
+
+	  The protocol used for this network console is Logical Link Control.
+	  This is an ethernet-level protocol, so it will only work locally.
+
+	  This console can also be selected as a main function for the
+	  image being built, to test network connectivity.
+
+	  TODO: ports
+
+	  This facility is normally only of use during development.
+
+config FUNCTION_FIRMWARE_UPGRADES
+	bool "Support firmware upgrades"
+	depends on MAINFUNCTION_SIP_PHONE
+	default n
+	help
+	  It is possible, though not strictly required, to support
+	  the download and installation of new firmware.  As normal
+	  IP addresses are used, this is not as safe as the upgrades
+	  that are included in the dedicated bootloader main function.
+
+	  If the upgrade fails, the phone will need to be upgraded
+	  through the bootloader, if it has one.
+
+	  Do not select this option without considering its implications.
+
+config FUNCTION_FIRMWARE_UPGRADES_BOOTLOADER
+	bool "Support bootloader upgrades (DANGEROUS)"
+	depends on FUNCTION_FIRMWARE_UPGRADES
+	default n
+	help
+	  This is a dangerous facility!
+
+	  Complete remote control over a phone is only possible if all
+	  firmware, including even its bootloader, can be upgraded from
+	  a remote site.  This option enables that facility.
+
+	  Note that this facility makes the phone rather vulnerable.
+	  Anyone with access to the phone's TFTP service will be able
+	  to upload new firmware to replace it.  You do want to have a
+	  tightly controlled firewall to avoid this from being abused.
+
+	  TODO: a polling TFTP client may in fact be better?
+
+endmenu

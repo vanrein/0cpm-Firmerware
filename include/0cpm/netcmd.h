@@ -56,7 +56,7 @@
  * }
  */
 
-#define BPF_BEGIN(fname) uint32_t fname (uint8_t *P, uint32_t L, uint32_t *M) { register uint32_t A, X=htonl ((uint32_t) P), S; register int k;
+#define BPF_BEGIN(fname) intptr_t fname (uint8_t *P, uint32_t L, uint32_t *M) { register uint32_t A, X=htonl ((uint32_t) P), S; register int k;
 #define BPF_LABEL(l) l:
 #define BPF_END() }
 #define BPF_TAIL(fname) return (fname) (P, L, M);

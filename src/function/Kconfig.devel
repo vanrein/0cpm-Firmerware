@@ -1,0 +1,39 @@
+# Development functions
+
+config MAINFUNCTION_DEVEL_GPIO
+	bool "Test switch / light"
+	depends on DEVEL
+	help
+	  This is the simplest possible test program, which can be useful
+	  to ensure control over a device during reverse engineering.
+
+	  The application continuously scans the hook.  It makes the message
+	  LED burn while the phone is off-hook.
+
+config MAINFUNCTION_DEVEL_TIMER
+	bool "Test timer interrupts"
+	depends on DEVEL
+	help
+	  This is a very simple test program.  It makes the message LED
+	  flash with a 1 second period and a 50% duty cycle.  It can be
+	  used to develop timer drivers.
+
+config MAINFUNCTION_DEVEL_KEYBOARD
+	bool "Test keyboard / display"
+	depends on DEVEL
+	help
+	  This test processes input from the keyboard, and shows it on
+	  the display, as well as printing it to the platform's console,
+	  if any.
+
+config MAINFUNCTION_DEVEL_NETWORK
+	bool "Test network"
+	depends on DEVEL
+	select FUNCTION_DEVEL_NETCONSOLE
+	help
+	  Run a networked console.  In addition to the usual console
+	  functions, respond to any text sent by mapping it to uppercase.
+
+	  The details of the networked console are described under the
+	  add-on function for this console, one menu level up.
+

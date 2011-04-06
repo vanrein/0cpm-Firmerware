@@ -286,6 +286,15 @@ bool netcore_bootstrap_step (irq_t *tmrirq) {
 		}
 	}
 	switch (boot_state) {
+	case NCS_DHCPV4:	// A few LAN DHCPv4 attempts
+		if (!have_ipv4 ()) {
+			get_dhcp4_lease ();
+			delay = TIME_MSEC(5000);
+			break;
+		}
+		boot_state = NCS_6BED4;
+		boot_retries = 2;
+		// Continue into NCS_6BED4 for 6bed4 autoconf
 	case NCS_6BED4:		// A few 6BED4 attempts over IPv4
 		if (!have_ipv6 ()) {
 			ip6binding [0].ip4binding = &ip4binding [0];
@@ -297,21 +306,14 @@ bool netcore_bootstrap_step (irq_t *tmrirq) {
 			return true;
 		}
 		solicit_router ();
-		delay = 500 * TIME_MSEC;
+		delay = TIME_MSEC(500);
 		break;
 	case NCS_DHCPV6:	// A few LAN DHCPv6 attempts
 		if (have_ipv6 ()) {
 			return true;
 		}
 		get_dhcp6_lease ();
-		delay = 1000 * TIME_MSEC;
-		break;
-	case NCS_DHCPV4:	// A few LAN DHCPv4 attempts
-		if (have_ipv4 ()) {
-			return true;
-		}
-		get_dhcp4_lease ();
-		delay = 5000 * TIME_MSEC;
+		delay = TIME_MSEC(1000);
 		break;
 	case NCS_ONLINE:	// Stable online performance
 		return true;
@@ -321,7 +323,7 @@ bool netcore_bootstrap_step (irq_t *tmrirq) {
 	case NCS_OFFLINE:	// Await top_network_online()
 		break;
 	case NCS_PANIC:		// Not able to bootstrap anything
-		// delay = 15 * 60 * TIME_MSEC;
+		// delay = TIME_MIN(15);
 		// break;
 		return true;
 	default:

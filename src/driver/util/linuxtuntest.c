@@ -58,6 +58,11 @@ uint8_t *net_arp_reply (uint8_t *pkt, uint32_t pktlen, intptr_t *mem) {
 	return NULL;
 }
 
+uint8_t *net_arp_query (uint8_t *pkt, uint32_t pktlen, intptr_t *mem) {
+	printf ("Received: ARP Query\n");
+	return NULL;
+}
+
 uint8_t *net_rtp (uint8_t *pkt, uint32_t pktlen, intptr_t *mem) {
 	printf ("Received: RTP\n");
 	return NULL;
@@ -113,12 +118,6 @@ void init (void) {
 /*
  * Environment simulation functions
  */
-
-void bottom_led_set (led_idx_t ledidx, led_colour_t col) {
-	char *colmap [] = { "off", "green", "red" };
-	printf ("LED #%d switches to colour #%d (%s)\n",
-			ledidx, col, (col < 3)? colmap [col]: "out-of-range");
-}
 
 timing_t bottom_time (void) {
 	struct timeval now;

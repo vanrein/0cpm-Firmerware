@@ -1,0 +1,35 @@
+# SMC phone models -- quite a variety because they sell prototypes as products
+
+choice
+	prompt "2. SMC phone models"
+	depends on TARGET_SMC
+	default TARGET_SMC_DSP20x
+
+config TARGET_SMC_DSP20x
+	bool "SMC DSP200"
+	select PLATFORM_CM5000LF
+	help
+	  The SMC DSP200 and DSP205 models are actually prototypes from
+	  CrystalMedia, the fabless producer of the CM5000LF SoC in
+	  these phones.  Strange as that may sound, the phones are
+	  actually more powerful than quite a few others.
+
+	  The firmware in the phones is notoriously hard to configure.
+	  But it does include testing code, which allows for a lot of
+	  control.  The 4-line serial interface runs at 57600 8N1 and
+	  the pins are [3V3], TxD, RxD, GND.
+
+	  After building the firmware image, it can be uploaded over
+	  this serial link.  First, select ic.img by pressing Enter
+	  over the link in the first 3 seconds after testing RAM.
+	  Then use the Download User Program option.
+
+	  Future versions of this firmware are probably going to
+	  look as firmware updates: a gzipped fcodec.out, gzipped
+	  ic.img and gzipped user program named voip.img, all
+	  attached.  Finally, a CRC-32 checksum over all those,
+	  appended as 8 uppercase hex characters.  Interestingly,
+	  the GPL may require the rest to be recoded for that to
+	  be distributable.
+
+endchoice

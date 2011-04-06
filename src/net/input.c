@@ -29,7 +29,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include <netinet/ip.h>
+#include <netinet/ip6.h>
+#include <netinet/udp.h>
+#include <netinet/tcp.h>
 #include <netinet/icmp6.h>
+#include <netinet/ether.h>
+#include <net/if_arp.h>
 
 #include <config.h>
 
@@ -72,437 +78,271 @@
  */
 
 
-/* Declare an efficient network packet analysis function:
+
+/* Analyse incoming network packets.
  *
- * intptr_t netinput (uint8_t *pkt, uint32_t pktlen, intptr_t *mem) {
- * 	...possibly assembly...
- * }
+ * This is one big switch statement that returns how to
+ * process a packet, or NULL if it is to be dropped.
+ * Instead of proper nesting, which would be a bit
+ * overzealously indented and therefore confusing, a
+ * less structured approach is used, with portions of
+ * the function analysing particular headers and jumping
+ * at such parts of the function with a goto statement.
+ * Surely goto is bad structure, but some situations
+ * really call for it -- like this one.
  *
- * TODO: Check lengths
- * TODO: Verify checksums
+ * The utility functions below _can_ be overridden in
+ * config.h to benefit from the more specific knowledge
+ * for specifically known targets.
  */
-BPF_BEGIN(netinput)
 
-	return NULL;		//TODO// Early bail-out
-
-	STX_MEM (MEM_ETHER_HEAD)		// Store the ethernet header
-	LDW_LEN ()
-	ADD_REX ()
-	STW_MEM (MEM_ALL_DONE)
-
-// IN: ETHER frame at X
-// OUT: ARP, IP4, IP6 frame at X=M[0]
-//
-// netin_ETHER		ldw	#14
-// 			add	x
-// 			tax
-// 			ldh	[x-2]
-// 			jeq	#8100h, .1, .2	; 802.1Q tag? => step 4 bytes
-// .1			ldw	#4
-// 			add	x
-// 			tax
-// 			ldh	[x-2]
-// .2			stx	M[0]
-// 			jeq	#86DDh, netin_IP6_sel, .3
-// .3			jeq	#0800h, netin_IP4_sel, .4
-// .4			jeq	#0806h, netin_ARP_sel, netin_DROP
-
-	LDW_LIT (14)
-	ADD_REX ()
-	LDX_ACC ()
-	LDH_IDX (-2)
-	JNE_LIT (0x8100, _ether_1)
-	LDW_LIT	(4)
-	ADD_REX ()
-	LDX_ACC ()
-	LDH_IDX (-2)
-BPF_LABEL (_ether_1)
-	STX_MEM (MEM_ETHER_PLOAD)
-	JEQ_LIT (0x86dd, netin_IP6_sel)
-	JEQ_LIT (0x0800, netin_IP4_sel)
-	JEQ_LIT (0x0806, netin_ARP_sel)
-	JMP_ALW (netin_DROP)
-
-
-// IN: ARP frame at X=M[0]
-// RET: ARP fn with frame in M[0], IPv4 src addr in M[1], IPv4 dst addr in M[2]
-//
-// netin_ARP_sel	ldh	[x+2]			; protocol type
-// 			jeq	#0800h, .1, netin_DROP	; check IPv4
-// .1			ld	[x+4]			; hwalen, protalen, cmd
-// 			stx	M[0]
-// 			jeq	#06040001, netin_ARPREQ, .2
-// .2			jeq	#06040002, netin_ARPREPLY, netin_DROP
-// netin_ARPREQ		return	#net_arp_request
-// netin_ARPREPLY	return	#net_arp_reply
-
-BPF_LABEL(netin_ARP_sel)
-	STX_MEM (MEM_ARP_HEAD)
-	LDH_IDX (2)
-	JNE_LIT (0x0800, netin_DROP)
-	LDW_IDX	(4)
-	JEQ_LIT (0x06040001, netin_ARPREQ)
-	JEQ_LIT (0x06040002, netin_ARPREPLY)
-	JMP_ALW (netin_DROP)
-BPF_LABEL(netin_ARPREPLY)
-	LDW_IDX (14)
-	STW_MEM (MEM_IP4_SRC)
-	LDW_IDX (24)
-	STW_MEM (MEM_IP4_DST)
-	RET_LIT (net_arp_reply)
-BPF_LABEL(netin_ARPREQ)
-	LDW_IDX (14)
-	STW_MEM (MEM_IP4_SRC)
-	LDW_IDX (24)
-	STW_MEM (MEM_IP4_DST)
-	RET_LIT (netreply_arp_query)
-
-
-// IN: IP4 frame at X=M[0]
-// OUT: UDP4, ICMP4 at X+20=M[3]; M[1]=src.IP4, M[2]=dst.IP4
-// Assumption: No IPv4 option headers
-//
-// netin_IP4_sel	ldb	[x]			; version/headerlen
-// 			jeq	#45h, .1, netin_DROP
-// .1			ld	[x+12]			; src.IP4
-// 			st	M[1]
-// 			ld	[x+16]			; dst.IP4
-// 			st	M[2]
-// 			ldx	#20
-// 			add	x
-// 			st	M[3]			; IP4 payload address
-// 			tax
-// 			ldb	[x-20+9]		; payload protocol
-// 			jeq	#17, netin_UDP4_sel, .2
-// .2			jeq	#1, netin_ICMP4_sel, netin_DROP
-
-BPF_LABEL(netin_IP4_sel)
-	STX_MEM (MEM_IP4_HEAD)
-	LDB_IDX (0)
-	JNE_LIT (0x0045, netin_DROP)
-	LDW_IDX (12)
-	STW_MEM (MEM_IP4_SRC)
-	LDW_IDX (16)
-	STW_MEM (MEM_IP4_DST)
-	LDW_LIT (20)
-	ADD_REX ()
-	STW_MEM (MEM_IP4_PLOAD)
-	LDX_ACC ()
-	LDB_IDX (-20+9)
-	JEQ_LIT (17, netin_UDP4_sel)
-	JEQ_LIT (1, netin_ICMP4_sel)
-	JMP_ALW (netin_DROP)
-
-
-// IN: ICMP4 frame at X=M[3]
-// OUT: TODO
-//
-// netin_ICMP4_sel	TODO
-
-BPF_LABEL(netin_ICMP4_sel)
-	STX_MEM (MEM_ICMP4_HEAD)
-	LDH_IDX (0)	// type/code
-	JEQ_LIT (8 << 8, netin_ICMP4_ping)
-	RET_LIT (0)
-
-BPF_LABEL(netin_ICMP4_ping)
-	RET_LIT (netreply_icmp4_echo_req)
-
-
-// IN: UDP4 frame at X=M[3]
-// OUT: 6BED4, DHCP4 at X+20+8=M[5]; M[4]=src.PORT|dst.PORT
-//
-// netin_UDP4_sel	ld	#8
-// 			add	x
-// 			st	M[5]
-// 			ld	[x]		; src.PORT|dst.PORT
-// 			st	M[4]
-// 			jeq	#0e450e45h, netin_6BED4_sel, .1
-// .1			jeq	#4344h, netin_DHCP4_sel, .2
-// .2			and	#ffff0000h
-// 			jeq	#00350000h, netin_DNS_sel, netin_DROP
-
-BPF_LABEL(netin_UDP4_sel)
-	STX_MEM (MEM_UDP4_HEAD)
-	LDW_LIT (8)
-	ADD_REX ()
-	LDX_ACC ()
-	STX_MEM (MEM_UDP4_PLOAD)
-	LDW_IDX (-8)
-	STW_MEM (MEM_UDP4_PORTS)
-	JEQ_LIT (0x0e450e45, netin_6BED4_sel)
-	JEQ_LIT (0x00430044, netin_DHCP4_sel)
-	AND_LIT (0xffff0000)
-	JEQ_LIT (0x00350000, netin_DNS_sel)
-	JMP_ALW (netin_DROP)
-
-
-// IN: DHCP4 frame at X=M[5]
-// OUT: Returns one of netreply_dhcp4_offer, netdb_dhcp4_ack, netdb_dhcp4_nak
-
-BPF_LABEL(netin_DHCP4_sel)
-	STX_MEM (MEM_DHCP4_HEAD)
-	LDW_LIT	(236 + 4)
-	ADD_REX ()
-	LDX_ACC ()
-	LDW_IDX (-4)	// Magic cookie check
-	JNE_LIT (0x63825363, netin_DROP)
-BPF_LABEL(netin_DHCP4_optparse)
-	LDB_IDX (0)
-	JEQ_LIT (255, netin_DROP)
-	JEQ_LIT (0, netin_DHCP4_padding)
-	JNE_LIT (53, netin_DHCP4_optskip)
-	LDB_IDX (2)
-	JEQ_LIT (2, netin_DHCP4_offer)
-	JEQ_LIT (5, netin_DHCP4_ack)
-	JEQ_LIT (6, netin_DHCP4_nak)
-	JMP_ALW (netin_DROP)	// Including for my b'casted DHCP4 discover
-BPF_LABEL(netin_DHCP4_padding)
-	LDW_LIT (1)
-	ADD_REX ()
-	LDX_ACC ()
-	JMP_ALW (netin_DHCP4_optparse)
-BPF_LABEL(netin_DHCP4_optskip)
-	AND_LIT (0xff)
-	ADD_LIT (2)
-	ADD_REX ()
-	LDX_ACC ()
-	JMP_ALW (netin_DHCP4_optparse)
-BPF_LABEL(netin_DHCP4_offer)
-	RET_LIT (netreply_dhcp4_offer)
-BPF_LABEL(netin_DHCP4_ack)
-	RET_LIT (netdb_dhcp4_ack)
-BPF_LABEL(netin_DHCP4_nak)
-	RET_LIT (netdb_dhcp4_nak)
-
-
-// IN: 6BED4 frame at X=M[5]
-// OUT: IP6 at X=M[6]
-// Note: M[1]=src.IP, M[2]=dst.IP, M[3]=IP4, M[4]=src.PORT|dst.PORT all nonzero
-//
-// netin_6BED4_sel	ldx	M[5]		; decapsulate IP6 package
-// 			jmp	netin_IP6_sel_anysrc
-
-BPF_LABEL(netin_6BED4_sel)
-	STX_MEM (MEM_UDP4_PLOAD)
-	STX_MEM (MEM_6BED4_PLOAD)
-	JMP_ALW (netin_IP6_sel_anysrc)
-
-
-// IN: IP6 frame at X
-// OUT: IP6 frame at X=M[6], UDP6 or ICMP6 at X+40
-//
-// netin_IP6_sel	ld	#0
-// 			st	M[1]		; no src.IP4
-// 			st	M[2]		; no dst.IP4
-// 			st	M[3]		; no IP4 payload
-// 			st	M[4]		; no UDP4 src.PORT|dst.PORT
-// netin_IP6sel__anysrc	stx	M[6]		; IP6 frame
-// 			ldb	[x+0]		; version/trafficclass
-// 			and	#f0h		; version/0
-// 			jeq	#60h, .1, netin_DROP
-// .1			ldb	[x+6]		; next header
-// 			jeq	#17, netin_UDP6_sel, .2
-// .2			jeq	#58, netin_ICMP6_sel, netin_DROP
-
-BPF_LABEL(netin_IP6_sel)
-#if 0
-	LDW_LIT (0)
-	STW_MEM (MEM_IP4_SRC)
-	STW_MEM (MEM_IP4_DST)
-	STW_MEM (MEM_IP4_PLOAD)
-	STW_MEM (MEM_UDP4_PLOAD)
+#define forward(t) here += sizeof (t); fromhere -= sizeof (t);
+#define store(i, t) if (fromhere < sizeof (t)) return NULL; mem [i] = (t *) here;
+#define store_forward(i, t) store(i,t) forward(t)
+#ifndef get08
+#  define get08(o) (here [o])
 #endif
-BPF_LABEL(netin_IP6_sel_anysrc)
-	STX_MEM (MEM_IP6_HEAD)
-	LDB_LIT (40)
-	ADD_REX ()
-	LDX_ACC ()
-	STX_MEM (MEM_IP6_PLOAD)
-	LDB_IDX (-40)
-	AND_LIT (0xf0)
-	JNE_LIT (0x60, netin_DROP)
-	LDB_IDX (-40+6)
-	JEQ_LIT (17, netin_UDP6_sel)
-	JEQ_LIT (58, netin_ICMP6_sel)
-	JMP_ALW (netin_DROP)
+#ifndef get16
+#  define get16(o) ((here [o] << 8) | here [o+1])
+#endif
+#ifndef get32
+#  define get32(o) ((here [o] << 24) | (here [o+1] << 16) | (here [o+2] << 8) | here [o+3])
+#endif
 
+intptr_t netinput (uint8_t *pkt, uint16_t pktlen, intptr_t *mem) {
 
-// IN: ICMP6 at X
-// OUT: TODO
-//
-// netin_ICMP6_sel: switch between alternative message types
+	register uint8_t *here = pkt;
+	register uint16_t fromhere = pktlen;
 
-BPF_LABEL(netin_ICMP6_sel)
-	STX_MEM (MEM_ICMP6_HEAD)
-	LDH_IDX (0)	// Fetch type, code
-	// Ignore ND_ROUTER_SOLICIT  << 8, netin_ICMP6_ROUTER_SOLICIT
-	JEQ_LIT (ND_ROUTER_ADVERT    << 8, netin_ICMP6_ROUTER_ADVERT)
-	JEQ_LIT (ND_NEIGHBOR_SOLICIT << 8, netin_ICMP6_NEIGHBOUR_SOLICIT)
-	JEQ_LIT (ND_NEIGHBOR_ADVERT  << 8, netin_ICMP6_NEIGHBOUR_ADVERT)
-	//TODO//JEQ_LIT (ND_REDIRECT << 8, netin_ICMP6_REDIRECT)
-	JEQ_LIT (ICMP6_ECHO_REQUEST  << 8, netin_ICMP6_ECHO_REQUEST)
-	JEQ_LIT (ICMP6_ECHO_REPLY    << 8, netin_ICMP6_ECHO_REPLY)
-	JMP_ALW (netin_DROP)
+	//
+	// Store the end of the entire packet
+	mem [MEM_ALL_DONE] = &pkt [pktlen];
 
-BPF_LABEL(netin_ICMP6_ROUTER_ADVERT)
-	RET_LIT (netdb_router_advertised)
+	//
+	// Store the ethernet header
+	uint16_t ethertp = get16 (12);
+	if (ethertp == 0x8100) {
+		struct ethhdrplus { struct ethhdr std; uint8_t ext8021q [4]; };
+		store_forward (MEM_ETHER_HEAD, struct ethhdrplus);
+		ethertp = get16 (16);
+	} else {
+		store_forward (MEM_ETHER_HEAD, struct ethhdr);
+	}
+	//
+	// Jump, depending on the ethernet type
+	switch (ethertp) {
+	case 0x86dd: goto netin_IP6_sel;
+	case 0x0800: goto netin_IP4_sel;
+	case 0x0806: goto netin_ARP_sel;
+	default: return NULL;
+	}
 
-// ND Neighbour Solicitation:
-// If aimed at me, respond automatically with Neigbour Advertisement
-BPF_LABEL(netin_ICMP6_NEIGHBOUR_SOLICIT)
-	RET_LIT (netreply_icmp6_ngb_disc)
+	//
+	// Accept ARP reply and query messages translating IPv4 to MAC
+	uint16_t arpproto;
+netin_ARP_sel:
+	arpproto = get16 (2);
+	if (arpproto != 0x0800) return NULL;
+	store (MEM_ARP_HEAD, struct arphdr);
+	mem [MEM_IP4_SRC] = get32 (14);
+	mem [MEM_IP4_DST] = get32 (24);
+	uint32_t arpdetails = get32 (4);
+	//
+	// Decide what to return based on the ARP header contents
+	switch (arpdetails) {
+	case 0x06040001: return net_arp_reply;
+	case 0x06040002: return net_arp_query;
+	default: return NULL;
+	}
 
-BPF_LABEL(netin_ICMP6_NEIGHBOUR_ADVERT)
-	RET_LIT (netdb_neighbour_advertised)
+	//
+	// Decide what IPv4 protocol has come in
+netin_IP4_sel:
+	store (MEM_IP4_HEAD, struct iphdr);
+	if (get08 (0) != 0x45) return NULL;
+	mem [MEM_IP4_SRC] = get32 (12);
+	mem [MEM_IP4_DST] = get32 (15);
+	uint8_t ip4_ptype = get08 (9);
+	forward (struct iphdr);
+	mem [MEM_IP4_PLOAD] = here;
+	//
+	// Jump to a handler for the payload type
+	switch (ip4_ptype) {
+	case 17: goto netin_UDP4_sel;
+	case 1:  goto netin_ICMP4_sel;
+	default: return NULL;
+	}
 
-BPF_LABEL(netin_ICMP6_ECHO_REQUEST)
-	RET_LIT (netreply_icmp6_echo_req)
+	//
+	// Decide how to handle ICMP4
+	uint16_t icmp4_type_code;
+netin_ICMP4_sel:
+	icmp4_type_code = get16 (0);
+	switch (icmp4_type_code) {
+	case 8 << 8: return netreply_icmp4_echo_req;
+	default: return NULL;
+	}
 
-BPF_LABEL(netin_ICMP6_ECHO_REPLY)
-	JMP_ALW (netin_DROP)	// TODO: Process if it is used for tests?
+	//
+	// Decide how to handle UDP4
+netin_UDP4_sel:
+	store (MEM_UDP4_HEAD, struct udphdr);
+	uint16_t udp4_src = mem [MEM_UDP4_SRC_PORT] = get16 (0);
+	uint16_t udp4_dst = mem [MEM_UDP4_DST_PORT] = get16 (2);
+	forward (struct udphdr);
+	mem [MEM_UDP4_PLOAD] = here;
+	//
+	// Choose a handler based on port
+	if (udp4_src == 3653) goto netin_6BED4_sel;
+	if ((udp4_src == 67) && (udp4_dst == 68)) goto netin_DHCP4_sel;
+	if (udp4_dst == 53) goto netin_DNS_sel;
+	return NULL;
 
+	//
+	// Handle incoming DHCP4 traffic
+netin_DHCP4_sel:
+	store (MEM_DHCP4_HEAD, uint8_t);
+	if (fromhere < 236 + 4) return NULL;
+	uint32_t dhcp4_magic_cookie = get32 (236);
+	if (dhcp4_magic_cookie != 0x63825363) return NULL;	// TODO: BOOTP?
+	here     += 236 + 4;
+	fromhere -= 236 + 4;
+	//
+	// Parse DHCP4 options
+	while (true) {
+		uint8_t dhcp4_option = get08 (0);
+		if (dhcp4_option != 0) {
+			if (2 + get08 (1) > fromhere) {
+				return NULL;
+			}
+		}
+		switch (dhcp4_option) {
+		case 255: // Termination, not run into an offer
+			return NULL;
+		case 0: // Padding
+			here++;
+			continue;
+		case 53: // DHCP4_offer
+			switch (get08 (2)) {
+			case 2: return netreply_dhcp4_offer;
+			case 5: return netdb_dhcp4_ack;
+			case 6: return netdb_dhcp4_nak;
+			default: return NULL;
+			}
+		default:
+			here += 2 + here [1];
+			break;
+		}
+	}
 
-// IN: UDP6 at X
-// OUT: RTP, RTCP, SIP, DHCP6, DNS, DNS_SD at X=M[8]; M[7]=src.PORT|dst.PORT
-// Note: RTP/RTCP is located at ports 8192..65535
-//
-// netin_UDP6_sel	ld	#48
-// 			add	x
-// 			st	M[8]
-// 			tax
-// 			ld	[x-8+0]			; src.PORT|dst.PORT
-// 			jset	#0000e000h, .1, .3	; RTP/RTCP or other?
-// .1			jset	#00000001h, netin_RTCP_sel, netin_RTP_sel
-// .2			jeq	#02230222h, netin_DHCP6_sel, .3
-// .3			and	#0000ffffh		; dst.PORT
-// 			jeq	#5060, netin_SIP_sel, .4
-// .4			jeq	#5353, netin_DNS_SD_sel, .5
-// .5			jeq	#53, netin_DNS_sel, netin_DROP
+	//
+	// Handling 6BED4 tunnelled traffic
+netin_6BED4_sel:
+	mem [MEM_6BED4_PLOAD] = mem [MEM_UDP4_PLOAD];
+	// Code follows immediately below: goto netin_IP6_sel;
 
-BPF_LABEL(netin_UDP6_sel)
-	STX_MEM (MEM_UDP6_HEAD)
-	LDW_LIT (8)
-	ADD_REX ()
-	STW_MEM (MEM_UDP6_PLOAD)
-	LDX_ACC ()
-	LDW_IDX (-8+0)
-	STW_MEM (MEM_UDP6_PORTS)
-	JMZ_LIT (0x0000e000, _UDP6_2)
-	JMZ_LIT (0x00000001, netin_RTCP_sel)
-	JMP_ALW (netin_RTP_sel)
-BPF_LABEL(_UDP6_2)
-	AND_LIT (0x0000ffff)
-	JEQ_LIT (546, netin_DHCP6_sel)
-	JEQ_LIT (5060, netin_SIP_sel)
-	JEQ_LIT (5353, netin_DNS_SD_sel)
-	JEQ_LIT (53, netin_DNS_sel)
-	JMP_ALW (netin_DROP)
+	//
+	// Handle incoming IP6 traffic
+netin_IP6_sel:
+	if ((get08 (0) & 0xf0) != 0x60) return NULL;
+	store (MEM_IP6_HEAD, struct ip6_hdr);
+	uint8_t ip6_nxthdr = get08 (6);
+	forward (struct ip6_hdr);
+	store (MEM_IP6_PLOAD, uint8_t);
+	//
+	// Choose a handler based on the next header
+	switch (ip6_nxthdr) {
+	case 17: goto netin_UDP6_sel;
+	case 58: goto netin_ICMP6_sel;
+	default: return NULL;
+	}
 
+	//
+	// Hande incoming ICMP6 traffic
+netin_ICMP6_sel:
+	store (MEM_ICMP6_HEAD, struct icmp6_hdr);
+	uint16_t icmp6_type_code = get16 (0);
+	switch (icmp6_type_code) {
+	case ND_ROUTER_ADVERT << 8:	return (fromhere < 16)? NULL: netdb_router_advertised;
+	case ND_NEIGHBOR_SOLICIT << 8:	return (fromhere < 24)? NULL: netreply_icmp6_ngb_disc;
+	case ND_NEIGHBOR_ADVERT << 8:	return (fromhere < 24)? NULL: netdb_neighbour_advertised;
+	case ND_REDIRECT << 8:		return (fromhere < 40)? NULL: NULL; /* TODO */
+	case ICMP6_ECHO_REQUEST << 8:	return (fromhere <  8)? NULL: netreply_icmp6_echo_req;
+	case ICMP6_ECHO_REPLY << 8:	return (fromhere <  8)? NULL: NULL; /* Future option */
+	default: return NULL;
+	}
 
-// IN: RTP at M[8]=X
-// OUT: net_rtp
-//
-// netin_RTP_sel	return	#net_rtp
+	//
+	// Decide how to handle incoming UDP6 traffic
+netin_UDP6_sel:
+	store (MEM_UDP6_HEAD, struct udphdr);
+	mem [MEM_UDP6_PLOAD] = here + sizeof (struct udphdr);
+	uint16_t udp6_src = mem [MEM_UDP6_SRC_PORT] = get16 (0);
+	uint16_t udp6_dst = mem [MEM_UDP6_DST_PORT] = get16 (2);
+	here += sizeof (struct udphdr);
+	//
+	// Port mapping:
+	// udp6_dst >= 0x4000 are RTP (even ports) or RTCP (odd ports)
+	// udp6_dst == 546    is DHCP6
+	// udp6_dst == 5060   is SIP
+	// udp6_dst == 5353   is DNS-SD
+	// udp6_dst == 53     is DNS
+	if (udp6_dst >= 0x4000) {
+		if (udp6_dst & 0x0001) {
+			mem [MEM_RTP_HEAD] = here;
+			return net_rtp;
+		} else {
+			return net_rtcp;
+		}
+	} else if (udp6_dst == 5060) {
+		mem [MEM_SIP_HEAD] = here;
+		return net_sip;
+	} else if (udp6_dst == 5353) {
+		goto netin_DNSSD_sel;
+	} else if (udp6_dst == 53) {
+		goto netin_DNS_sel;
+	} else if (udp6_dst == 546) {
+		goto netin_DHCP6_sel;
+	} else {
+		return NULL;
+	}
+	
 
-BPF_LABEL(netin_RTP_sel)
-	STX_MEM (MEM_RTP_HEAD)
-	RET_LIT (net_rtp)
+netin_DHCP6_sel:
+	store (MEM_DHCP6_HEAD, uint8_t);
+	uint8_t dhcp6_tag = *here;
+	switch (dhcp6_tag) {
+	case 2: return netreply_dhcp6_advertise;
+	case 7: return netdb_dhcp6_reply;
+	case 10: return netdb_dhcp6_reconfigure;
+	default: return NULL;
+	}
 
+netin_DNS_sel:
+	store (MEM_DNS_HEAD, uint8_t);
+	return NULL;	// TODO: Actually, split/process DNS
 
-// IN: RTCP at M[8]=X
-// OUT: net_rtcp
-//
-// netin_RTCP_sel	return	#net_rtcp
+netin_DNSSD_sel:
+	store (MEM_DNSSD_HEAD, uint8_t);
+	uint16_t dnssd_flags = get16 (2);
+	if (dnssd_flags & 0x8000) {
+		// Response
+		if (dnssd_flags & 0x0203) {
+			return net_mdns_resp_error;
+		} else if (dnssd_flags & 0x0400) {
+			return net_mdns_resp_dyn;
+		} else {
+			return net_mdns_query_ok;
+		}
+	} else {
+		// Query
+		if ((dnssd_flags ^ 0x2000) & 0x3c00) {
+			return net_mdns_query_error;
+		} else {
+			return net_mdns_query_ok;
+		}
+	}
 
-BPF_LABEL(netin_RTCP_sel)
-	STX_MEM (MEM_RTCP_HEAD)
-	RET_LIT (net_rtcp)
-
-
-// IN: SIP at M[8]=X
-// OUT: net_sip
-//
-// netin_SIP_sel	return	#net_sip
-
-BPF_LABEL(netin_SIP_sel)
-	STX_MEM (MEM_SIP_HEAD)
-	RET_LIT (net_sip)
-
-
-// IN: DHCP6 at M[8]=X
-// OUT: TODO
-
-BPF_LABEL(netin_DHCP6_sel)
-	STX_MEM (MEM_DHCP6_HEAD)
-	LDB_IDX (0)
-	JEQ_LIT (2, netin_DHCP6_advertise)
-	JEQ_LIT (7, netin_DHCP6_reply)
-	JNE_LIT (10, netin_DROP)
-BPF_LABEL(netin_DHCP6_reconfigure)
-	RET_LIT (netdb_dhcp6_reconfigure)
-BPF_LABEL(netin_DHCP6_reply)
-	RET_LIT (netdb_dhcp6_reply)
-BPF_LABEL(netin_DHCP6_advertise)
-	RET_LIT (netreply_dhcp6_advertise)
-
-
-// IN: DNS at M[8]=X
-// OUT: TODO
-
-BPF_LABEL(netin_DNS_sel)
-	STX_MEM (MEM_DNS_HEAD)
-	RET_LIT (0)
-
-
-// IN: DNS_SD at M[8]=X
-// OUT: TODO: Nogal wat gegokt over hoe MDNS/DNS_SD werkt
-//
-// netin_DNS_SD_sel	ldh	[x+2]
-// 			jset	#8000h, .resp, .query
-//
-// .resp		jset	#0203h, .resp.ko, .resp.ok   ; TC or RC!=OK
-// .resp.ko		return	#net_mdns_resp_error
-// .resp.ok		jset	#0400h, .resp.dyn, .resp.std
-// .resp.dyn		return	#net_mdns_resp_dyn
-// .resp.std		return	#net_mdns_resp_std
-//
-// .query		xor	#2000h	; std query flag
-// 			jset	#3c00h, .query.ko, .query.ok
-// .query.ko		return	#net_mdns_query_error
-// .query.ok		return	#net_mdns_query_ok
-
-BPF_LABEL(netin_DNS_SD_sel)
-	STX_MEM (MEM_DNSSD_HEAD)
-	LDH_IDX (2)
-	JMZ_LIT (0x8000, _DNS_query)
-	JMZ_LIT (0x0203, _DNS_resp_ok)
-	RET_LIT (net_mdns_resp_error)
-BPF_LABEL(_DNS_resp_ok)
-	JMZ_LIT (0x0400, _DNS_resp_std)
-	RET_LIT (net_mdns_resp_dyn)
-BPF_LABEL(_DNS_resp_std)
-	RET_LIT (net_mdns_resp_std)
-
-BPF_LABEL(_DNS_query)
-	XOR_LIT (0x2000)
-	JMZ_LIT (0x3c00, _DNS_query_ok)
-	RET_LIT (net_mdns_query_error)
-BPF_LABEL(_DNS_query_ok)
-	RET_LIT (net_mdns_query_ok)
-
-
-// Note: Return a panic result, intending to cause a silent frame drop.
-//       No explicitly communicated error message should jump here, only
-//       frames that match no known pattern should end up here.
-//
-// netin_DROP		return	#0			; request frame drop
-
-BPF_LABEL(netin_DROP)
-	RET_LIT (0)
-
-
-// End of the BPF-styled assembly code
-//
-BPF_END()
-
+	// Finally, a catchall that rejects anything that makes it to here
+	return NULL;
+}

@@ -36,8 +36,10 @@ enum mem_netinput {
 	MEM_IP4_DST,
 	MEM_ETHER_SRC,
 	MEM_ETHER_DST,
-	MEM_UDP4_PORTS,
-	MEM_UDP6_PORTS,
+	MEM_UDP4_SRC_PORT,
+	MEM_UDP4_DST_PORT,
+	MEM_UDP6_SRC_PORT,
+	MEM_UDP6_DST_PORT,
 	MEM_VLAN_ID,
 	MEM_BINDING6,
 	MEM_IP6_DST,
@@ -65,6 +67,7 @@ void netcore_bootstrap_initiate (void);
 void netcore_bootstrap_shutdown (void);
 
 uint8_t *net_arp_reply (uint8_t *pkt, uint32_t pktlen, intptr_t *mem);
+uint8_t *net_arp_query (uint8_t *pkt, uint32_t pktlen, intptr_t *mem);
 uint8_t *net_dhcp4 (uint8_t *pkt, uint32_t pktlen, intptr_t *mem);
 uint8_t *net_rtp (uint8_t *pkt, uint32_t pktlen, intptr_t *mem);
 uint8_t *net_rtcp (uint8_t *pkt, uint32_t pktlen, intptr_t *mem);

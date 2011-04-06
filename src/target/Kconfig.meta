@@ -1,0 +1,50 @@
+# Meta-configuration
+
+menu "0. Configuration meta parameters"
+
+config DEVEL
+	bool "Show development build options"
+	default n
+	select FUNCTION_DEVEL_NETCONSOLE
+	help
+	  Aside from production builds, there are various intermediate
+	  settings that are helpful while reverse engineering, testing
+	  and debugging.  This option shows those additional builds.
+
+	  A few examples of added facilities: very basic programs that
+	  basic I/O (hook contact, LED, that sort of thing) without
+	  assuming a network driver; network driver testing; and of
+	  course debugging output to a platform's console interface.
+
+	  Select this option if you are developing on the 0cpm firmerware.
+
+config UNIMPLEMENTED
+	bool "Include incomplete build options"
+	depends on DEVEL
+	default n
+	help
+	  This option selects platforms and options whose development
+	  has not yet been completed.
+
+	  Select this option while developing on such incomplete code.
+	  It is possible to checkin such code as long as the Kconfig
+	  options include "depends on UNIMPLEMENTED"
+
+config PLATFORM_PREFIX
+	string "Toolchain prefix directory"
+	default ""
+
+config PLATFORM_BIN_PATH
+	string "Path to toolchain binaries"
+	default "$PLATFORM_PREFIX/bin"
+
+config PLATFORM_LIB_PATH
+	string "Path to toolchain libraries"
+	default "$PLATFORM_PREFIX/include"
+
+config PLATFORM_INCLUDE_PATH
+	string "Path to toolchain include files"
+	default "$PLATFORM_PREFIX/include"
+
+endmenu
+

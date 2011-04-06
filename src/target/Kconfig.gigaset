@@ -1,0 +1,16 @@
+# Siemens/Gigaset phone models
+
+choice
+	prompt "2. Siemens Gigaset phone models"
+	depends on TARGET_GIGASET
+	default TARGET_GIGASET_A580IP
+
+config TARGET_GIGASET_CHAGALL
+	bool "Gigaset A580IP, C470IP, xxxIP"
+	select PLATFORM_ARM
+	select PLATFORM_ARM_BLUEBIRD
+	help
+	  Siemens Gigaset is a platform for DECT in general.  The models
+	  that end in "IP" are the ones that implement SIP functionality.
+
+endchoice

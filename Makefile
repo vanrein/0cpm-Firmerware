@@ -33,15 +33,18 @@ include src/net/Makefile
 include src/phone/Makefile
 
 include src/target/Makefile
+include src/function/Makefile
 include src/driver/Makefile
+
+BINPATH = $(CONFIG_PLATFORM_BIN_PATH):$(PATH)
 
 #
 # Dependencies for generated include files
 # TODO: Solve cyclic dependencies on non-generated file
 #
 include/config.h: .config
-	( cat $< ; for m in $(metavars-y) ; do echo $$m ; done ) | sed -e '/^#/d' -e 's/^\([A-Z0-9_]*\)=\(.*\)/#define \1 \2/'  > $@
-	for i in $(includes-y) ; do echo "#include \"../$$i\"" >> $@ ; done
+	( cat $< ; for m in $(metavars-y) ; do echo $$m ; done ) | sed -e '/^#/d' -e 's/^\([A-Za-z0-9_]*\)=\(.*\)/#define \1 \2/'  > $@
+	for i in $(includes-y) ; do echo "#include <$$i>" >> $@ ; done
 
 .PHONY += configincludes
 configincludes: include/config.h
@@ -64,54 +67,40 @@ configincludes: include/config.h
 # rule is that all API calls between the two halves must be
 # documented in doc/top2bottom.*
 #
-bin/firmerware.bin: bin/firmerware.elf
-	strip -s -o $@ $<
-
-bin/firmerware.elf: bin/top.o bin/bottom.o
-	gcc -MD -o $@ bin/top.o bin/bottom.o
-	@echo
-	@echo "*** Compilation succesful"
-	@echo
-	@size bin/firmerware.elf
 
 bin/top-kernel.o: $(objs-top-kernel-y)
-	ld -r -o $@ $(objs-top-kernel-y)
+	PATH=$(BINPATH) $(LD) $(LDFLAGS) -r -o $@ $(objs-top-kernel-y)
 
 bin/top-net.o: $(objs-top-net-y)
-	ld -r -o $@ $(objs-top-net-y)
+	PATH=$(BINPATH) $(LD) $(LDFLAGS) -r -o $@ $(objs-top-net-y)
 
 bin/top-phone.o: $(objs-top-phone-y)
-	ld -r -o $@ $(objs-top-phone-y)
+	PATH=$(BINPATH) $(LD) $(LDFLAGS) -r -o $@ $(objs-top-phone-y)
 
-bin/top.o: bin/top-kernel.o bin/top-net.o bin/top-phone.o
-	ld -r -o $@ bin/top-kernel.o bin/top-net.o bin/top-phone.o
+# bin/top.o: bin/top-kernel.o bin/top-net.o bin/top-phone.o
+#	$(LD) $(LDFLAGS) -r -o $@ bin/top-kernel.o bin/top-net.o bin/top-phone.o
+bin/top.o: $(objs-top-y)
+	PATH=$(BINPATH) $(LD) $(LDFLAGS) -r -o $@ $(objs-top-y)
 
 bin/bottom.o: $(objs-bottom-y)
-	ld -r -o $@ $(objs-bottom-y)
-
-#
-# General compiler rule
-# TODO: Use -Wall and remove silencing-up overrides
-# gcc -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -fno-builtin -MD -c -Iinclude -ggdb3 -o $@ $<
-#
-%.o: %.c
-	gcc -fno-builtin -MD -c -Iinclude -ggdb3 -o $@ $<
+	PATH=$(BINPATH) $(LD) $(LDFLAGS) -r -o $@ $(objs-bottom-y)
 
 #
 # Create a "tags" file for easy Vim navigation
 #
-tags:
+tags: src/net/6bed4.c
 	ctags $(objs-top-kernel-y:.o=.c) $(objs-top-net-y:.o=.c) $(objs-top-phone-y:.o=.c) $(objs-bottom-y:.o=.c) include/0cpm/*.h include/config.h
 
 .PHONY += clean
 clean:
-	rm -f $(objs-top-kernel-y)
-	rm -f $(objs-top-net-y)
-	rm -f $(objs-top-phone-y)
+	rm -f $(objs-top-y) $(objs-top-n) $(objs-top-)
+	# rm -f $(objs-top-net-y)
+	# rm -f $(objs-top-phone-y)
 	rm -f $(objs-bottom-y)
-	rm -f $(objs-top-kernel-y:.o=.d)
-	rm -f $(objs-top-net-y:.o=.d)
-	rm -f $(objs-top-phone-y:.o=.d)
+	rm -f $(objs-top-y:.o=.d) $(objs-top-n:.o=.d) $(objs-top-:.o=.d)
+	# rm -f $(objs-top-kernel-y:.o=.d)
+	# rm -f $(objs-top-net-y:.o=.d)
+	# rm -f $(objs-top-phone-y:.o=.d)
 	rm -f $(objs-bottom-y:.o=.d)
 	rm -f bin/top-kernel.o bin/top-net.o bin/top-phone.o
 	rm -f bin/top.o bin/bottom.o

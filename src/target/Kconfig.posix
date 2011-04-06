@@ -1,0 +1,41 @@
+# POSIX-based target platforms
+
+choice
+	prompt "2. POSIX-based phone targets"
+	depends on TARGET_POSIX
+	default TARGET_LINUX_RAWSOCK
+
+config TARGET_LINUX_RAWSOCK
+	bool "Linux desktop"
+	depends on UNIMPLEMENTED
+	select TARGET_POSIX_RAWSOCK
+	help
+	  This is a platform intended to run on the same platform as
+	  used for building.  It is built on a raw socket, so it does
+	  not require IPv6 support in the kernel.  It will obtain its
+	  own network leases, so it should be tested for non-interference
+	  if any other software is run on the same platform.
+
+	  Once built, run the command src/target/rawsock/firmly0cpm.bin
+	  on your current platform.  It will configure itself automatically.
+
+	  TODO: sound devices?  keyboard?  display?
+
+	  TODO: Demo entry. Not implemented yet.
+
+config TARGET_LINUX_TUNTEST
+	bool "Linux tunnel device"
+	depends on DEVEL
+	help
+	  Test and demonstration target intended for development.
+
+	  This creates a tunnel interface behind which the firmly.0cpm
+	  firmware is working.  You can route/bridge/filter/simulate
+	  the surrounding network in any way you like.
+
+	  Once built, run the command src/target/tuntest/firmly0cpm.bin
+	  on your current platform.  It will configure itself automatically.
+
+	  TODO: sound devices?  keyboard?  display?
+
+endchoice
