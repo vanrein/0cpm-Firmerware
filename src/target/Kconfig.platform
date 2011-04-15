@@ -14,8 +14,17 @@ config PLATFORM_TIC54x
 	default y
 
 config PLATFORM_TIC55x
-	bool "tic55x"
+	bool "tic55x (READ HELP)"
 	depends on TARGET_GRANDSTREAM_BT20x || TARGET_GRANDSTREAM_GXP20xx
 	default y
+	help
+	  **Please be careful**
+	  The TIC55x platform is not supported by gcc or lvmm compilers.
+	  You can download a toolchain at no expense from the TI website,
+	  but this will not bring you the freedom that you need to comply
+	  to the GPLv3 under which the 0cpm firmerware is released.
+	  Please read the file src/driver/tic55x/LICENSE-WARNING.txt about
+	  the incompatibility problem between TI's toolchain and the
+	  license of the 0cpm firmerware.
 
 endchoice

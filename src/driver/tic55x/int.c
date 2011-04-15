@@ -32,7 +32,7 @@ void bottom_sleep_commit (sleep_depth_t depth) {
 		if (depth == SLEEP_HIBERNATE) {
 			// Hibernate: Idle CPU and most I/O
 			ICR = (1 << REGBIT_ICR_CPUI) | (1 << REGBIT_ICR_ICACHEI) | (1 << REGBIT_ICR_MPI) | (1 << REGBIT_ICR_PERI);
-			PICR = (1 << REGBIT_PICR_MISC) | (1 << REGBIT_PICR_BIOST) | (1 << REGBIT_PICR_WDT) | (1 << REGBIT_PICR_URT) | (1 << REGBIT_PICR_I2C) | (1 << REGBIT_PICR_SP1) | (1 << REGBIT_PICR_SP0);
+			PICR = /*(1 << REGBIT_PICR_MISC) |*/ (1 << REGBIT_PICR_BIOST) | (1 << REGBIT_PICR_WDT) | (1 << REGBIT_PICR_URT) | (1 << REGBIT_PICR_I2C) | (1 << REGBIT_PICR_SP1) | (1 << REGBIT_PICR_SP0);
 		} else {
 			// Snooze: Idle CPU but nothing more
 			ICR = 1 << REGBIT_ICR_CPUI;

@@ -455,7 +455,7 @@ Buttons are grouped for practical purposes, as follows:
 * Function-bound keys like Hold, Transfer, Flash, Menu or Up/Down.
 * Line buttons, positioned to manage lines/accounts/calls.
 * Soft function buttons, usually positioned under a display.
-* Generic buttons, which can be programmed for speed dial and so on.
+* User programmable buttons, usuable for speed dial and so on.
 
 The configuration files specify which are available, and
 how many of the various classes.  The bottom half is
@@ -475,6 +475,7 @@ ones are released, even if this may not reflect what the
 hardware detects.  The ability to decode multiple buttons
 pressed at the same time is so dependent on hardware that
 the top half should refrain from interpreting such situations.
+Furthermore, this is not commonly done for phone keyboards.
 This is also why the ``top_button_release()`` function has
 no arguments -- everything that may still be thought of as
 being pressed should be released after this call.

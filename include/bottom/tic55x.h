@@ -64,6 +64,12 @@ asm ("_PCR1 .set 0x2c12");
 #define REGBIT_PCR_RIOEN	12
 #define REGBIT_PCR_XIOEN	13
 
+#define REGVAL_PCR_CLKRP	0x01
+#define REGVAL_PCR_CLKXP	0x02
+#define REGVAL_PCR_FSRP		0x04
+#define REGVAL_PCR_FSXP		0x08
+#define REGVAL_PCR_DRSTAT	0x10
+
 /* Timer0/1 configuration registers */
 extern volatile uint16_t ioport GPTCLK_0;
 extern volatile uint16_t ioport GPTCNT1_0, GPTCNT2_0, GPTCNT3_0, GPTCNT4_0;
