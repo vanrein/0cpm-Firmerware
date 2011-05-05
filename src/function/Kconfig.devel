@@ -31,9 +31,24 @@ config MAINFUNCTION_DEVEL_NETWORK
 	depends on DEVEL
 	select FUNCTION_DEVEL_NETCONSOLE
 	help
-	  Run a networked console.  In addition to the usual console
+	  This test runs a networked console.  In addition to the usual console
 	  functions, respond to any text sent by mapping it to uppercase.
 
 	  The details of the networked console are described under the
 	  add-on function for this console, one menu level up.
+
+config MAINFUNCTION_DEVEL_SOUND
+	bool "Test sound"
+	depends on DEVEL
+	select FUNCTION_DEVEL_SOUNDIO
+	help
+	  This test turns your phone into an echo well.  While off-hook, it will
+	  echo handset voice to the handset with a one-second delay.  If it is
+	  a speakerphone, it will use the built-in microphone and speaker to do
+	  the same while on-hook.
+          
+	  The sound is usually best implemented through DMA.  Not only does this
+	  save lots of interrupts while working on other things, but the reliance
+	  on hardware timers and not on any software aspects helps to keep the
+	  sample rate very stable, thus leading to better voice quality.
 

@@ -1,5 +1,5 @@
 
-objs-bottom-$(CONFIG_TARGET_GRANDSTREAM_BT20x) += src/driver/tic55x/grandstream-bt20x.o src/driver/ht162x.o
+objs-bottom-$(CONFIG_TARGET_GRANDSTREAM_BT20x) += src/driver/tic55x/grandstream-bt20x.o src/driver/ht162x.o src/driver/ksz8842.o
 
 #TODO: replace rts55.lib with bootstrapping in src/driver/tic55x/trampoline.o
 

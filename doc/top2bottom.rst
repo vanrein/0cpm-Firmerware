@@ -2,6 +2,10 @@ TODO: top_main() can return to invoke "next boot option" cyclically
 TODO: bool bottom_phone_is_offhook (void);
 TODO: TIME_MSEC, TIME_SEC, TIME_MIN, TIME_HOUR, TIME_DAY
 TODO: TIME_BEFORE(a,b)
+TODO: bottom_show_xxx() series of calls
+TODO: bottom_xxx_scan() and top_xxx() from develtests
+TODO: network_can_xxx() will be called before 1500 bytes free but then certainly called again before done
+TODO: bottom_network_send/_recv() accept 32-bit transfers
 
 ----------------------------------------------
 Kernel API between Phone Bottom and Top Halves

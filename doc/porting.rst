@@ -100,10 +100,79 @@ on hand:
 * Linux PC (Windows might work as a sub-optimal substitute)
 * useful if available: oscilloscope, logic analyser
 
-The multimeter should be sensitive enough to measure through
+The **multimeter** should be sensitive enough to measure through
 a device without damaging it.  Its beep is very helpful because
 it allows you to drag one pin over the many pins of a large chip
 to find the connection to another point in the circuit.
+
+As an electronics engineer, I usually have a gut feeling how things
+are wired.  Using the multimeter, I could establish these things.
+I would switch off the device, set it in the ohmic beeping mode, place
+one probe of the multimeter on the pin I wanted to trace and then
+poke around.  Where I suspected connectivity to a chip, I would pull
+the second probe along the many pins of such a chip.  I would make a
+complete round before zooming in on a single beep -- sometimes you
+expect to find a signal but you are actually measuring GND, and that
+intuition is delivered audibly as several beeps on the same chip.  If
+you hit a single pin, always double check the pins around the suspect,
+as you will sometimes be probing two pins instead of just one.
+
+It's not much fun counting pins, but there are usually markings on
+the PCB's silk screen for every fifth pin.  Always do this work in
+broad daylight; nothing can beat the Sun for proper illumination.
+Closing one eye may help, and using a magnifying glass may help too.
+
+And yes... I would love to have probes with one conductive side and
+one isolated side, so I could poke it in between two pins instead
+of balancing it on top of one while moving something else around.
+Or, better even, it would be good to have a probe shaped like a
+cogwheel, that would rotate over the pins and show which one is the
+connected pin.  But those are just silly dreams.
+
+An **oscilloscope** is useful for testing analog signals; in a digital
+phone, these are mostly limited to clock signals and sound I/O; in
+an ATA there would be a lot more use for an oscilloscope.  Since
+the signals are not always repeating, a digital scope is the best
+option.  These often come with a logic analyser as an optional extra.
+
+A **logic analyser** can save a lot of work (an excellent reason to
+finally get one!) because it makes it possible to observe signals
+that are being sent to unknown or uncertain components.
+For reverse engineering the BT200, a logic analyser was useful for
+confirming that the LCD driver chip was indeed (acting like) a
+HT1621D, without having to program a driver and be left with the
+uncertainty if the guessed chip was wrong, or the frequencies.
+Also, it helped to read out the configuration codes sent to the
+LCD driver.  Later on, it showed that the LCD driver that I wrote
+did not behaving well on this bus, even if it was not visible;
+there were small glitches in the signal as a result of writing
+16-bit values to an 8-bit bus; the high part of the word was filled
+with zeroes and would make observed signals low for a very short
+time where they were supposed to remain high.  Finally,
+communication with the codec (sound I/O chip) can easily be viewed
+with a logic analyser.  In an ATA, a few more components apply.
+
+.. figure:: pix/ht162x.png
+	:scale: 200
+	:alt: Logic Analyser at work
+
+	The logic analyser at work.  Shown is the LCD driver of
+	the BT200 phone, for which we guessed it could be a
+	HT162x, based on searching the connector's pin markings
+	on the PCB.  D4 is the DATA signal, D3 is CS, D2 is
+	the RD clock (unconnected in the phone), D1 is the WR
+	clock.  At every rising edge of D1, the value of D4 is
+	checked into the LCD.  Note that D1 is always stable at
+	that time, which does not undermine this behaviour from
+	the assumed datasheet. The period of a command is marked
+	by D3.  12 bits makes it probable that this is a HT162x,
+	and the command confirms that: 100.1110.0011.0 is the
+	LCD command to set NORMAL mode (not TEST mode) and this
+	makes sense, also in the combination with other commands
+	observed.  This confirmed the HT162x family's behaviour.
+	Based on the empty holes that once held a crystal and
+	the number of segments on the display this was further
+	refined, and the LCD driver had to be a HT1621D chip.
 
 
 Understanding your hardware
@@ -157,7 +226,7 @@ The elements usually found in a phone are:
 * A codec chip.  These are a bit like embedded sound cards; they can
   be accessed over a protocol like SPI to interact with microphones,
   speakers and so on.  They usually include analog electronics such
-  as amplifiers.
+  as amplifiers and anti-aliasing filters.
 
 Don't forget to check the PCB's bottom; there may be components on
 both sides!
@@ -416,13 +485,14 @@ Build 3: Keys and display
 In ``make menuconfig``, select the firmware function ``Test keyboard / display``
 that will scan the keyboard and write its findings to the display.
 
-TODO: To build this, you would normally have to write a timer setup and
-interrupt service routine to handle ``bottom_time()`` and
-``bottom_set_timer_set()`` --do not forget to return the old setting for
-the latter-- in addition to the previously written ``bottom_led_set()``
-function.  If you care to play with it, edit
-``src/function/develtest/keys2display.c`` but be sure to recover the original
-before you submit your work.
+To build this, you would normally have to write ``bottom_keyboard_scan()``,
+``bottom_hook_scan()``, ``bottom_show_fixed_msg()``, ``bottom_show_period``,
+``bottom_show_ip4()``, ``bottom_show_ip6()``, ``bottom_show_close_level()``.
+Note that the ``bottom_show_`` routines need not all be implemented fully;
+they exist to permit the top layer to offer information to be laid out in
+a format that is optimal for the target phone.  Do take note that there are
+levels of information, to ensure that shared space on the display is made
+available for higher priority data if need be.
 
 If this works, you are able to scan keys and write texts on the display.
 
@@ -433,20 +503,48 @@ Build 4: Networked console
 In ``make menuconfig``, select the firmware function ``Test network``
 that will provide an LLC-based console over ethernet.
 
-TODO: To build this, you would normally have to write a timer setup and
-interrupt service routine to handle ``bottom_time()`` and
-``bottom_set_timer_set()`` --do not forget to return the old setting for
-the latter-- in addition to the previously written ``bottom_led_set()``
-function.  If you care to play with it, edit
-``src/function/develtest/keys2display.c`` but be sure to recover the original
-before you submit your work.
+To build this, you would normally have to write a driver for the network
+chip.  You would need to handle interrupts from the network interface to
+permit a smoothe operation of the phone.  As part of the driver, you may
+have to locate where the MAC address is in flash -- as that address is
+sometimes loaded from an EEPROM, but on an embedded device it is usually
+cheaper to have the firmware handle that.
 
-If this works, you are able to use the network; your next build would
-be the bootloader, which is the first real application that goes beyond
-developer toys.
+If this works, you are able to send and receive information between the
+CPU and the network.
 
 
-Build 5: Bootloader
+Build 5: Echo unit
+------------------
+
+In ``make menuconfig``, select the firmware function ``Test sound``
+that will echo anything it hears back after a two-second delay.
+
+This is the simplest test for the complete sound interface  It reads
+input signals and sends them back after a delay.  This loop involves
+the microphone for sound reception, DMA for receiving the microphone
+input, the CPU and RAM for the delay, DMA for sending the speaker output,
+and finally the speaker output for playing the sound back at you.
+
+The echo test can toggle between handset mode and speakerphone mode,
+if the phone's hardware supports it.  It will see if the phone is
+off-hook to determine the mode.  Other interfaces (headset and line)
+are not tested, as they are not as vital, and will be much simpler
+to debug after one or two sound paths have shown to work.
+
+To build this, you would normally have to write a driver for the
+sound chip or codec.  This is best done through DMA, as that is the
+best way of assuring a constant playing rate for samples.  An
+approach based on interrupts would suffer from other interrupts and
+critical regions that temporarily disable interrupts.
+
+If this works, the sound parts of your phone appears to be working
+all the way from the CPU to the human operating the phone; your next
+build would be the bootloader, which is the first real application
+that goes beyond developer toys.
+
+
+Build 6: Bootloader
 -------------------
 
 This is the first firmware function that actually reflects a useful
@@ -456,6 +554,16 @@ flash memory.  While the bootloader is active, it will support LAN
 access to the flash memory, even for writing.  Your best bet would be
 to first download the entire contents of flash, of course.
 
+The bootloader is the first target that could actually be useful to
+burn into the phone's flash.  Ideally, this would be done in such a
+place that the original firmware can be re-inserted if so required;
+end-users will be more likely to try your firmerware if it is also
+possible to move back to the original situation that they had.  It
+could be useful if the 0cpm Bootloader could continue to be used
+even under the original firmware, as it gives more control to the
+end-user.  Please document clearly if and how this works on the
+target platform you are porting to.
+
 Note that the bootloader will only run as long as the phone is off-hook;
 if it is on-hook during boot, it will skip to the actual application.
 Given that development machines are usually open, the horn is usually
@@ -464,8 +572,8 @@ be performed with the phone on-hook and so the bootloader would be
 skipped.  This also rules out various abuse patterns.
 
 
-Build 6: SIP phone / doorbell / alarm clock
--------------------------------------------
+Build 7: SIP phone / doorbell / alarm clock / ...
+-------------------------------------------------
 
 You can now select the firmware functions that you are really after.
 

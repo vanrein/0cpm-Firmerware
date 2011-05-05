@@ -7,6 +7,8 @@ objs-top-$(CONFIG_MAINFUNCTION_SIP_PHONE) += src/function/sip6phone.o bin/top-ke
 
 objs-top-$(CONFIG_MAINFUNCTION_BOOTLOADER) += src/function/bootload.o bin/top-kernel.o bin/top-simplenet.o function
 
+objs-top-$(CONFIG_FUNCTION_DEVEL_NETCONSOLE) += src/function/netconsole.o
+
 #
 # Test targets, useful during reverse engineering and forward development
 #
@@ -16,5 +18,7 @@ objs-top-$(CONFIG_MAINFUNCTION_DEVEL_TIMER) += src/function/develtest/timer2led.
 
 objs-top-$(CONFIG_MAINFUNCTION_DEVEL_KEYBOARD) += src/function/develtest/keys2display.o
 
-objs-top-$(CONFIG_MAINFUNCTION_DEVEL_NETCONSOLE) += src/function/develtest/netconsole.o
+objs-top-$(CONFIG_MAINFUNCTION_DEVEL_NETWORK) += src/function/develtest/netconsole.o
+
+objs-top-$(CONFIG_MAINFUNCTION_DEVEL_SOUND) += src/function/develtest/echo.o
 

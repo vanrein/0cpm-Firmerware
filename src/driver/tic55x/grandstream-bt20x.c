@@ -15,6 +15,32 @@
 #include <0cpm/show.h>
 
 #include <bottom/ht162x.h>
+#include <bottom/ksz8842.h>
+
+
+
+/******** EXTERNAL INTERRUPTS SERVICE ROUTINES ********/
+
+
+interrupt void tic55x_int0_isr (void) {
+	tic55x_top_has_been_interrupted = true;
+	ksz8842_interrupt_handler ();
+}
+
+interrupt void tic55x_int1 (void) {
+	tic55x_top_has_been_interrupted = true;
+	//TODO//
+}
+
+interrupt void tic55x_int2 (void) {
+	tic55x_top_has_been_interrupted = true;
+	//TODO//
+}
+
+interrupt void tic55x_int3 (void) {
+	tic55x_top_has_been_interrupted = true;
+	//TODO//
+}
 
 
 /******** HT162x LCD DRIVER LOW-LEVEL FUNCTIONS ********/
@@ -179,8 +205,7 @@ void bottom_led_set (led_idx_t ledidx, led_colour_t col) {
 /* See if the phone (actually, the horn) is offhook */
 bool bottom_phone_is_offhook (void) {
 	// The hook switch is attached to GPIO pin 5
-	// return ! tic55x_input_get_bit (REGADDR_IODATA, 5);
-	return (IODATA & (1 << 5)) != 0;
+	return (IODATA & 0x20) != 0;
 }
 
 
@@ -421,6 +446,59 @@ void bottom_show_voicemail (app_level_t level, uint16_t new, uint16_t old) {
 void main (void) {
 	uint16_t idx;
 	led_colour_t led = LED_STABLE_ON;
+	//
+	// PLL setup: Crystal is 16.384 MHz, increase that a bit
+	//TODO: Possible in theory, but doesn't run and sinusoidal in practice
+	//      At lower PLLM factors, the sine is larger and clips to squarish
+	//TODO// PLLM = REGVAL_PLLM_TIMES_15;
+	//TODO// PLLCSR &= ~REGVAL_PLLCSR_PLLRST;
+	//TODO// while (!(PLLCSR & REGVAL_PLLCSR_STABLE)) {
+	//TODO// 	;
+	//TODO// }
+	//TODO// PLLDIV1 = REGVAL_PLLDIVx_DxEN | REGVAL_PLLDIVx_PLLDIVx_4;
+	//TODO// PLLDIV2 = REGVAL_PLLDIVx_DxEN | REGVAL_PLLDIVx_PLLDIVx_4;
+	//TODO// PLLDIV3 = REGVAL_PLLDIVx_DxEN | REGVAL_PLLDIVx_PLLDIVx_4;
+	//TODO// PLLCSR |= REGVAL_PLLCSR_PLLEN;
+	//
+	// EMIF settings, see SPRU621F, section 2.12 on "EMIF Registers"
+	//
+	// EGCR1 = ...;   // (defaults)
+	// EGCR2 = ...;   // (defaults)
+	// CESCR1 = ...;   // (defaults)
+	// CESCR2 = ...;   // (defaults)
+	//
+	// CE0 selects the network interface
+	// CE0_1 = 0xff03;   // DEFAULT 8-bit async (and defaults)
+	// Fail: CE0_1 = 0xc112;   // 16-bit async, rd setup 2, rd strobe 1, rd hold 2
+	// Fail: CE0_2 = 0x20a2;	  // wr setup 2, wr strobe 2, wr hold 2, rd setup 2
+	CE0_1 = 0x3f2f;
+	CE0_2 = 0xffff;
+	// CE0_2 = ...;   // (defaults)
+	// CE0_SC1 = ...;   // (defaults)
+	// CE0_SC2 = ...;   // (defaults)
+	//
+	// CE1 selects the flash chip
+	CE1_1 = 0xff13;   // 16-bit async (and defaults)
+	// CE1_2 = ...;   // (defaults)
+	// CE1_SC1 = ...;   // (defaults)
+	// CE1_SC2 = ...;   // (defaults)
+	//
+	// CE2 selects the SDRAM chips
+	CE2_1 = 0xff33;   // 32-bit SDRAM (and defaults)
+	//TEST// CE2_1 = 0xff13;   // 16-bit async (and defaults)
+	// CE2_2 = ...;   // (defaults)
+	// CE2_SC1 = ...;   // (defaults)
+	// CE2_SC2 = ...;   // (defaults)
+	// Possible: SDC1, SDC2, SDRC1, SDRC2, SDX1, SDX2
+	//
+	// CE3 selects the D-flipflops for keyboard and LCD
+	CE3_1 = 0xff13;   // 16-bit async (and defaults)
+	// CE3_2 = ...;   // (defaults)
+	// CE3_SC1 = ...;   // (defaults)
+	// CE3_SC2 = ...;   // (defaults)
+	//
+	// Further initiation follows
+	//
 	for (idx = 0; idx < APP_LEVEL_COUNT; idx++) {
 		bt200_level_active [idx] = false;
 	}
@@ -432,6 +510,10 @@ void main (void) {
 	tic55x_setup_timers ();
 	tic55x_setup_interrupts ();
 	ht162x_setup_lcd ();
+	ksz8842_setup_network ();
+	// Enable INT0..INT3
+	IER0 |= 0x080c;
+	IER1 |= 0x0001;
 	PCR0 = (1 << REGBIT_PCR_XIOEN) | (1 << REGBIT_PCR_RIOEN);
 
 #if 0

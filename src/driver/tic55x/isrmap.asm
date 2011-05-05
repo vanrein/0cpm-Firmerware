@@ -10,13 +10,14 @@
 		.ref	_c_int00
 		.ref	_tic55x_no_isr
 		.ref	_tic55x_tint0_isr
+		.ref	_tic55x_int0_isr
 
 _tic55x_bootld	.set	0xff8000
 
 isrmap0:
 resetvect	.ivec	_c_int00, NO_RETA
 nmi		.ivec	_tic55x_no_isr
-int0		.ivec	_tic55x_no_isr
+int0		.ivec	_tic55x_int0_isr
 int2		.ivec	_tic55x_no_isr
 tint0		.ivec	_tic55x_tint0_isr
 rint0		.ivec	_tic55x_no_isr

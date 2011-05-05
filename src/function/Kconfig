@@ -75,10 +75,16 @@ config MAINFUNCTION_BOOTLOADER
 
 endchoice
 
+config FUNCTION_SOUND_PLAYER
+	bool "Sound player"
+	help
+	  Condfigure the phone as a networked sound device.  This enables
+	  computers on the LAN to send sound to the phone to have it played.
+	  This is only possible on an IPv6-enabled LAN.
+
 config FUNCTION_DEVEL_NETCONSOLE
 	bool "LAN-based console"
 	default y if DEVEL=y 
-	default n if DEVEL=n
 	help
 	  Direct console traffic for the main application to the network.
 

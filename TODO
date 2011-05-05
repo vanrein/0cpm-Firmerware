@@ -30,3 +30,8 @@ look at:
   they could be, there is no neighbour or ARP cache, there is no
   storage for servers for dns, ntp, sip-proxy.
 
+* tic55x's int.c driver: work out conditions for hibernation sleep.
+
+* tic55x's PLL: get better performance by increasing clock rate.  This
+  will influence other forms of timing, such as RAM, Network and Codec.
+

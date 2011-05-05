@@ -48,12 +48,38 @@ extern volatile uint16_t IVPD, IVPH;
 asm ("_IVPD .set 0x0049");
 asm ("_IVPH .set 0x004a");
 
+extern volatile bool tic55x_top_has_been_interrupted;
+
 void setup_interrupts (void);
 
 /* General Purpose I/O registers */
 extern volatile uint16_t ioport IODIR, IODATA;
 asm ("_IODIR .set 0x3400");
 asm ("_IODATA .set 0x3401");
+
+/* EMIF and CE space control registers */
+extern volatile uint16_t ioport EGCR1, EGCR2;
+extern volatile uint16_t ioport CE0_1, CE0_2, CE1_1, CE1_2, CE2_1, CE2_2, CE3_1, CE3_2;
+extern volatile uint16_t ioport CE0_SEC1, CE0_SEC2, CE1_SEC1, CE1_SEC2,
+                                CE2_SEC1, CE2_SEC2, CE3_SEC1, CE3_SEC2;
+asm ("_EGCR1 .set 0x0800");
+asm ("_EGCR2 .set 0x0801");
+asm ("_CE1_1 .set 0x0802");
+asm ("_CE1_2 .set 0x0803");
+asm ("_CE0_1 .set 0x0804");
+asm ("_CE0_2 .set 0x0805");
+asm ("_CE2_1 .set 0x0808");
+asm ("_CE2_2 .set 0x0809");
+asm ("_CE3_1 .set 0x080a");
+asm ("_CE3_2 .set 0x080b");
+asm ("_CE1_SEC1 .set 0x0822");
+asm ("_CE1_SEC2 .set 0x0823");
+asm ("_CE0_SEC1 .set 0x0824");
+asm ("_CE0_SEC2 .set 0x0825");
+asm ("_CE2_SEC1 .set 0x0828");
+asm ("_CE2_SEC2 .set 0x0829");
+asm ("_CE3_SEC1 .set 0x082a");
+asm ("_CE3_SEC2 .set 0x082b");
 
 /* Pin Control Registers for McBSP0, McBSP1 */
 extern volatile uint16_t ioport PCR0, PCR1;
@@ -145,6 +171,38 @@ asm ("_PICR .set 0x9400");
 #define REGBIT_PICR_SP0 2
 #define REGBIT_PICR_TIM1 1
 #define REGBIT_PICR_TIM0 0
+
+/* PLL configuration registers */
+extern volatile uint16_t ioport PLLCSR, PLLM, PLLDIV1, PLLDIV2, PLLDIV3;
+asm ("_PLLCSR .set 0x1c80");
+asm ("_PLLM .set 0x1c88");
+asm ("_PLLDIV1 .set 0x1c8c");
+asm ("_PLLDIV2 .set 0x1c8e");
+asm ("_PLLDIV3 .set 0x1c90");
+
+#define REGVAL_PLLM_TIMES_2		0x0002
+#define REGVAL_PLLM_TIMES_3		0x0003
+#define REGVAL_PLLM_TIMES_4		0x0004
+#define REGVAL_PLLM_TIMES_5		0x0005
+#define REGVAL_PLLM_TIMES_6		0x0006
+#define REGVAL_PLLM_TIMES_7		0x0007
+#define REGVAL_PLLM_TIMES_8		0x0008
+#define REGVAL_PLLM_TIMES_9		0x0009
+#define REGVAL_PLLM_TIMES_10		0x000a
+#define REGVAL_PLLM_TIMES_11		0x000b
+#define REGVAL_PLLM_TIMES_12		0x000c
+#define REGVAL_PLLM_TIMES_13		0x000d
+#define REGVAL_PLLM_TIMES_14		0x000e
+#define REGVAL_PLLM_TIMES_15		0x000f
+
+#define REGVAL_PLLCSR_PLLEN		0x0001
+#define REGVAL_PLLCSR_PLLRST		0x0008
+#define REGVAL_PLLCSR_STABLE		0x0040
+
+#define REGVAL_PLLDIVx_DxEN		0x8000
+#define REGVAL_PLLDIVx_PLLDIVx_1	0x0000
+#define REGVAL_PLLDIVx_PLLDIVx_2	0x0001
+#define REGVAL_PLLDIVx_PLLDIVx_4	0x0003
 
 
 #endif
