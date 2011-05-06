@@ -88,15 +88,19 @@ config FUNCTION_DEVEL_NETCONSOLE
 	help
 	  Direct console traffic for the main application to the network.
 
-	  The protocol used for this network console is Logical Link Control.
-	  This is an ethernet-level protocol, so it will only work locally.
+	  The protocol used for this network console is Logical Link Control
+	  or IEEE 802.2, more to the point LLC2 which is a bit like TCP but
+	  directly on top of Ethernet.  It is only accessible to directly
+	  connected computers on the same LAN, so this is very suitable to
+	  release console information to a LAN.
 
-	  This console can also be selected as a main function for the
-	  image being built, to test network connectivity.
+	  This console can be an add-on module for other targets, or it can
+	  be selected as a development target to become the main function for
+	  the image being built.  In that capacity it is a good test for the
+	  network drivers.
 
-	  TODO: ports
-
-	  This facility is normally only of use during development.
+	  This facility is normally only of use during development, but may
+	  nonetheless be compiled into end-user modules.
 
 config FUNCTION_FIRMWARE_UPGRADES
 	bool "Support firmware upgrades"

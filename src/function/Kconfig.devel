@@ -31,8 +31,13 @@ config MAINFUNCTION_DEVEL_NETWORK
 	depends on DEVEL
 	select FUNCTION_DEVEL_NETCONSOLE
 	help
-	  This test runs a networked console.  In addition to the usual console
-	  functions, respond to any text sent by mapping it to uppercase.
+	  This test runs a networked console.  The test will print information
+	  about incoming network packets and ignore traffic sent to the device.
+
+	  Note that the performance is not based on timers, but instead
+	  triggered when something is logged.  This may lead to delays in the
+	  delivery, of bursty sends that cause rejects at the LLC2 level.
+	  This is really just a test, rather than a perfect application.
 
 	  The details of the networked console are described under the
 	  add-on function for this console, one menu level up.

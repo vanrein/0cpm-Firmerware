@@ -42,7 +42,7 @@
 
 static char consbuf [CONSBUFLEN];
 
-static uint16_t rpos = CONSBUFLEN, wpos = 0;
+static uint16_t rpos = 0, wpos = 0;
 
 
 /******** NETWORK INTERFACE ROUTINES ********/
@@ -94,67 +94,104 @@ void netcons_close (void) {
 static const char digits [] = "0123456789abcdef";
 
 static void cons_putchar (char c) {
-	// TODO: Handle buffer full conditions
 	if (wpos >= CONSBUFLEN) {
 		wpos = 0;
+	}
+	if (wpos + 1 == rpos) {
+		rpos++;
+		if (rpos >= CONSBUFLEN) {
+			rpos -= CONSBUFLEN;
+		}
 	}
 	consbuf [wpos++] = c;
 }
 
-static void cons_putint (uint32_t val, uint8_t base, uint8_t minpos) {
-	uint32_t divisor = 1;
-	while (minpos-- > 0) {
+static void cons_putint (unsigned long int val, uint8_t base, uint8_t minpos) {
+	unsigned long int divisor = 1;
+	while (minpos-- > 1) {
 		divisor *= base;
 	}
 	while (val / base > divisor) {
 		divisor *= base;
 	}
-	while (divisor > 0) {
+	do {
 		cons_putchar (digits [(val / divisor)]);
 		val %= divisor;
 		divisor /= base;
-	}
+	} while (divisor > 0);
 }
 
 void bottom_console_vprintf (char *fmt, va_list argh) {
 	char *fp = fmt;
 	char *str;
 	char ch;
-	uint32_t intval;
+	unsigned long int intval;
 	while (*fp) {
+		uint8_t minpos = 0;
+		bool longval = false;
 		if (*fp != '%') {
 			cons_putchar (*fp++);
 		} else {
 			fp++;
+		moremeuk:
 			switch (*fp++) {
 			case '\0':
 				fp--;
 				break;
+			case 'l':
+				longval = true;
+				goto moremeuk;
+			case '0':
+			case '1':
+			case '2':
+			case '3':
+			case '4':
+			case '5':
+			case '6':
+			case '7':
+			case '8':
+			case '9':
+				minpos *= 10;
+				minpos += fp [-1] - '0';
+				goto moremeuk;
 			case 'c':
 				ch = va_arg (argh, char);
 				cons_putchar (ch);
 				break;
 			case 's':
 				str = va_arg (argh, char *);
+				if (str == NULL) {
+					str = "(NULL)";
+				}
 				while (*str) {
 					cons_putchar (*str++);
+					if (minpos > 0) {
+						minpos--;
+					}
+				}
+				while (minpos-- > 0) {
+					cons_putchar (' ');
 				}
 				break;
 			case 'd':
-				intval = (uint32_t) va_arg (argh, unsigned int);
-				cons_putint (intval, 10, 0);
-				break;
-			case 'l':
-				intval = va_arg (argh, uint32_t);
-				cons_putint (intval, 10, 0);
+				if (longval) {
+					intval =                     va_arg (argh, unsigned long int);
+				} else {
+					intval = (unsigned long int) va_arg (argh, unsigned int);
+				}
+				cons_putint (intval, 10, minpos);
 				break;
 			case 'p':
-				intval = (uint32_t) va_arg (argh, void *);
-				cons_putint (intval, 16, 8);
+				intval = (unsigned long int) va_arg (argh, void *);
+				cons_putint (intval, 16, (minpos > 8)? minpos: 8);
 				break;
 			case 'x':
-				intval = (uint32_t) va_arg (argh, unsigned int);
-				cons_putint (intval, 16, 8);
+				if (longval) {
+					intval =                     va_arg (argh, unsigned long int);
+				} else {
+					intval = (unsigned long int) va_arg (argh, unsigned int);
+				}
+				cons_putint (intval, 16, minpos);
 				break;
 			case '%':
 			default:

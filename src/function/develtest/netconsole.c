@@ -74,13 +74,13 @@ static uint8_t llc_ua [6 + 6 + 2 + 3];
 static uint8_t llc_rr [6 + 6 + 2 + 4];
 static uint8_t llc_sent;
 static uint8_t llc_received;
+static uint8_t llc_input;
 
 
 /* Dummy LLC2 send routine, ignoring "cnx" as there is just one LLC2 connection.
- * This is out-only, so N(R) always sends as 0x00 and N(S) increments.
  * Before sending, the routine will first establish whether the last send
- * was successful; if not, it will repeat that.  The return value is true if
- * at least the send was done, relying on future calls to resend if need be.
+ * was successful; if not, it will repeat that.  The return value is true if at
+ * least the new send was done, relying on future calls to resend if need be.
  */
 uint8_t llc_pkt [100];
 uint16_t llc_pktlen;
@@ -102,7 +102,7 @@ bool netsend_llc2 (struct llc2 *cnx, uint8_t *data, uint16_t datalen) {
 		llc_pkt [14] = peer_sap;		// DSAP
 		llc_pkt [15] = 20;			// SSAP
 		llc_pkt [16] = llc_sent << 1;		// N(S) = 0x00, information frame
-		llc_pkt [17] = 0x00;			// N(R) = sent-up-to-here, low bit reset
+		llc_pkt [17] = llc_input << 1;		// N(R) = sent-up-to-here, low bit reset
 		memcpy (llc_pkt + 18, data, datalen);
 		llc_pktlen = 6 + 6 + 2 + 4 + datalen;
 		llc_sent++;
@@ -130,7 +130,7 @@ void selfish_llc2_handler (uint8_t *pkt, uint16_t pktlen) {
 	}
 #endif
 	if (typelen > 1500) {
-		// bottom_printf ("Traffic is not LLC but protocol 0x%x\n", (unsigned int) typelen);
+		bottom_printf ("Traffic is not LLC but protocol 0x%4x\n", (unsigned int) typelen);
 		return;
 	}
 	if ((typelen > 64) && (typelen != pktlen)) {
@@ -158,7 +158,7 @@ void selfish_llc2_handler (uint8_t *pkt, uint16_t pktlen) {
 	if (cmd == 0x007f) {				// SABME (llc.connect)
 		memcpy (peer_mac, pkt + 6, 6);
 		peer_sap = pkt [15] & 0xfe;
-		llc_sent = llc_received = 0x00;
+		llc_sent = llc_received = llc_input = 0x00;
 		llc_connected = true;
 		netcons_connect (&llc2_dummy_handle);
 		ack = true;
@@ -179,7 +179,7 @@ void selfish_llc2_handler (uint8_t *pkt, uint16_t pktlen) {
 	} else if ((cmd & 0x0007) == 0x0001) {		// Receiver ready / Receiver Reject
 		llc_received = (cmd >> 9);
 	} else {
-		bottom_printf ("Selfishly ignoring LLC traffic with cmd bytes 0x%x 0x%x\n", (uint32_t) pkt [16], (uint32_t) pkt [17]);
+		bottom_printf ("Selfishly ignoring LLC traffic with cmd bytes 0x%2x%2x\n", (unsigned int) pkt [16], (unsigned int) pkt [17]);
 	}
 	if (ack) {
 		memcpy (llc_ua +  0, peer_mac, 6);
@@ -204,16 +204,13 @@ void onlinetest_top_main (void) {
 			netinputlen = sizeof (netinput);
 			if (bottom_network_recv (netinput, &netinputlen)) {
 				if (memcmp (netinput, "\xff\xff\xff\xff\xff\xff", 6) == 0) {
-					bottom_printf ("Broadcast!\n");
-#if 0
-					bottom_printf ("Broadcast from %x:%x:%x:%x:%x:%x\n",
+					bottom_printf ("Broadcast from %2x:%2x:%2x:%2x:%2x:%2x\n",
 							(unsigned int) netinput [ 6],
 							(unsigned int) netinput [ 7],
 							(unsigned int) netinput [ 8],
 							(unsigned int) netinput [ 9],
 							(unsigned int) netinput [10],
 							(unsigned int) netinput [11]);
-#endif
 				} else {
 					bottom_led_set (LED_IDX_BACKLIGHT, LED_STABLE_OFF);
 					selfish_llc2_handler (netinput, netinputlen);
