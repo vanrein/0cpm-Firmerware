@@ -94,14 +94,17 @@ tags: src/net/6bed4.c
 .PHONY += clean
 clean:
 	rm -f $(objs-top-y) $(objs-top-n) $(objs-top-)
+	rm -f $(objs-top-kernel-y) $(objs-top-kernel-n) $(objs-top-kernel-)
+	rm -f $(objs-top-net-y) $(objs-top-net-n) $(objs-top-net-)
+	rm -f $(objs-top-phone-y) $(objs-top-phone-n) $(objs-top-phone-)
 	# rm -f $(objs-top-net-y)
 	# rm -f $(objs-top-phone-y)
-	rm -f $(objs-bottom-y)
+	rm -f $(objs-bottom-y) $(objs-bottom-n) $(objs-bottom-)
 	rm -f $(objs-top-y:.o=.d) $(objs-top-n:.o=.d) $(objs-top-:.o=.d)
 	# rm -f $(objs-top-kernel-y:.o=.d)
 	# rm -f $(objs-top-net-y:.o=.d)
 	# rm -f $(objs-top-phone-y:.o=.d)
-	rm -f $(objs-bottom-y:.o=.d)
+	rm -f $(objs-bottom-y:.o=.d) $(objs-bottom-n:.o=.d) $(objs-bottom-:.o=.d)
 	rm -f bin/top-kernel.o bin/top-net.o bin/top-phone.o
 	rm -f bin/top.o bin/bottom.o
 	rm -f include/config.h

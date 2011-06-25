@@ -1,7 +1,20 @@
-/*
- * http://devel.0cpm.org/ -- Open source firmware for SIP phones.
+/* Interrupt drivers
  *
- * Interrupt drivers
+ * This file is part of 0cpm Firmerware.
+ *
+ * 0cpm Firmerware is Copyright (c)2011 Rick van Rein, OpenFortress.
+ *
+ * 0cpm Firmerware is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, version 3.
+ *
+ * 0cpm Firmerware is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with 0cpm Firmerware.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 
@@ -35,7 +48,11 @@ struct irq_type {
 };
 
 
-/* Manage interrupts; fire one */
+/* Add an IRQ to the queue of interrupt tasks to be scheduled.
+ * This routine must always be called with interrupts inactive;
+ * either as part of an interrupt routine, or when called in the
+ * course of the main program, from within a critical region.
+ */
 void irq_fire (irq_t *irq);
 
 /* Top-half operations to manipulate interrupts */

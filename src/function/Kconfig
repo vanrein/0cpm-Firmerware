@@ -51,6 +51,8 @@ config MAINFUNCTION_SIP_ALARMCLOCK
 
 config MAINFUNCTION_BOOTLOADER
 	bool "Bootloader"
+	select FUNCTION_NETCONSOLE
+	select FUNCTION_FIRMWARE_UPGRADES
 	help
 	  Some phones have less RAM than Flash on board.  On such phones,
 	  stability improves with the installation of a small bootloader
@@ -63,15 +65,16 @@ config MAINFUNCTION_BOOTLOADER
 
 	  While the bootloader is active, all nonvolatile partitions are
 	  made available over TFTP for reading and writing.  To aid in
-	  automation, the bootloader will push the availability of this
-	  TFTP service out over DNS-SD and mDNS, although it will not
-	  continue to function as a general DNS-SD server.
+	  automation, ...TODO...
 
-	  The bootloader does not run over IPv6 and is only routed locally;
-	  to that end, it acquires an IP4LL "zeroconfig" IP address.  These
-	  addresses are not intended to be routed, and are not welcome on
-	  the general Internet infrastructure.  This means that bootloader
-	  image functions are protected from remote attacks.
+	  The bootloader does not run over IPv6 or even IPv4; it is only
+	  routed locally because it runs as a TFTP server directly on top
+	  of 802.2 Ethernet (LLC type 1).  You will need a special TFTP
+	  client to be able to access the bootloader.
+
+	  Note that the bootloader code itself can also be replaced by
+	  the bootloader.  Be very careful when doing that, as there
+	  will be no warning for quite a few mistakes you could make.
 
 endchoice
 
@@ -82,9 +85,9 @@ config FUNCTION_SOUND_PLAYER
 	  computers on the LAN to send sound to the phone to have it played.
 	  This is only possible on an IPv6-enabled LAN.
 
-config FUNCTION_DEVEL_NETCONSOLE
+config FUNCTION_NETCONSOLE
 	bool "LAN-based console"
-	default y if DEVEL=y 
+	default y if DEVEL=n
 	help
 	  Direct console traffic for the main application to the network.
 
@@ -104,13 +107,13 @@ config FUNCTION_DEVEL_NETCONSOLE
 
 config FUNCTION_FIRMWARE_UPGRADES
 	bool "Support firmware upgrades"
-	depends on MAINFUNCTION_SIP_PHONE
-	default n
+	default y if MAINFUNCTION_BOOTLOADER=y
 	help
 	  It is possible, though not strictly required, to support
 	  the download and installation of new firmware.  As normal
 	  IP addresses are used, this is not as safe as the upgrades
 	  that are included in the dedicated bootloader main function.
+	  TODO: Also use TFTP over LLC1?
 
 	  If the upgrade fails, the phone will need to be upgraded
 	  through the bootloader, if it has one.

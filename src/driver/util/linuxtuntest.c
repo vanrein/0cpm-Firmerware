@@ -1,43 +1,58 @@
 /* tuntest.c -- Tunnel-based testing of the network code.
  *
- * From: Rick van Rein <rick@openfortress.nl>
+ * This file is part of 0cpm Firmerware.
+ *
+ * 0cpm Firmerware is Copyright (c)2011 Rick van Rein, OpenFortress.
+ *
+ * 0cpm Firmerware is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, version 3.
+ *
+ * 0cpm Firmerware is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with 0cpm Firmerware.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 
 #include <stdlib.h>
-#include <stdio.h>
+// #include <stdio.h>
 #include <stdint.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <string.h>
 #include <fcntl.h>
-#include <errno.h>
+// #include <errno.h>
 
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <sys/select.h>
-#include <sys/time.h>
-#include <sys/uio.h>
+// #include <sys/types.h>
+// #include <sys/ioctl.h>
+// #include <sys/socket.h>
+// #include <sys/select.h>
+// #include <sys/time.h>
+// #include <sys/uio.h>
 
-#include <netinet/ip.h>
-#include <netinet/ip6.h>
-#include <netinet/udp.h>
-#include <netinet/ip_icmp.h>
-#include <netinet/icmp6.h>
+// #include <netinet/ip.h>
+// #include <netinet/ip6.h>
+// #include <netinet/udp.h>
+// #include <netinet/ip_icmp.h>
+// #include <netinet/icmp6.h>
 
-#include <linux/if.h>
-#include <linux/if_tun.h>
-#include <linux/if_ether.h>
+// #include <linux/if.h>
+// #include <linux/if_tun.h>
+// #include <linux/if_ether.h>
 
 #include <config.h>
 
 #include <0cpm/cpu.h>
 #include <0cpm/netfun.h>
 #include <0cpm/netdb.h>
-
 #include <0cpm/timer.h>
 #include <0cpm/led.h>
+#include <0cpm/netinet.h>
+#include <0cpm/cons.h>
 
 
 int tunsox = -1;
@@ -54,52 +69,52 @@ bool sleepy = false;
  */
 
 uint8_t *net_arp_reply (uint8_t *pkt, uint32_t pktlen, intptr_t *mem) {
-	printf ("Received: ARP Reply\n");
+	bottom_printf ("Received: ARP Reply\n");
 	return NULL;
 }
 
 uint8_t *net_arp_query (uint8_t *pkt, uint32_t pktlen, intptr_t *mem) {
-	printf ("Received: ARP Query\n");
+	bottom_printf ("Received: ARP Query\n");
 	return NULL;
 }
 
 uint8_t *net_rtp (uint8_t *pkt, uint32_t pktlen, intptr_t *mem) {
-	printf ("Received: RTP\n");
+	bottom_printf ("Received: RTP\n");
 	return NULL;
 }
 
 uint8_t *net_rtcp (uint8_t *pkt, uint32_t pktlen, intptr_t *mem) {
-	printf ("Received: RTCP\n");
+	bottom_printf ("Received: RTCP\n");
 	return NULL;
 }
 
 uint8_t *net_sip (uint8_t *pkt, uint32_t pktlen, intptr_t *mem) {
-	printf ("Received: SIP\n");
+	bottom_printf ("Received: SIP\n");
 	return NULL;
 }
 
 uint8_t *net_mdns_resp_error (uint8_t *pkt, uint32_t pktlen, intptr_t *mem) {
-	//TODO// printf ("Received: mDNS error response\n");
+	//TODO// bottom_printf ("Received: mDNS error response\n");
 	return NULL;
 }
 
 uint8_t *net_mdns_resp_dyn (uint8_t *pkt, uint32_t pktlen, intptr_t *mem) {
-	//TODO// printf ("Received: mDNS dynamic response\n");
+	//TODO// bottom_printf ("Received: mDNS dynamic response\n");
 	return NULL;
 }
 
 uint8_t *net_mdns_resp_std (uint8_t *pkt, uint32_t pktlen, intptr_t *mem) {
-	//TODO// printf ("Received: mDNS standard response\n");
+	//TODO// bottom_printf ("Received: mDNS standard response\n");
 	return NULL;
 }
 
 uint8_t *net_mdns_query_error (uint8_t *pkt, uint32_t pktlen, intptr_t *mem) {
-	//TODO// printf ("Received: mDNS error query\n");
+	//TODO// bottom_printf ("Received: mDNS error query\n");
 	return NULL;
 }
 
 uint8_t *net_mdns_query_ok (uint8_t *pkt, uint32_t pktlen, intptr_t *mem) {
-	//TODO// printf ("Received: mDNS ok query\n");
+	//TODO// bottom_printf ("Received: mDNS ok query\n");
 	return NULL;
 }
 
@@ -123,7 +138,7 @@ timing_t bottom_time (void) {
 	struct timeval now;
 	timing_t retval;
 	if (gettimeofday (&now, NULL) != 0) {
-		fprintf (stderr, "Failed to get clock time: %s\n", strerror (errno));
+		bottom_printf ("Failed to get clock time: %s\n", strerror (errno));
 		return 0;
 	}
 	retval = now.tv_sec * 1000 + (now.tv_usec / 1000);
@@ -181,7 +196,7 @@ void bottom_sleep_commit (sleep_depth_t depth) {
 		top_timer_expiration (exptm);
 		sleepy = false;
 	} else {
-		fprintf (stderr, "select() returned an error: %s\n", strerror (errno));
+		bottom_printf ("select() returned an error: %s\n", strerror (errno));
 		sleep (1);
 	}
 }
@@ -195,7 +210,7 @@ bool bottom_network_send (uint8_t *buf, uint16_t buflen) {
 		if (errno == EAGAIN) {
 			return false;
 		} else {
-			fprintf (stderr, "Ignoring error after write to tunnel: %s\n", strerror (errno));
+			bottom_printf ("Ignoring error after write to tunnel: %s\n", strerror (errno));
 		}
 	}
 	return true;
@@ -208,7 +223,7 @@ bool bottom_network_recv (uint8_t *buf, uint16_t *buflen) {
 		if (errno == EAGAIN) {
 			return false;
 		} else {
-			fprintf (stderr, "Ignoring error after read from tunnel: %s\n", strerror (errno));
+			bottom_printf ("Ignoring error after read from tunnel: %s\n", strerror (errno));
 		}
 		*buflen = 0;
 	} else if (rsz > sizeof (struct tun_pi)) {
@@ -249,7 +264,7 @@ int process_packets (int secs) {
 #if 0
 			int i;
 			for (i=0; i<28; i++) {
-				printf ("  M[%d]=0x%08x%s", i, mem [i],
+				bottom_printf ("  M[%d]=0x%08x%s", i, mem [i],
 						((i+1)%4 == 0)? "\n": "");
 			}
 #endif
@@ -317,14 +332,14 @@ int main (int argc, char *argv []) {
 	init ();
 	int tunsox = setup_tunnel ();
 	if (tunsox == -1) {
-		fprintf (stderr, "Failed to setup tunnel\n");
+		bottom_printf ("Failed to setup tunnel\n");
 		exit (1);
 	}
 	system ("/sbin/ifconfig test0cpm up");
 	system ("/sbin/ifconfig test0cpm");
 	sleep (10);
 	top_main ();
-	fprintf (stderr, "top_main() returned -- which MUST NOT happen!\n");
+	bottom_printf (stderr, "top_main() returned -- which MUST NOT happen!\n");
 	close (tunsox);
 	exit (1);
 }

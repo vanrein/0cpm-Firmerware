@@ -1,6 +1,24 @@
 /* General timer management.
  *
- * The tic55x has multiple 64-bit timers, we'll use timer0 and timer1.
+ * This file is part of 0cpm Firmerware.
+ *
+ * 0cpm Firmerware is Copyright (c)2011 Rick van Rein, OpenFortress.
+ *
+ * 0cpm Firmerware is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, version 3.
+ *
+ * 0cpm Firmerware is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with 0cpm Firmerware.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+
+/* The tic55x has multiple 64-bit timers, we'll use timer0 and timer1.
  *
  * Since a timer can either be set to fire or continue to count,
  * but not both, we'll need two timers:
@@ -75,6 +93,7 @@ timing_t bottom_timer_set (timing_t tim) {
 	/* Juggle timing values to return the current setting */
 	previous = current_timer;
 	current_timer = tim;
+again:
 	/* Setup counter and period registers for timer0 */
 	GPTCNT3_0 = GPTCNT3_1; // Read CNT3, copy CNT4 to shadow
 	GPTCNT4_0 = GPTCNT4_1; // Load CNT4 from shadow copy
@@ -87,10 +106,14 @@ timing_t bottom_timer_set (timing_t tim) {
 	cnt2 = GPTCNT2_0;
 	intval = tim - ((GPTCNT2_0 << 16) | GPTCNT1_0);
 	if ((intval == 0) || (intval >> 31)) {
+		timing_t oldtimer = tim;
 		// Invoke handler right now, do not run timer0
-		top_timer_expiration (tim);
-		current_timer = 0;
-		return previous;
+		tim = top_timer_expiration (oldtimer);
+		if (tim != oldtimer) {
+			goto again; //TODO:TEST//
+		}
+		//TODO:OLD// current_timer = 0;
+		//TODO:OLD// return previous;
 	}
 	/* Finally, enable timer1 so it starts counting time */
 	GPTGCTL1_0 |= REGVAL_GCTL_TIM12RS | REGVAL_GCTL_TIM34RS;
@@ -102,8 +125,12 @@ timing_t bottom_timer_set (timing_t tim) {
 interrupt void tic55x_tint0_isr (void) {
 	extern volatile bool tic55x_top_has_been_interrupted;
 	timing_t now = bottom_time ();
+	timing_t newsetting;
 	current_timer = 0;
-	top_timer_expiration (now);
+	newsetting = top_timer_expiration (now);
+	if (now != newsetting) {
+		bottom_timer_set (now);
+	}
 	tic55x_top_has_been_interrupted = true;
 }
 
@@ -116,9 +143,9 @@ void tic55x_setup_timers (void) {
 	GPTGCTL1_1 = 0;
 	/* Let the lower half of timer0/timer1 count once per ms */
 	GPTPRD4_0 =
-	GPTPRD4_1 = (uint16_t) ((SYSCLK1_TO_MS_DIVIDER-1) >> 16);
+	GPTPRD4_1 = (uint16_t) (((uint32_t) SYSCLK1_TO_MS_DIVIDER-1) >> 16);
 	GPTPRD3_0 =
-	GPTPRD3_1 = (uint16_t) ((SYSCLK1_TO_MS_DIVIDER-1) & 0xffff);
+	GPTPRD3_1 = (uint16_t) (((uint32_t) SYSCLK1_TO_MS_DIVIDER-1) & 0xffff);
 	/* Let the upper half of timer1 count with a 2^32 period */
 	GPTPRD2_1 =
 	GPTPRD1_1 = 0xffff;

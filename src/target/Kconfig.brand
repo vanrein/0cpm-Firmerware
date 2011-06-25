@@ -61,5 +61,17 @@ config TARGET_GIGASET
 
 	  TODO: Demo entry. Not implemented yet.
 
+config TARGET_IMAGINARY
+	bool "Imaginary phone targets"
+	help
+	  These target phones do not actually exist.  They are merely
+	  used as placeholders for hardware that is likely to come to
+	  life in some shape or form in the near future.  Do not build
+	  targets based on this target without updating the build
+	  structures in src/target/Kconfig* and src/target/Makefile*
+	  to something more concrete.
+
+	  TODO: Demo entry. Not likely to build.
+
 endchoice
 

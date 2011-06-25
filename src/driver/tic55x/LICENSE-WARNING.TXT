@@ -28,7 +28,7 @@ Diverting the problem
 ---------------------
 
 It is difficult, but not impossible to avoid getting into trouble
-with either or both licenses.  We first summerise them, and than
+with either or both licenses.  We first summerise them, and then
 detail the options further down.
 
 1. Do not release your modified code to anyone
@@ -62,14 +62,15 @@ not suffer from it.
 >>> ad 2. Unaltered binaries
 
 	You could make the choice to use unaltered binaries
-	that you can download from our website.  This could
-	imply that you would have to clone a hardware
+	that your users can download from our website.  This
+	could imply that you would have to clone a hardware
 	platform.  Please inform yourself of the possible
 	copyright infringements that you are risking before
 	you do this.  We reverse engineered phones, which is
 	not an offense as we are not copying them, but you
-	might run into problems if you did.  Read (ad 2) for
-	a way out.
+	could run into problems if you did.  Read (ad 3) and
+	(ad 4) for solutions that help you to binaries for
+	your own hardware.
 
 >>> ad 3. Submit changes
 

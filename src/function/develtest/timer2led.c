@@ -1,4 +1,22 @@
-/* timer2led.c -- simple test where a timer toggles a LED (T=1s, D=50%) */
+/* timer2led.c -- simple test where a timer toggles a LED (T=1s, D=50%)
+ *
+ * This file is part of 0cpm Firmerware.
+ *
+ * 0cpm Firmerware is Copyright (c)2011 Rick van Rein, OpenFortress.
+ *
+ * 0cpm Firmerware is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, version 3.
+ *
+ * 0cpm Firmerware is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with 0cpm Firmerware.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -9,6 +27,7 @@
 #include <0cpm/cpu.h>
 #include <0cpm/timer.h>
 #include <0cpm/led.h>
+#include <0cpm/kbd.h>
 
 
 volatile led_colour_t ledstate = LED_STABLE_ON;
@@ -16,6 +35,43 @@ volatile timing_t nextirq;
 
 
 #define snoozing_top_main top_main
+
+
+void top_hook_update (bool offhook) {
+	/* Keep the linker happy */ ;
+}
+
+void top_button_press (buttonclass_t bcl, buttoncode_t cde) {
+	/* Keep the linker happy */ ;
+}
+
+void top_button_release (void) {
+	/* Keep the linker happy */ ;
+}
+
+void top_network_online (void) {
+	/* Keep the linker happy */ ;
+}
+
+void top_network_offline (void) {
+	/* Keep the linker happy */ ;
+}
+
+void top_network_can_send (void) {
+	/* Keep the linker happy */ ;
+}
+
+void top_network_can_recv (void) {
+	/* Keep the linker happy */ ;
+}
+
+void top_can_play (uint16_t samples) {
+	/* Keep the linker happy */ ;
+}
+
+void top_can_record (uint16_t samples) {
+	/* Keep the linker happy */ ;
+}
 
 
 void doesitcount_top_main (void) {

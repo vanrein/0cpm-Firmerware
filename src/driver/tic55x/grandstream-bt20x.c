@@ -1,4 +1,21 @@
-/* Grandstream BT20x driver as an extension to the tic55x driver */
+/* Grandstream BT20x driver as an extension to the tic55x driver
+ *
+ * This file is part of 0cpm Firmerware.
+ *
+ * 0cpm Firmerware is Copyright (c)2011 Rick van Rein, OpenFortress.
+ *
+ * 0cpm Firmerware is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, version 3.
+ *
+ * 0cpm Firmerware is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with 0cpm Firmerware.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 
 #include <stdbool.h>
@@ -13,6 +30,8 @@
 #include <0cpm/kbd.h>
 #include <0cpm/app.h>
 #include <0cpm/show.h>
+#include <0cpm/flash.h>
+#include <0cpm/snd.h>
 
 #include <bottom/ht162x.h>
 #include <bottom/ksz8842.h>
@@ -27,6 +46,7 @@ interrupt void tic55x_int0_isr (void) {
 	ksz8842_interrupt_handler ();
 }
 
+#if 0
 interrupt void tic55x_int1 (void) {
 	tic55x_top_has_been_interrupted = true;
 	//TODO//
@@ -41,6 +61,278 @@ interrupt void tic55x_int3 (void) {
 	tic55x_top_has_been_interrupted = true;
 	//TODO//
 }
+#endif
+
+
+
+/******** FLASH PARTITION ACCESS ********/
+
+
+/* An external definition (usually in phone-specific code)
+ * contains an array of at least one entry of flashpart
+ * structures.  Only the last will have the FLASHPART_FLAG_LAST
+ * flag set.
+ *
+ * There will usually be one partition with name ALLFLASH.BIN
+ * that covers the entire flash memory, including things that
+ * may not actually be in any partition.  Usually, this is the
+ * last entry in the flash partition table.
+ */
+struct flashpart bottom_flash_partition_table [] = {
+	{ FLASHPART_FLAG_LAST, "ALLFLASH.BIN", 0, 4096 }
+};
+
+
+/* Read a 512-byte block from flash.
+ * The return value indicates success.
+ */
+bool bottom_flash_read (uint16_t blocknr, uint8_t data [512]) {
+	uint32_t flashidx;
+	uint16_t ctr = 0;
+	if (blocknr >= 4096) {
+		return false;
+	}
+	flashidx = ((uint32_t) blocknr) * 256;
+	while (ctr < 512) {
+		uint16_t sample = flash_16 [flashidx];
+		flashidx += 1;
+		// data [ctr++] = (sample >> 24) & 0xff;
+		// data [ctr++] = (sample >> 16) & 0xff;
+		data [ctr++] = (sample >>  8) & 0xff;
+		data [ctr++] =  sample	      & 0xff;
+	}
+	return true;
+}
+
+
+/* Write a 512-byte block to flash.  It is assumed that this
+ * is done sequentially; any special treatment for a header
+ * page will be done by the bottom layer, not the top.
+ * The return value indicates success.
+ */
+bool boot_flash_write (uint16_t blocknr, uint8_t data [512]) {
+	return false;
+}
+
+
+/* Retrieve the current phone's MAC address from Flash.
+ */
+void bottom_flash_get_mac (uint8_t mac [6]) {
+	uint32_t flashidx = flash_offset_mymac;
+	uint16_t ctr = 0;
+	while (ctr < 6) {
+		uint16_t sample = flash_16 [flashidx];
+		flashidx++;
+		mac [ctr++] = (sample >> 8) & 0xff;
+		mac [ctr++] =  sample       & 0xff;
+	}
+}
+
+
+
+/******** TLV320AIC20K PROGRAMMING ACCESS OVER I2C ********/
+
+
+/* The codec can be programmed over I2C, so the low-level routines
+ * for driving the codec end up passing bytes over I2C.  The
+ * procedure of cycling through subregisters is not performed here.
+ */
+
+void tlv320aic2x_setreg (uint8_t channel, uint8_t reg, uint8_t val) {
+	// Wait as long as the bus is busy
+// bottom_led_set (LED_IDX_SPEAKERPHONE, 0);
+// bottom_led_set (LED_IDX_BACKLIGHT, 1);
+	while (I2CSTR & REGVAL_I2CSTR_BB) {
+		;
+	}
+	// Set transmission mode for 2 bytes to "channel"
+	I2CSAR = 0x40 | channel;
+	//TODO// I2CSAR = 0x00;	// Broadcast
+	I2CCNT = 2;
+	I2CDXR = reg;
+	// Send the register index
+	// Initiate the transfer by setting STT and STP flags
+	I2CMDR = REGVAL_I2CMDR_TRX | REGVAL_I2CMDR_MST | REGVAL_I2CMDR_STT | REGVAL_I2CMDR_STP | REGVAL_I2CMDR_NORESET | REGVAL_I2CMDR_FREE | REGVAL_I2CMDR_BC_8;
+	// Wait for the START condition to occur
+// bottom_led_set (LED_IDX_HANDSET, 1);
+	while (I2CMDR & REGVAL_I2CMDR_STT) {
+		;
+	}
+// bottom_led_set (LED_IDX_HANDSET, 0);
+	// Wait until the I2C bus is ready, then send the value
+// bottom_led_set (LED_IDX_SPEAKERPHONE, 1);
+	while (!(I2CSTR & REGVAL_I2CSTR_XRDY)) {
+		if (I2CSTR & REGVAL_I2CSTR_NACK) {
+			I2CSTR = REGVAL_I2CSTR_NACK;
+			I2CMDR = REGVAL_I2CMDR_MST | REGVAL_I2CMDR_STP | REGVAL_I2CMDR_NORESET | REGVAL_I2CMDR_FREE | REGVAL_I2CMDR_BC_8;
+			return;
+		}
+	}
+// bottom_led_set (LED_IDX_SPEAKERPHONE, 0);
+	I2CDXR = val;
+	// Wait for the STOP condition to occur
+	while (I2CMDR & REGVAL_I2CMDR_STP) {
+		;
+	}
+// bottom_led_set (LED_IDX_BACKLIGHT, 0);
+}
+
+uint8_t tlv320aic2x_getreg (uint8_t channel, uint8_t reg) {
+	uint8_t val;
+uint32_t ctr;
+// bottom_led_set (LED_IDX_BACKLIGHT, 1);
+// bottom_led_set (LED_IDX_HANDSET, 0);
+	// Wait as long as the bus is busy
+	while (I2CSTR & REGVAL_I2CSTR_BB) {
+		;
+	}
+	// Set transmission mode for 1 byte to "channel"
+	I2CSAR = 0x40 | channel;
+	//TODO// I2CSAR = 0x00;	// Broadcast
+	I2CCNT = 1;
+	I2CDXR = reg;
+	// Send the register index
+	// Initiate the transfer by setting STT flag, but withhold STP
+	I2CMDR = REGVAL_I2CMDR_TRX | REGVAL_I2CMDR_MST | REGVAL_I2CMDR_STT | REGVAL_I2CMDR_STP | REGVAL_I2CMDR_NORESET | REGVAL_I2CMDR_FREE | REGVAL_I2CMDR_BC_8;
+	// Wait until the START condition has occurred
+	while (I2CMDR & REGVAL_I2CMDR_STT) {
+		;
+	}
+	// ...send address and write mode bit...
+// bottom_led_set (LED_IDX_HANDSET, 1);
+	// Wait until ready to setup for receiving
+	while (I2CMDR & REGVAL_I2CMDR_STP) {
+		if (I2CSTR & REGVAL_I2CSTR_NACK) {
+			I2CSTR = REGVAL_I2CSTR_NACK;
+			I2CMDR = REGVAL_I2CMDR_MST | REGVAL_I2CMDR_STP | REGVAL_I2CMDR_NORESET | REGVAL_I2CMDR_FREE | REGVAL_I2CMDR_BC_8;
+			return 0;
+		}
+	}
+// bottom_led_set (LED_IDX_HANDSET, 0);
+	I2CCNT = 1;
+	// Restart with STT flag, also permit stop with STP; do not set TRX
+	I2CMDR = REGVAL_I2CMDR_MST | REGVAL_I2CMDR_STT | REGVAL_I2CMDR_STP | REGVAL_I2CMDR_NORESET | REGVAL_I2CMDR_FREE | REGVAL_I2CMDR_BC_8;
+	// ...recv val...
+	while (!(I2CSTR & REGVAL_I2CSTR_RRDY)) {
+#if 0
+		if (I2CSTR & REGVAL_I2CSTR_NACK) {
+			I2CSTR = REGVAL_I2CSTR_NACK;
+			// I2CMDR = REGVAL_I2CMDR_MST | REGVAL_I2CMDR_STP | REGVAL_I2CMDR_NORESET | REGVAL_I2CMDR_FREE | REGVAL_I2CMDR_BC_8;
+			// return 0;
+		}
+#endif
+		;
+	}
+	val = I2CDRR;
+// bottom_led_set (LED_IDX_BACKLIGHT, 0);
+	return val;
+}
+
+
+/******** TLV320AIC20K DATA ACCESS OVER MCBSP1 ********/
+
+
+#define BUFSZ (64*4)
+
+extern volatile uint16_t samplebuf_play   [BUFSZ];
+extern volatile uint16_t samplebuf_record [BUFSZ];
+
+extern volatile uint16_t available_play;
+extern volatile uint16_t available_record;
+
+extern volatile uint16_t threshold_play;
+extern volatile uint16_t threshold_record;
+
+
+/* TODO: RAW CODEC FUNCTIONS: ASSUMING ALWAYS U-LAW and A-LAW, PLAIN COPY */
+
+/* Copy encoded samples to plain samples */
+int16_t codec_decode (codec_t codec, uint8_t *in, uint16_t inlen, uint16_t *out, uint16_t outlen) {
+	while ((inlen > 0) && (outlen > 0)) {
+		*out++ = *in++ << 8;
+		inlen--;
+		outlen--;
+	}
+	return inlen - outlen;
+}
+
+/* Copy plain samples to encoded samples */
+int16_t codec_encode (codec_t codec, uint16_t *in, uint16_t inlen, uint8_t *out, uint16_t outlen) {
+	while ((inlen > 0) && (outlen > 0)) {
+		*out++ = *in++ >> 8;
+		inlen--;
+		outlen--;
+	}
+	return outlen - inlen;
+}
+
+/* Set a frequency divisor for the intended sample rate */
+void tlv320aic2x_set_samplerate (uint32_t samplerate) {
+	samplerate = 12288000 / samplerate;
+	if (samplerate >= 4096) {
+		samplerate = 4096;
+	} else if (samplerate == 0) {
+		samplerate = 1;
+	}
+	SRGR2_1 = REGVAL_SRGR2_CLKSM | REGVAL_SRGR2_FSGM | ((samplerate - 1) & 0x0fff);
+}
+
+/* A full frame of 64 samples has been played.  See if another is availabe,
+ * otherwise disable DMA until a dmahint_play() restarts it.
+ */
+interrupt void tic55x_dmac0_isr (void) {
+	uint16_t irq = DMACSR_0;
+	uint16_t toplay;
+	tic55x_top_has_been_interrupted = true;
+	if ((available_play -= 64) < 64) {
+		DMACCR_0 &= ~REGVAL_DMACCR_EN;
+	}
+	toplay = BUFSZ - available_play;
+	if (BUFSZ - available_play > threshold_play) {
+		//TODO: Lower toplay if it exceeds the buffer size
+		// top_can_play (available_play);
+		top_can_play (64);
+	}
+}
+
+/* A full frame of 64 samples has been recorded.  See if space exists for
+ * another, otherwise disable DMA until a dmahint_record() restarts it.
+ */
+interrupt void tic55x_dmac1_isr (void) {
+	uint16_t irq = DMACSR_1;
+	tic55x_top_has_been_interrupted = true;
+	if ((available_record += 64) >= (BUFSZ - 64)) {
+		DMACCR_1 &= ~REGVAL_DMACCR_EN;
+	}
+	if (available_record > threshold_record) {
+		//TODO: Lower value if it exceeds the buffer size
+		// top_can_record (availabl_record);
+		top_can_record (64);
+	}
+}
+
+/* New data has been written for playback.  As a result, it may
+ * be possible to restart DMA channel 0 if it was disabled.
+ */
+void dmahint_play (void) {
+	if (available_play >= 64) {
+		if (!(DMACCR_0 & REGVAL_DMACCR_EN)) {
+			DMACCR_0 |= REGVAL_DMACCR_EN;
+		}
+	}
+}
+
+/* Data has been removed from what was recorded.  As a result,
+ * it may be possible to restart DMA channel 1 if it was disabled.
+ */
+void dmahint_record (void) {
+	if (available_record <= (BUFSZ - 64)) {
+		if (!(DMACCR_1 & REGVAL_DMACCR_EN)) {
+			DMACCR_1 |= REGVAL_DMACCR_EN;
+		}
+	}
+}
+
 
 
 /******** HT162x LCD DRIVER LOW-LEVEL FUNCTIONS ********/
@@ -174,6 +466,7 @@ void ht162x_led_set (uint8_t lcdidx, led_colour_t col, bool notify) {
 	}
 }
 
+
 /******** BOTTOM FUNCTIONS FOR LEDS AND BUTTONS ********/
 
 
@@ -187,7 +480,12 @@ void bottom_led_set (led_idx_t ledidx, led_colour_t col) {
 		ht162x_led_set (11, col, true);
 		break;
 	case LED_IDX_MESSAGE:
-		//TODO: Figure out which pin -- incorrectly change backlight
+		if (col != 0) {
+			asm (" bset xf");
+		} else {
+			asm (" bclr xf");
+		}
+		break;
 	case LED_IDX_BACKLIGHT:
 		// Set bit DXSTAT=5 in PCR=0x2812 to 1/0
 		if (col != 0) {
@@ -403,8 +701,49 @@ void bottom_show_ip4 (app_level_t level, uint8_t bytes [4]) {
 	bt200_display_showtxt (level, ip, 0x07);
 }
 
-void bottom_show_ip6 (app_level_t level, uint16_t bytes [8]) {
-	;	// Impossible, skip
+/* Print an IPv6 address, as far as this is possible, on the display
+ *  - Remove the prefix /64 as it is widely known
+ *  -TODO- If middle word is 0xfffe, remove it, display the rest, set dot #2
+ *  -TODO- If first word is 0x0000, remove it, display the rest, set dot #1
+ *  -TODO- If last word is 0x0001, remove it, display the rest, set dot #3
+ *  - If nothing else is possible, use 6 bits per digit, dots and last digit blanc
+void bottom_show_ip6 (app_level_t level, uint16_t words [8]) {
+	// TODO: Extra cases; for now, just dump 6 bits per 7-segment display
+	uint8_t idxi;
+	uint8_t idxo;
+	uint8_t shfi;
+	uint8_t shfo;
+	ht162x_led_set (12, 0, false);
+	ht162x_led_set ( 9, 0, false);
+	ht162x_led_set ( 6, 0, false);
+	for (idxo = 14; idxo >= 3; idxo--) {
+		ht162x_dispdata [idxo] &= 0x10;
+	}
+	shfi = 6;
+	shfo = 4;
+	idxi = 4;
+	idxo = 14;
+	while (idxi < 8) {
+		uint8_t twobits = (words [idxi] >> shfi) & 0x03;
+		twobits << shfo;
+		if (twobits & 0x10) {
+			twobits += 0x80 - 0x10;	// bit 7 replaces bit 4
+		}
+		ht162x_dispdata [idxo] |= (twobits << shfo);
+		if (shfi > 0) {
+			shfi -= 2;
+		} else {
+			shfi = 6;
+			idxi++;
+		}
+		if (shfo > 0) {
+			shfo -= 2;
+		} else {
+			shfo = 5;
+			idxo--;
+		}
+	}
+	ht162x_dispdata_notify (14, 3);
 }
 
 /* A list of fixed messages, matching the fixed_msg_t values */
@@ -441,27 +780,42 @@ void bottom_show_voicemail (app_level_t level, uint16_t new, uint16_t old) {
 
 /******** BOTTOM LEVEL MAIN PROGRAM ********/
 
-
 /* Setup the connectivity of the TIC55x as used on Grandstream BT20x */
 void main (void) {
 	uint16_t idx;
 	led_colour_t led = LED_STABLE_ON;
 	//
-	// PLL setup: Crystal is 16.384 MHz, increase that a bit
-	//TODO: Possible in theory, but doesn't run and sinusoidal in practice
-	//      At lower PLLM factors, the sine is larger and clips to squarish
-	//TODO// PLLM = REGVAL_PLLM_TIMES_15;
-	//TODO// PLLCSR &= ~REGVAL_PLLCSR_PLLRST;
-	//TODO// while (!(PLLCSR & REGVAL_PLLCSR_STABLE)) {
-	//TODO// 	;
-	//TODO// }
-	//TODO// PLLDIV1 = REGVAL_PLLDIVx_DxEN | REGVAL_PLLDIVx_PLLDIVx_4;
-	//TODO// PLLDIV2 = REGVAL_PLLDIVx_DxEN | REGVAL_PLLDIVx_PLLDIVx_4;
+	// PLL setup: Crystal is 16.384 MHz, increase that 15x
+	// 1. Switch to bypass mode by setting the PLLEN bit to 0.
+	PLLCSR &= ~REGVAL_PLLCSR_PLLEN;
+	// 2. Set the PLL to its reset state by setting the PLLRST bit to 1.
+	PLLCSR |= REGVAL_PLLCSR_PLLRST;
+	// 3. Change the PLL setting through the PLLM and PLLDIV0 bits.
+	PLLM = REGVAL_PLLM_TIMES_15;
+	PLLDIV0 = REGVAL_PLLDIVx_DxEN | REGVAL_PLLDIVx_PLLDIVx_1;
+	// 4. Wait for 1 µs.
+	{ int ctr = 1000; while (ctr--) ; }
+	// 5. Release the PLL from its reset state by setting PLLRST to 0.
+	PLLCSR &= ~REGVAL_PLLCSR_PLLRST;
+	// 6. Wait for the PLL to relock by polling the LOCK bit or by setting up a LOCK interrupt.
+	while ((PLLCSR & REGVAL_PLLCSR_LOCK) == 0) {
+		/* wait */ ;
+	}
+	// 7. Switch back to PLL mode by setting the PLLEN bit to 1.
+	PLLCSR |= REGVAL_PLLCSR_PLLEN;
+	PLLDIV1 = REGVAL_PLLDIVx_DxEN | REGVAL_PLLDIVx_PLLDIVx_2;
+	PLLDIV2 = REGVAL_PLLDIVx_DxEN | REGVAL_PLLDIVx_PLLDIVx_4;
 	//TODO// PLLDIV3 = REGVAL_PLLDIVx_DxEN | REGVAL_PLLDIVx_PLLDIVx_4;
 	//TODO// PLLCSR |= REGVAL_PLLCSR_PLLEN;
+	// Now we have:
+	//	CPU clock is 245.76 MHz
+	//	SYSCLK1   is 122.88 MHz
+	//	SYSCLK2   is  61.44 MHz
 	//
 	// EMIF settings, see SPRU621F, section 2.12 on "EMIF Registers"
 	//
+	EGCR1 = 0xff7f;
+	EGCR2 = 0x0009;
 	// EGCR1 = ...;   // (defaults)
 	// EGCR2 = ...;   // (defaults)
 	// CESCR1 = ...;   // (defaults)
@@ -478,42 +832,119 @@ void main (void) {
 	// CE0_SC2 = ...;   // (defaults)
 	//
 	// CE1 selects the flash chip
-	CE1_1 = 0xff13;   // 16-bit async (and defaults)
+	//WORKED?// CE1_1 = 0xff13;   // 16-bit async (and defaults)
+	CE1_1 = 0x0922;
+	CE1_2 = 0x31f2;
 	// CE1_2 = ...;   // (defaults)
 	// CE1_SC1 = ...;   // (defaults)
 	// CE1_SC2 = ...;   // (defaults)
 	//
 	// CE2 selects the SDRAM chips
-	CE2_1 = 0xff33;   // 32-bit SDRAM (and defaults)
+	//WORKS?// CE2_1 = 0xff33;   // 32-bit SDRAM (and defaults)
+	CE2_1 = 0xff37;
 	//TEST// CE2_1 = 0xff13;   // 16-bit async (and defaults)
 	// CE2_2 = ...;   // (defaults)
 	// CE2_SC1 = ...;   // (defaults)
 	// CE2_SC2 = ...;   // (defaults)
 	// Possible: SDC1, SDC2, SDRC1, SDRC2, SDX1, SDX2
+	SDC1 = 0x6ffe;
+	SDC2 = 0x8712;
+	SDRC1 = 0xf5dc;
+	SDRC2 = 0xffff;
+	SDX1 = 0xb809;
+	CESCR1 = 0xfffc;
 	//
 	// CE3 selects the D-flipflops for keyboard and LCD
 	CE3_1 = 0xff13;   // 16-bit async (and defaults)
+	//BT200ORIG// CE3_1 = 0x0220;
+	//BT200ORIG// CE3_2 = 0x0270;
 	// CE3_2 = ...;   // (defaults)
 	// CE3_SC1 = ...;   // (defaults)
 	// CE3_SC2 = ...;   // (defaults)
+	//
+	// Setup McBSP1 for linking to TLV320AIC20K
+	// Generate a CLKG at 12.288 MHz, and FS at 8 kHz
+	// following the procedure of spru592e section 3.5
+	//
+	DXR1_1 = 0x0000;
+	SPCR1_1 = 0x0000;
+	SPCR2_1 = 0x0000;
+	SRGR1_1 = REGVAL_SRGR1_FWID_1 | REGVAL_SRGR1_CLKGDIV_4;
+	SRGR2_1 = REGVAL_SRGR2_CLKSM | REGVAL_SRGR2_FSGM | REGVAL_SRGR2_FPER_1535;
+	PCR1 = /*TODO: (1 << REGBIT_PCR_IDLEEN) | */ (1 << REGBIT_PCR_FSXM) | /* TODO:CIRCUITED_TO_FSXM (1 << REGBIT_PCR_FSRM) | */ (1 << REGBIT_PCR_CLKXM) | (1 << REGBIT_PCR_CLKRM) /* TODO:WRONG? | (1 << REGBIT_PCR_CLKXP) | (1 << REGBIT_PCR_CLKRP) */;
+	SPCR1_1 = REGVAL_SPCR1_RRST_NOTRESET;
+	SPCR2_1 = REGVAL_SPCR2_XRST_NOTRESET | REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
+	//
+	// Setup I2C for communication with the TLV320AIC20K codec
+	// Prescale SYSCLK2 down from 61.44 MHz to 10.24 MHz; support a
+	// 100 kHz I2C bus by setting low/high period to 51 such periods.
+	//
+	I2CPSC = 5;
+	I2CCLKH = 51 - 5;
+	I2CCLKL = 51 - 5;
+	I2COAR = REGVAL_I2COAR;
+	I2CMDR = REGVAL_I2CMDR_MST | REGVAL_I2CMDR_NORESET | REGVAL_I2CMDR_FREE | REGVAL_I2CMDR_BC_8;
+	//
+	// Setup DMA channel 0 for playing from DSP to TLV320AIC2x
+	// Setup DMA channel 1 for recording from TLV320AIC2x to DSP
+	//
+	// Both channels have a block (their entire RAM buffer) comprising
+	// of 25 frames, which each are 64 samples of 16 bits in size.
+	// At 8 kHz sample rate, frames cause 125 interrupts per second;
+	// at 48 kHz this rises to 750 (per channel), still comfortable.
+	// The total buffer is 1600 samples of 16 bits long.  Each time a
+	// frame send finishes, an interrupt checks if there is another
+	// frame of 64 samples ready to go; if not, it will disable the
+	// DMA channel.  Hint routines service to restart DMA after that.
+	// Conversely, the DMA interrupt handlers can make top-calls to
+	// indicate that data is ready for reading or that space is
+	// available for writing.
+	// The settings below prepare DMA for continuous playing and
+	// recording, but with the setup disabled until hinted.
+	//
+	DMAGCR = REGVAL_DMAGCR_FREE;
+	DMAGTCR = 0x00;		// No timeout support
+	DMACCR_0 = REGVAL_DMACCR_SRCAMODE_POSTINC | REGVAL_DMACCR_DSTAMODE_CONST | REGVAL_DMACCR_PRIO | REGVAL_DMACCR_SYNC_MCBSP1_TEV | REGVAL_DMACCR_REPEAT | REGVAL_DMACCR_AUTOINIT;
+	DMACCR_1 = REGVAL_DMACCR_SRCAMODE_CONST | REGVAL_DMACCR_DSTAMODE_POSTINC | REGVAL_DMACCR_PRIO | REGVAL_DMACCR_SYNC_MCBSP1_REV | REGVAL_DMACCR_REPEAT | REGVAL_DMACCR_AUTOINIT;
+	DMACICR_0 = REGVAL_DMACICR_FRAMEIE;
+	DMACICR_1 = REGVAL_DMACICR_FRAMEIE;
+	DMACSDP_0 = REGVAL_DMACSDP_SRC_DARAM0 | REGVAL_DMACSDP_DST_PERIPH | REGVAL_DMACSDP_DATATYPE_16BIT;
+	DMACSDP_1 = REGVAL_DMACSDP_SRC_PERIPH | REGVAL_DMACSDP_DST_DARAM1 | REGVAL_DMACSDP_DATATYPE_16BIT;
+	DMACSSAL_0 = ((uint16_t) samplebuf_play)   << 1;
+	DMACSSAU_0 = ((uint16_t) samplebuf_play)   >> 15;
+	DMACDSAL_0 = ((uint16_t) DXR1_1) <<  1;
+	DMACDSAU_0 = ((uint16_t) DXR1_1) >> 15;
+	DMACSSAL_1 = ((uint16_t) DRR1_1) <<  1;
+	DMACSSAU_1 = ((uint16_t) DRR1_1) >> 15;
+	DMACDSAL_1 = ((uint32_t) samplebuf_record) << 1;
+	DMACDSAU_1 = ((uint32_t) samplebuf_record) >> 15;
+	DMACEN_0 = 64;           /* 64 elements (samples) per frame (continue-checks) */
+	DMACEN_1 = 64;
+	DMACFN_0 = (BUFSZ / 64); /* 25 frames (continue-checks) per block (buffer) */
+	DMACFN_1 = (BUFSZ / 64);
+	/* TODO? */
 	//
 	// Further initiation follows
 	//
 	for (idx = 0; idx < APP_LEVEL_COUNT; idx++) {
 		bt200_level_active [idx] = false;
 	}
-	IODIR  |= (1 << 1);
-	IODATA |= (1 << 1);
+	IODIR  |= (1 << 7) | (1 << 1);
+	IODATA |= (1 << 7) | (1 << 1);
+	asm (" bclr xf");  // Switch off MESSAGE LED
 { uint16_t ctr = 250; while (ctr > 0) { ctr--; } }	
 	bottom_critical_region_begin (); // _disable_interrupts ();
 	IER0 = IER1 = 0x0000;
 	tic55x_setup_timers ();
 	tic55x_setup_interrupts ();
 	ht162x_setup_lcd ();
+	tlv320aic2x_setup_sound ();
 	ksz8842_setup_network ();
 	// Enable INT0..INT3
-	IER0 |= 0x080c;
-	IER1 |= 0x0001;
+	//TODO:TEST// IER0 |= 0x0a0c;
+	//TODO:TEST// IER1 |= 0x0005;
+	IER0 |= (1 << REGBIT_IER0_DMAC1) | (1 << REGBIT_IER0_INT0) | (1 << REGBIT_IER0_TINT0); // 0x0214;
+	IER1 |= (1 << REGBIT_IER1_DMAC0); // 0x0004;
 	PCR0 = (1 << REGBIT_PCR_XIOEN) | (1 << REGBIT_PCR_RIOEN);
 
 #if 0
@@ -524,10 +955,10 @@ while (true) {
 uint32_t ctr;
 ht162x_putchar (14 - idx, (dig < 10)? (dig + '0'): (dig + 'A' - 11));
 ht162x_audiolevel ((bar < 8)? (bar << 5): ((14-bar) << 5));
-bottom_led_set (LED_IDX_MESSAGE, LED_STABLE_OFF);
+// bottom_led_set (LED_IDX_MESSAGE, LED_STABLE_OFF);
 ht162x_dispdata_notify (14 - idx, 14 - idx);
 ht162x_dispdata_notify (15, 15);
-bottom_led_set (LED_IDX_MESSAGE, LED_STABLE_ON );
+// bottom_led_set (LED_IDX_MESSAGE, LED_STABLE_ON );
 idx = (idx + 1) % 12;
 dig = (dig + 1) % 38;
 bar = (bar + 1) % 14;
@@ -538,6 +969,7 @@ ctr = 650000; while (ctr>0) ctr--;
 
 	//TODO// IER0 = 0xdefc;
 	//TODO// IER1 = 0x00ff;
+/* TODO: Iterate over flash partitions that can boot, running each in turn: */
 	top_main ();
 }
 

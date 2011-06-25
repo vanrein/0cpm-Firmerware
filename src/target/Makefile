@@ -8,6 +8,8 @@ metavars-$(CONFIG_TARGET_LINUX_TUNTEST) += HAVE_NET_LEADER=4
 
 includes-$(CONFIG_TARGET_LINUX_TUNTEST) += bottom/linuxtuntest.h
 
+includes-$(CONFIG_DEVEL) += bottom/devel.h
+
 #
 # Platform-dependent specifics
 #

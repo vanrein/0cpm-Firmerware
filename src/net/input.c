@@ -1,6 +1,24 @@
 /* netinput.c
  *
- * Process networked input and select actions to take.
+ * This file is part of 0cpm Firmerware.
+ *
+ * 0cpm Firmerware is Copyright (c)2011 Rick van Rein, OpenFortress.
+ *
+ * 0cpm Firmerware is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, version 3.
+ *
+ * 0cpm Firmerware is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with 0cpm Firmerware.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+
+/* Process networked input and select actions to take.
  *
  * The "assembly language" used below is the BPF pseudo-language,
  * documented in
@@ -26,20 +44,22 @@
  */
 
 
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 
-#include <netinet/ip.h>
-#include <netinet/ip6.h>
-#include <netinet/udp.h>
-#include <netinet/tcp.h>
-#include <netinet/icmp6.h>
-#include <netinet/ether.h>
-#include <net/if_arp.h>
+// #include <netinet/ip.h>
+// #include <netinet/ip6.h>
+// #include <netinet/udp.h>
+// #include <netinet/tcp.h>
+// #include <netinet/icmp6.h>
+// #include <netinet/ether.h>
+// #include <net/if_arp.h>
 
 #include <config.h>
 
 #include <0cpm/cpu.h>
+#include <0cpm/netinet.h>
 #include <0cpm/netcmd.h>
 #include <0cpm/netfun.h>
 
@@ -97,30 +117,44 @@
  */
 
 #define forward(t) here += sizeof (t); fromhere -= sizeof (t);
-#define store(i, t) if (fromhere < sizeof (t)) return NULL; mem [i] = (t *) here;
+#define store(i, t) if (fromhere < sizeof (t)) return NULL; mem [i] = (intptr_t) (t *) here;
 #define store_forward(i, t) store(i,t) forward(t)
 #ifndef get08
-#  define get08(o) (here [o])
+#  define get08(o) ((uint8_t) here [o])
 #endif
 #ifndef get16
-#  define get16(o) ((here [o] << 8) | here [o+1])
+#  define get16(o) ((((uint16_t) here [o]) << 8) | ((uint16_t) here [o+1]))
 #endif
 #ifndef get32
-#  define get32(o) ((here [o] << 24) | (here [o+1] << 16) | (here [o+2] << 8) | here [o+3])
+#  define get32(o) ((((uint32_t) here [o]) << 24) | (((uint32_t) here [o+1]) << 16) | (((uint32_t) here [o+2]) << 8) | ((uint32_t) here [o+3]))
 #endif
 
 intptr_t netinput (uint8_t *pkt, uint16_t pktlen, intptr_t *mem) {
 
 	register uint8_t *here = pkt;
 	register uint16_t fromhere = pktlen;
+	uint16_t ethertp;
+	uint16_t arpproto;
+	uint32_t arpdetails;
+	uint8_t ip4_ptype;
+	uint16_t icmp4_type_code;
+	uint16_t udp4_src;
+	uint16_t udp4_dst;
+	uint32_t dhcp4_magic_cookie;
+	uint8_t ip6_nxthdr;
+	uint16_t icmp6_type_code;
+	uint16_t udp6_src;
+	uint16_t udp6_dst;
+	uint8_t dhcp6_tag;
+	uint16_t dnssd_flags;
 
 	//
 	// Store the end of the entire packet
-	mem [MEM_ALL_DONE] = &pkt [pktlen];
+	mem [MEM_ALL_DONE] = (intptr_t) &pkt [pktlen];
 
 	//
 	// Store the ethernet header
-	uint16_t ethertp = get16 (12);
+	ethertp = get16 (12);
 	if (ethertp == 0x8100) {
 		struct ethhdrplus { struct ethhdr std; uint8_t ext8021q [4]; };
 		store_forward (MEM_ETHER_HEAD, struct ethhdrplus);
@@ -139,19 +173,24 @@ intptr_t netinput (uint8_t *pkt, uint16_t pktlen, intptr_t *mem) {
 
 	//
 	// Accept ARP reply and query messages translating IPv4 to MAC
-	uint16_t arpproto;
 netin_ARP_sel:
 	arpproto = get16 (2);
+ht162x_led_set (4, 1, true); // Chinese top symbol
 	if (arpproto != 0x0800) return NULL;
-	store (MEM_ARP_HEAD, struct arphdr);
+ht162x_led_set (5, 1, true); // Chinese bottom symbol
+	store (MEM_ARP_HEAD, struct ether_arp);
 	mem [MEM_IP4_SRC] = get32 (14);
 	mem [MEM_IP4_DST] = get32 (24);
-	uint32_t arpdetails = get32 (4);
+	arpdetails = get32 (4);
 	//
 	// Decide what to return based on the ARP header contents
 	switch (arpdetails) {
-	case 0x06040001: return net_arp_reply;
-	case 0x06040002: return net_arp_query;
+	case 0x06040001:
+ht162x_led_set (4, 0, true); // Chinese top symbol (off)
+			 return (intptr_t) netreply_arp_query;
+	case 0x06040002:
+ht162x_led_set (5, 0, true); // Chinese bottom symbol (off)
+			 return (intptr_t) netdb_arp_reply;
 	default: return NULL;
 	}
 
@@ -162,9 +201,9 @@ netin_IP4_sel:
 	if (get08 (0) != 0x45) return NULL;
 	mem [MEM_IP4_SRC] = get32 (12);
 	mem [MEM_IP4_DST] = get32 (15);
-	uint8_t ip4_ptype = get08 (9);
+	ip4_ptype = get08 (9);
 	forward (struct iphdr);
-	mem [MEM_IP4_PLOAD] = here;
+	mem [MEM_IP4_PLOAD] = (intptr_t) here;
 	//
 	// Jump to a handler for the payload type
 	switch (ip4_ptype) {
@@ -175,11 +214,10 @@ netin_IP4_sel:
 
 	//
 	// Decide how to handle ICMP4
-	uint16_t icmp4_type_code;
 netin_ICMP4_sel:
 	icmp4_type_code = get16 (0);
 	switch (icmp4_type_code) {
-	case 8 << 8: return netreply_icmp4_echo_req;
+	case 8 << 8: return (intptr_t) netreply_icmp4_echo_req;
 	default: return NULL;
 	}
 
@@ -187,10 +225,10 @@ netin_ICMP4_sel:
 	// Decide how to handle UDP4
 netin_UDP4_sel:
 	store (MEM_UDP4_HEAD, struct udphdr);
-	uint16_t udp4_src = mem [MEM_UDP4_SRC_PORT] = get16 (0);
-	uint16_t udp4_dst = mem [MEM_UDP4_DST_PORT] = get16 (2);
+	udp4_src = mem [MEM_UDP4_SRC_PORT] = get16 (0);
+	udp4_dst = mem [MEM_UDP4_DST_PORT] = get16 (2);
 	forward (struct udphdr);
-	mem [MEM_UDP4_PLOAD] = here;
+	mem [MEM_UDP4_PLOAD] = (intptr_t) here;
 	//
 	// Choose a handler based on port
 	if (udp4_src == 3653) goto netin_6BED4_sel;
@@ -203,7 +241,7 @@ netin_UDP4_sel:
 netin_DHCP4_sel:
 	store (MEM_DHCP4_HEAD, uint8_t);
 	if (fromhere < 236 + 4) return NULL;
-	uint32_t dhcp4_magic_cookie = get32 (236);
+	dhcp4_magic_cookie = get32 (236);
 	if (dhcp4_magic_cookie != 0x63825363) return NULL;	// TODO: BOOTP?
 	here     += 236 + 4;
 	fromhere -= 236 + 4;
@@ -224,9 +262,9 @@ netin_DHCP4_sel:
 			continue;
 		case 53: // DHCP4_offer
 			switch (get08 (2)) {
-			case 2: return netreply_dhcp4_offer;
-			case 5: return netdb_dhcp4_ack;
-			case 6: return netdb_dhcp4_nak;
+			case 2: return (intptr_t) netreply_dhcp4_offer;
+			case 5: return (intptr_t) netdb_dhcp4_ack;
+			case 6: return (intptr_t) netdb_dhcp4_nak;
 			default: return NULL;
 			}
 		default:
@@ -246,7 +284,7 @@ netin_6BED4_sel:
 netin_IP6_sel:
 	if ((get08 (0) & 0xf0) != 0x60) return NULL;
 	store (MEM_IP6_HEAD, struct ip6_hdr);
-	uint8_t ip6_nxthdr = get08 (6);
+	ip6_nxthdr = get08 (6);
 	forward (struct ip6_hdr);
 	store (MEM_IP6_PLOAD, uint8_t);
 	//
@@ -261,13 +299,13 @@ netin_IP6_sel:
 	// Hande incoming ICMP6 traffic
 netin_ICMP6_sel:
 	store (MEM_ICMP6_HEAD, struct icmp6_hdr);
-	uint16_t icmp6_type_code = get16 (0);
+	icmp6_type_code = get16 (0);
 	switch (icmp6_type_code) {
-	case ND_ROUTER_ADVERT << 8:	return (fromhere < 16)? NULL: netdb_router_advertised;
-	case ND_NEIGHBOR_SOLICIT << 8:	return (fromhere < 24)? NULL: netreply_icmp6_ngb_disc;
-	case ND_NEIGHBOR_ADVERT << 8:	return (fromhere < 24)? NULL: netdb_neighbour_advertised;
+	case ND_ROUTER_ADVERT << 8:	return (fromhere < 16)? NULL: (intptr_t) netdb_router_advertised;
+	case ND_NEIGHBOR_SOLICIT << 8:	return (fromhere < 24)? NULL: (intptr_t) netreply_icmp6_ngb_disc;
+	case ND_NEIGHBOR_ADVERT << 8:	return (fromhere < 24)? NULL: (intptr_t) netdb_neighbour_advertised;
 	case ND_REDIRECT << 8:		return (fromhere < 40)? NULL: NULL; /* TODO */
-	case ICMP6_ECHO_REQUEST << 8:	return (fromhere <  8)? NULL: netreply_icmp6_echo_req;
+	case ICMP6_ECHO_REQUEST << 8:	return (fromhere <  8)? NULL: (intptr_t) netreply_icmp6_echo_req;
 	case ICMP6_ECHO_REPLY << 8:	return (fromhere <  8)? NULL: NULL; /* Future option */
 	default: return NULL;
 	}
@@ -276,9 +314,9 @@ netin_ICMP6_sel:
 	// Decide how to handle incoming UDP6 traffic
 netin_UDP6_sel:
 	store (MEM_UDP6_HEAD, struct udphdr);
-	mem [MEM_UDP6_PLOAD] = here + sizeof (struct udphdr);
-	uint16_t udp6_src = mem [MEM_UDP6_SRC_PORT] = get16 (0);
-	uint16_t udp6_dst = mem [MEM_UDP6_DST_PORT] = get16 (2);
+	mem [MEM_UDP6_PLOAD] = (intptr_t) (here + sizeof (struct udphdr));
+	udp6_src = mem [MEM_UDP6_SRC_PORT] = get16 (0);
+	udp6_dst = mem [MEM_UDP6_DST_PORT] = get16 (2);
 	here += sizeof (struct udphdr);
 	//
 	// Port mapping:
@@ -289,14 +327,14 @@ netin_UDP6_sel:
 	// udp6_dst == 53     is DNS
 	if (udp6_dst >= 0x4000) {
 		if (udp6_dst & 0x0001) {
-			mem [MEM_RTP_HEAD] = here;
-			return net_rtp;
+			mem [MEM_RTP_HEAD] = (intptr_t) here;
+			return (intptr_t) net_rtp;
 		} else {
-			return net_rtcp;
+			return (intptr_t) net_rtcp;
 		}
 	} else if (udp6_dst == 5060) {
-		mem [MEM_SIP_HEAD] = here;
-		return net_sip;
+		mem [MEM_SIP_HEAD] = (intptr_t) here;
+		return (intptr_t) net_sip;
 	} else if (udp6_dst == 5353) {
 		goto netin_DNSSD_sel;
 	} else if (udp6_dst == 53) {
@@ -310,11 +348,11 @@ netin_UDP6_sel:
 
 netin_DHCP6_sel:
 	store (MEM_DHCP6_HEAD, uint8_t);
-	uint8_t dhcp6_tag = *here;
+	dhcp6_tag = *here;
 	switch (dhcp6_tag) {
-	case 2: return netreply_dhcp6_advertise;
-	case 7: return netdb_dhcp6_reply;
-	case 10: return netdb_dhcp6_reconfigure;
+	case 2: return (intptr_t) netreply_dhcp6_advertise;
+	case 7: return (intptr_t) netdb_dhcp6_reply;
+	case 10: return (intptr_t) netdb_dhcp6_reconfigure;
 	default: return NULL;
 	}
 
@@ -324,22 +362,22 @@ netin_DNS_sel:
 
 netin_DNSSD_sel:
 	store (MEM_DNSSD_HEAD, uint8_t);
-	uint16_t dnssd_flags = get16 (2);
+	dnssd_flags = get16 (2);
 	if (dnssd_flags & 0x8000) {
 		// Response
 		if (dnssd_flags & 0x0203) {
-			return net_mdns_resp_error;
+			return (intptr_t) net_mdns_resp_error;
 		} else if (dnssd_flags & 0x0400) {
-			return net_mdns_resp_dyn;
+			return (intptr_t) net_mdns_resp_dyn;
 		} else {
-			return net_mdns_query_ok;
+			return (intptr_t) net_mdns_query_ok;
 		}
 	} else {
 		// Query
 		if ((dnssd_flags ^ 0x2000) & 0x3c00) {
-			return net_mdns_query_error;
+			return (intptr_t) net_mdns_query_error;
 		} else {
-			return net_mdns_query_ok;
+			return (intptr_t) net_mdns_query_ok;
 		}
 	}
 

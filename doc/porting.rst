@@ -388,10 +388,125 @@ Linux' ``i2c-parport`` interface as documented in the
 Vendor-specific
 ---------------
 
-Vendors sometimes develop their own connectors for development and
+Chip vendors sometimes develop their own connectors for development and
 debugging.  Although these certaintly give a lot of control, some
 are very expensive.  Usually, cheaper alternatives are available
 if you have enough determination.
+
+Below is how I gained access to the initial phone demonstrating
+this project, the Grandstream BT200.  The chips driving these
+phones can be booted over I2C, and an interface to do just that
+is available externally.  All you need to do is hang EEPROMs on
+the I2C bus, and fill them with the necessary program from the
+computer (after passing it through a specially designed ``hex55``
+command).
+
+.. figure:: pix/bootfloppy-i2c-busside.jpg
+	:scale: 100
+	:alt: I2C bootfloppy, bus side
+
+	Since I2C is a bus, and multiple EEPROMs can be mounted
+	on it, the majority of the connections is the same on all
+	chips.  The ideal configuration therefore is a stack of
+	such chips.  Also nice and solid in handling when it
+	sits around on your desk.
+
+.. figure:: pix/bootfloppy-i2c-graycodedside.jpg
+	:scale: 100
+	:alt: I2C bootfloppy, gray-coded address selector side
+
+	The other side has 3 connectors A0/A1/A2 on the left;
+	these should each get a different address selector in
+	the form of different patterns of 1 and 0 bits.  Had
+	we used plain binary counting to enumerate the values,
+	then there would have been a lot of crossings.  Thanks
+	to `Gray coding`_ however, there are none.  It is actually
+	possible to draw a curly line between the pins that are
+	"1" and the ones that are "0" valued.  And to top it off
+	with even more nerdiness, all connections have been made
+	using pins that were either bent or clipped off at
+	another place.
+
+.. figure:: pix/bootfloppy-i2c-parport_pc.jpg
+	:scale: 100
+	:alt: I2C interface to development PC
+
+	The nice thing about I2C is that it is trivial to
+	connect to a Linux PC running the compiler and the
+	``hex55`` utility that prepares code for the
+	bootloader built into the DSP chip.  In the kernel
+	documentation of ``i2c_parport`` there is a schema,
+	of which we picked the type 3 variant.  This involves
+	a few open-collector inverter chips taken from a
+	sinlge chip.  By bending the pins of such a chip
+	sideways, clipping them off and mounting the necessary
+	cross-connections and resistors on top, we managed to
+	fit the entire device in a standard DB-25 connector case.
+	(If something is so well hidden, you do want to
+	document the insides on a sticker, of course.)
+
+.. _`Gray coding` : http://en.wikipedia.org/wiki/Gray_code
+
+
+Making a flash backup
+=====================
+
+Assuming you can now boot the hardware with your own software, a
+good thing to aim for is to make a backup of the only vital bit
+of information in there -- the contents of the flash memory.  This
+can be done as soon as you manage to get the bootloader running,
+as one of the targets defined below.
+
+If the busses are a confusing mixture of 8-, 16- and 32-bit technology,
+you may want to be really sure you got it all.  You should be able
+to download the flash contents as a file the size of the contents of
+the flash memory chip; it should not contain any duplications.
+
+A nice way to test for duplications is to copy pages or other ranges
+from a TFTP-over-LLC1 download with ``dd`` and to compare them.  A
+good way of finding suggestions about such ranges can come from a
+bit of commandline handywork, like this::
+
+  hd ALLFLASH.BIN | sed 's/^[^ ]* //' | sort | uniq -c
+
+The lines shown will be prefixed by how often the shown combination
+of 16 bytes occurs in the firmware, at a 16-byte rounded address.
+If these are multiples of 2, or a power of 2, you can be fairly
+certain your downloading algorithm fails in a way that clones parts
+of the memory.  Also be sure to inspect the hexdump visually; signs
+of error are the occurrence of zeroes or ``ff`` values in all rows
+for a certain column.
+
+To give an indication, we initially found 32 copies of most of the
+data; after fixing a big this still was 2; after re-arranging the
+addressing scheme we ended up with only 310 copied lines in the
+hexdump passed through sort and uniq; out of a total of 37249.
+Clearly, the duplications left can be attributed to accidental
+collisions such as repeated strings or procedures.
+Once such a decently-looking copy of the entire flash has been
+downloaded, save it in a safe place, to ensure a way of future
+recovery.
+
+The safest approach to all this is to first write the bottom routine
+``bottom_flash_read()`` that reads the flash memory; once that shows
+no sign of misfunctioning, continue to write ``bottom_flash_write()``
+and work on it until a written image shows up correctly in the output
+of ``bottom_flash_read()``.  Send in arbitrary data, and check its
+arrival, (also) accross a power cycle.  Upload the original content
+and check that it is there.
+
+Find out the partitioning scheme of the flash memory, if any.  It
+is quite common to have parts that can be downloaded into the phone
+separately, for instance a bootloader, SIP firmware and ringtones.
+You want to know where each is located, and enter the table
+``bottom_flash_partition_table`` with the block ranges for each of
+the partitions.  It is common to end the table with an entry named
+``ALLFLASH.BIN`` covering the entire flash memory range.
+
+With full control over bootstrapping code (bypassing flash) and with
+a backup of the flash memory, you will never be caught with your
+trousers down -- you can always recover the flash to restore the
+original way of functioning for the device.
 
 
 

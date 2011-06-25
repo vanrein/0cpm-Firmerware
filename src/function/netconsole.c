@@ -1,6 +1,24 @@
 /* Network console interface.
  *
- * This interface makes it possible to connect to the phone's console
+ * This file is part of 0cpm Firmerware.
+ *
+ * 0cpm Firmerware is Copyright (c)2011 Rick van Rein, OpenFortress.
+ *
+ * 0cpm Firmerware is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, version 3.
+ *
+ * 0cpm Firmerware is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with 0cpm Firmerware.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+
+/* This interface makes it possible to connect to the phone's console
  * over LLC.  The advantage of LLC is that it works on a LAN only,
  * and does not require any support of protocols higher than Ethernet.
  * This makes it suitable to even debug things like IP leases.
@@ -32,7 +50,7 @@
  * The entire data and code portion depends on the function NETCONSOLE
  * being configured through "make menuconfig".
  */
-#ifdef CONFIG_FUNCTION_DEVEL_NETCONSOLE
+#ifdef CONFIG_FUNCTION_NETCONSOLE
 
 
 /******** BUFFER STATIC VARIABLES ********/
@@ -125,10 +143,10 @@ void bottom_console_vprintf (char *fmt, va_list argh) {
 	char *fp = fmt;
 	char *str;
 	char ch;
-	unsigned long int intval;
+	uint32_t intval;
 	while (*fp) {
 		uint8_t minpos = 0;
-		bool longval = false;
+		bool val32bit = false;
 		if (*fp != '%') {
 			cons_putchar (*fp++);
 		} else {
@@ -139,7 +157,7 @@ void bottom_console_vprintf (char *fmt, va_list argh) {
 				fp--;
 				break;
 			case 'l':
-				longval = true;
+				val32bit = true;
 				goto moremeuk;
 			case '0':
 			case '1':
@@ -174,22 +192,22 @@ void bottom_console_vprintf (char *fmt, va_list argh) {
 				}
 				break;
 			case 'd':
-				if (longval) {
-					intval =                     va_arg (argh, unsigned long int);
+				if (val32bit) {
+					intval =            va_arg (argh, uint32_t);
 				} else {
-					intval = (unsigned long int) va_arg (argh, unsigned int);
+					intval = (uint32_t) va_arg (argh, uint16_t);
 				}
 				cons_putint (intval, 10, minpos);
 				break;
 			case 'p':
-				intval = (unsigned long int) va_arg (argh, void *);
+				intval = (uint32_t) va_arg (argh, void *);
 				cons_putint (intval, 16, (minpos > 8)? minpos: 8);
 				break;
 			case 'x':
-				if (longval) {
-					intval =                     va_arg (argh, unsigned long int);
+				if (val32bit) {
+					intval =            va_arg (argh, uint32_t);
 				} else {
-					intval = (unsigned long int) va_arg (argh, unsigned int);
+					intval = (uint32_t) va_arg (argh, uint16_t);
 				}
 				cons_putint (intval, 16, minpos);
 				break;
@@ -211,4 +229,4 @@ void bottom_console_printf (char *fmt, ...) {
 }
 
 
-#endif   /* CONFIG_FUNCTION_DEVEL_NETCONSOLE */
+#endif   /* CONFIG_FUNCTION_NETCONSOLE */

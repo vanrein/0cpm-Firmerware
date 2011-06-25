@@ -4,8 +4,12 @@ TODO: TIME_MSEC, TIME_SEC, TIME_MIN, TIME_HOUR, TIME_DAY
 TODO: TIME_BEFORE(a,b)
 TODO: bottom_show_xxx() series of calls
 TODO: bottom_xxx_scan() and top_xxx() from develtests
-TODO: network_can_xxx() will be called before 1500 bytes free but then certainly called again before done
+TODO: top_network_can_xxx() will be called before 1500 bytes free but then certainly called again before done
 TODO: bottom_network_send/_recv() accept 32-bit transfers
+TODO: bottom_flash_read()/_write() to interact with flash memory partitions sequentially
+TODO: bottom_flash_partition_table [0:HAVE_FLASH_PARTITION_TABLE>
+TODO: bottom_flash_get_mac (uint8_t mac [6]) sets the MAC address at the buffer address
+TODO: top_timer_expiration MUST call bottom_time and bottom_timer_set (or return new timer expiration value)
 
 ----------------------------------------------
 Kernel API between Phone Bottom and Top Halves
@@ -720,6 +724,7 @@ the screen may be reserved for softbuttons and/or line buttons.
 Sound
 -----
 
+**Channels.**
 A phone can have a number of sound channels, and the configuration
 of the platform defines which are available.  The possible channels
 are:
@@ -739,16 +744,189 @@ The top half can make the following downcall to instruct the bottom
 half about the current sound channel to use.  This implies dropping
 any channel currently in use::
 
-	bottom_soundchannel (SOUND_NONE);
-	bottom_soundchannel (SOUND_HANDSET);
-	bottom_soundchannel (SOUND_SPEAKER);
-	bottom_soundchannel (SOUND_HEADSET);
+	void bottom_soundchannel_device (uint8_t chan, sounddev_t dev);
+	bottom_soundchannel_device (0, SOUNDDEV_NONE);
+	bottom_soundchannel_device (0, SOUNDDEV_HANDSET);
+	bottom_soundchannel_device (0, SOUNDDEV_SPEAKER);
+	bottom_soundchannel_device (0, SOUNDDEV_HEADSET);
+
+The first argument represents the sound channel index.  It is
+currently assumed that one such channel exists, but future versions
+of the software may support multiple, if the hardware can handle
+it.  This is the case with some codec chips used in phones, and
+may well pave the way for additional functions for the hardware.
 
 Naturally, the bottom half will never be asked to support a sound
 channel that it has not made available in the phone's configuration.
 
 Note that handling any buttons for speakerphone access and such are
 usually done by the top half.
+
+**Volume.**
+Every sound channel has its own volume setting.  This value may
+vary depending on the current use of the channel; if it plays a
+ringtone it may be set to a higher volume than during a call.
+These settings are made by the top half, and incremented by one
+at a time.  The setting 0 represents a muted channel, any higher
+value can be suggested by the top half to the bottom half.  If
+the suggestion is too high, the top half will reduce it to the
+maximum setting for the channel.  The top half must not keep
+its own idea of the volume, but instead read it from the sound
+channel.  Only when switching the nature of the traffic on the
+sound channel could it be retrieved and stored literally::
+
+	void bottom_soundchannel_setvolume (uint8_t chan, uint8_t vol);
+	uint8_t bottom_soundchannel_getvolume (uint8_t chan);
+
+As before, the channel code is currently always set to 0, and
+it may develop to more possible values in some later version.
+
+The function ``bottom_soundchannel_setvolume`` will not only
+detect and correct increments beyond the maximum value, it will
+also detect and correct wrap-around in an attempt to go below
+the zero volume, or mute.
+
+**Sample rate.**
+The bottom half is responsible for playback at as accurate a rate
+as possible.  Usually, this will mean using DMA to send samples
+out at a predetermined rate, which derives from an accurate crystal
+clock and may pass through PLLs and dividers before yielding the
+desired frequency.
+
+The frequencies to use are usually pretty standard; for example,
+8 kHz for many G.7xx codecs, and 16 kHz or 32 kHz for the ones
+with higher quality.  These are important to support accurately,
+as deviations might be audible and disrupt normal phone operation.
+
+For higher-end uses, such as playback of MP3, Vorbis or AAC, there
+may be a need for other sample rates.  It is probable that 48 kHz
+works without problems, but 44.1 kHz (the CD sample rate) is
+almost always going to be a problem -- the frequency is composed
+of numerous prime factors,
+44100=2\ :sup:`2`\ .3\ :sup:`2`\ .5\ :sup:`2`\ .7\ :sup:`2`\ --
+what a cruel joke, as it usually very hard to get all these
+factors into the operating frequency of a general purpose device,
+and so there is going to be some delay from time to time.
+
+The best approach is probably to set a slightly lower frequency
+and use counters to detect when a single sample should be
+tossed out of the mix.  If 44000 Hz is achievable, this would
+mean that 1 out of every 441 samples would have to be dropped.
+The opposite, namely the duplication of a sample needed as a
+result of a sample rate that is too high, may be easier where
+the sample-handling hardware supports it.  The choice can be
+made in an optimal way for the hardware used, as it is all
+concealed in the bottom layer which is aware of the hardware
+involved.
+
+The result is that every possible sample rate may be set, but
+that choosing common ones is still a good idea.  The calls to
+set the sample rate for playback or recording of sound are::
+
+	void bottom_codec_play_samplerate   (uint8_t chan, uint32_t samplerate);
+	void bottom_codec_record_samplerate (uint8_t chan, uint32_t samplerate);
+
+It is not safe in general to assume that playing and recording
+can be done at different sample rates, so always call both
+these functions with the same values -- we just want to
+keep the option open to separate the sample rates on platforms
+that support, perhaps in a future version of the firmware.
+
+The list of codecs that are offered from bottom to top half
+suggests samplerates that are known to work well for those
+codecs.
+
+**Codec play/record.**
+For the actual exchange of sound, a mapping from codec format to
+the internal format used for playback (usually 16-bit samples)
+is required.  This is the work of the codec, which principally is
+part of the bottom half because that enables the use of (existing)
+assembly code for the target processor, and possibly even support
+in hardware.
+
+The internal sound buffer has a concealed size, and top and bottom
+exchange how many samples they would like to put in there.  When
+a given amount of space is available (usually for a particular
+time period), the bottom will inform the top that it can map a
+certain number of samples into the bottom buffer.  This may or
+may not cover a complete network packet.  Upon completion, the
+notified routine returns a suggestion about the number of
+additional samples it suggests for next time.  If the bottom
+does not find the required samples in time, it will try to insert
+sensible samples, effectively delaying the delivery of sound.
+To handle noticeable network dropouts, the top can register
+non-delivery of sound packets with a special function.
+
+::
+
+	uint16_t top_codec_can_play   (uint8_t chan, uint16_t samples);
+	uint16_t top_codec_can_record (uint8_t chan, uint16_t samples);
+
+These functions indicate to the top half that sound packets may
+now be played or recorded, as soon as they are available.  The
+return value suggests the number of samples to allow on the
+next call, but the bottom is not required to follow that
+suggestion.  As a result, the top must always be willing to
+deliver parts of packets.  It does not need to combine packets,
+as it can return the length of a sequel packet as a suggested
+size for next time.
+
+::
+	int16_t bottom_codec_play   (uint8_t chan,
+				     codec_t codec,
+				     uint8_t *coded_samples, 
+				     uint16_t coded_bytes,
+				     uint16_t samples);
+
+	int16_t bottom_codec_record (uint8_t chan,
+				     codec_t codec,
+				     uint8_t *coded_samples,
+				     uint16_t coded_bytes,
+				     uint16_t samples);
+
+TODO: Why repeat ``codec`` for every piece of data?  It could
+change between packets, but not according to SIP?  Plus, it will
+probably not work on drivers that have lagging-behind effects
+such as DMA currently going on and being setup for later.
+
+These functions request the bottom half to employ a codec for
+mapping encoded bytes (with a given start pointer and maximum
+length) to the given number of samples.  The ``codec`` is a
+code that defines the mapping; the architecture defines a
+mapping from codec names to ``codec_t`` values.  When used as
+an argument to ``bottom_codec_record``, the encoding side of the
+codec will be used; in ``bottom_codec_play``, the codec will be
+used for decoding.
+
+The return value of these functions is as complex as the possible
+outcomes of these functions:
+
+* return value 0 means that ``coded_bytes`` have been consumed to
+  generate precisely ``samples`` samples.
+* return values <0 mean that ``coded_bytes`` are all used but
+  there are still samples missing; the return value indicates how
+  much to subtract from ``samples`` to get the achieved result.
+  Note that it is assumed that all ``coded_bytes`` are used up
+  at this point.  If that means keeping internal state in the
+  bottom half, then so be it.  (But this is not likely to occur,
+  because it would dramatically complicate packet loss handling.)
+* return values >>0 mean that all ``samples`` samples were
+  generated, but there are still the returned number of bytes
+  left from ``codec_bytes``.
+
+::
+	void bottom_codec_play_skip (codec_t codec, uint16_t samples);
+
+This instructs the playing half of the codec to skip the given
+number of samples on playback.  This is required when network
+traffic has gone missing.  If this function is not called to
+indicate having detected such out-of-order delivery, the bottom
+half would assume that the network path has incurred a new delay,
+for which it would insert extra samples to fill up and cause the
+phone to playback with the added delay.  The bottom half must be
+clever enough to handle accidental skipping until samples are
+played in the future.  A small delay before a packet is actually
+played may be healthy to avoid future sound glitches.
 
 
 Special hardware

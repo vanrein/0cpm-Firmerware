@@ -1,4 +1,4 @@
-/* Includes for initial test developments on Linux (using tunnels)
+/* TIC55x direct memory access
  *
  * This file is part of 0cpm Firmerware.
  *
@@ -18,14 +18,14 @@
  */
 
 
-#include <stdint.h>
+/* The tic55x architecture has 6 DMA channels, which will be used
+ * as follows:
+ *
+ *  0 - HIPRI - Read  sound from the current microphone input
+ *  1 - HIPRI - Write sound to   the current speaker    output
+ *  2 - UNUSE - Read  packet data from the network?  Nope.
+ *  3 - UNUSE - Write packet data to   the network?  Nope.
+ *  4 - UNUSE
+ *  5 - UNUSE
+ */
 
-typedef uint64_t timing_t;
-
-#define TIMER_NULL 0
-
-#define TIME_MSEC(x)	((x))
-#define TIME_SEC(x)	((x)*1000)
-#define TIME_MIN(x)	((x)*1000*60)
-#define TIME_HOUR(x)	((x)*1000*60*60)
-#define TIME_DAY(x)	((x)*1000*60*60*24)

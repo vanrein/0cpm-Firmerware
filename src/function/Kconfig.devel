@@ -29,7 +29,7 @@ config MAINFUNCTION_DEVEL_KEYBOARD
 config MAINFUNCTION_DEVEL_NETWORK
 	bool "Test network"
 	depends on DEVEL
-	select FUNCTION_DEVEL_NETCONSOLE
+	select FUNCTION_NETCONSOLE
 	help
 	  This test runs a networked console.  The test will print information
 	  about incoming network packets and ignore traffic sent to the device.

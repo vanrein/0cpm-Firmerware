@@ -1,6 +1,25 @@
 /* LED simulation support -- print them in tabbed columns
  *
- * Descriptions below are all restricted to 7 chars or less, so they
+ * This file is part of 0cpm Firmerware.
+ *
+ * 0cpm Firmerware is Copyright (c)2011 Rick van Rein, OpenFortress.
+ *
+ * 0cpm Firmerware is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, version 3.
+ *
+ * 0cpm Firmerware is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with 0cpm Firmerware.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+
+
+/* Descriptions below are all restricted to 7 chars or less, so they
  * can be printed with a '\t' in between.
  *
  * From: Rick van Rein <rick@openfortress.nl>
@@ -8,10 +27,12 @@
 
 
 #include <stdlib.h>
+#include <stdarg.h>
 
 #include <config.h>
 
 #include <0cpm/led.h>
+#include <0cpm/cons.h>
 
 
 char *led_colours_2 [] = { "off", "green" };
@@ -81,11 +102,11 @@ void bottom_led_set (led_idx_t lednum, led_colour_t col) {
 	static headctr = 0;
 	if (headctr++ % 20 == 0) {
 		for (i = 0; i < LED_IDX_COUNT; i++) {
-			printf ("\t%s", num2descr [i].name);
+			bottom_printf ("\t%s", num2descr [i].name);
 		}
-		printf ("\n");
+		bottom_printf ("\n");
 	}
-	printf ("%3d.%03d", tv.tv_sec, tv.tv_usec / 1000);
+	bottom_printf ("%3d.%03d", tv.tv_sec, tv.tv_usec / 1000);
 	char capscol [8];
 	char *colnm = num2descr [lednum].states [col];
 	for (i = 0; i < 7; i++) {
@@ -103,7 +124,7 @@ void bottom_led_set (led_idx_t lednum, led_colour_t col) {
 		} else {
 			colnm = "UNSET";
 		}
-		printf ("\t%s", colnm);
+		bottom_printf ("\t%s", colnm);
 	}
-	printf ("\n");
+	bottom_printf ("\n");
 }

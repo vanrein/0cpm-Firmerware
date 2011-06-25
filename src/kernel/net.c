@@ -1,17 +1,41 @@
-/*
- * http://devel.0cpm.org/ -- Open source firmware for SIP phones.
+/* Network multiplexing for incoming traffic.
  *
- * Network multiplexing for incoming traffic.
+ * This file is part of 0cpm Firmerware.
+ *
+ * 0cpm Firmerware is Copyright (c)2011 Rick van Rein, OpenFortress.
+ *
+ * 0cpm Firmerware is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, version 3.
+ *
+ * 0cpm Firmerware is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with 0cpm Firmerware.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+
+
+/* This is the kernel
+ * interface to the networking code; it mainly involves scheduling.
  */
 
 
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdarg.h>
+
+#include <config.h>
 
 #include <0cpm/cpu.h>
 #include <0cpm/irq.h>
+#include <0cpm/netinet.h>
 #include <0cpm/netfun.h>
+#include <0cpm/cons.h>
 
 
 /* TODO: Current return function from netinput
@@ -33,16 +57,12 @@ static bool can_recv = false;
 static void network_recv_handler (irq_t *irq);
 static void network_send_handler (irq_t *irq);
 
-static irq_t recv_irq = {
-	.irq_handler = network_recv_handler,
-	.irq_next = NULL,
-	.irq_priority = CPU_PRIO_UNKNOWN,
-};
-static irq_t send_irq = {
-	.irq_handler = network_send_handler,
-	.irq_next = NULL,
-	.irq_priority = CPU_PRIO_UNKNOWN,
-};
+/* The network receive handler is fired as soon as network
+ * packets arrive.  The network send handler is fired as soon
+ * as network packets have completed sending.
+ */
+static irq_t recv_irq = { network_recv_handler, NULL, CPU_PRIO_UNKNOWN };
+static irq_t send_irq = { network_send_handler, NULL, CPU_PRIO_UNKNOWN };
 
 
 
@@ -58,6 +78,7 @@ void top_network_can_recv (void) {
 	if (!can_recv) {
 		can_recv = true;
 		irq_fire (&recv_irq);
+//ht162x_led_set (15, 1, true);	// shown as (101)
 	}
 }
 
@@ -99,35 +120,57 @@ void top_network_online (void) {
 }
 
 /* As the processor now has time for it, process
- * the reception of network packets.
+ * the reception of network packets.  Where simple
+ * stimulus-response action is possible, do that.
  */
+packet_t myrbuf;//TODO:ELSEWHERE//
+packet_t mywbuf; // TODO: Allocate:ELSEWHERE
+intptr_t mymem [MEM_NETVAR_COUNT];//TODO:ELSEWHERE//
 static void network_recv_handler (irq_t *irq) {
-	bool go = can_recv;
+intptr_t netinput (uint8_t *pkt, uint16_t pktlen, intptr_t *mem);
+void ht162x_putchar (uint8_t idx, uint8_t ch, bool notify);
+	bool go;
+//TODO:TEST// ht162x_putchar (1, '0', true);
+	go = can_recv;
 	can_recv = false;
 	// TODO: rescheduling would be better than looping
 	while (go) {
-		packet_t rbuf;
-		uint16_t rbuflen = sizeof (rbuf.data);
-		go = bottom_network_recv (rbuf.data, &rbuflen);
+		uint16_t rbuflen = sizeof (myrbuf.data);
+		retfn *rf;
+//TODO:TEST// ht162x_putchar (1, '1', true);
+		go = bottom_network_recv (myrbuf.data, &rbuflen);
 		if (!go) {
-			break;
+			goto done;//TODO//break;
 		}
-		printf ("Received a network packet\n");
-		intptr_t mem [MEM_NETVAR_COUNT];
-		bzero (mem, sizeof (mem));
-		retfn *rf = (retfn *) netinput (rbuf.data, rbuflen, mem);
+//TODO:TEST// ht162x_putchar (1, '2', true);
+		bottom_printf ("Received a network packet\n");
+		bzero (mymem, sizeof (mymem));
+		rf = (retfn *) netinput (myrbuf.data, rbuflen, mymem);
+//TODO:TEST// ht162x_putchar (1, '3', true);
 		if (rf != NULL) {
-			packet_t wbuf; // TODO: Allocate
-			uint8_t *stop = (*rf) (wbuf.data, mem);
+			uint8_t *stop = (*rf) (mywbuf.data, mymem);
+//TODO:TEST// ht162x_putchar (1, '4', true);
 			if (stop) {
-				mem [MEM_ALL_DONE] = (intptr_t) stop;
-				netcore_send_buffer (mem, wbuf.data);
+//TODO:TEST// ht162x_putchar (1, '5', true);
+				mymem [MEM_ALL_DONE] = (intptr_t) stop;
+				netcore_send_buffer (mymem, mywbuf.data);
+//TODO:TEST// ht162x_putchar (1, '6', true);
 			}
+//TODO:TEST// else ht162x_putchar (1, '7', true);
 		}
 	}
+done://TODO
 	if (go) {
-		can_recv = true;  // TODO: Future IRQ trigger?
+//TODO:TEST// ht162x_putchar (1, '8', true);
+		bottom_critical_region_begin ();
+		if (!can_recv) {
+			can_recv = true;
+if (irq)
+			irq_fire (irq);
+		}
+		bottom_critical_region_end ();
 	}
+//TODO:TEST// ht162x_putchar (1, '9', true);
 }
 
 
@@ -139,3 +182,4 @@ static void network_send_handler (irq_t *irq) {
 	can_send = false;
 	// TODO: Go over priority queues, bottom_network_send()
 }
+

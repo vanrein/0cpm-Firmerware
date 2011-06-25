@@ -3,11 +3,17 @@
 #
 # Actual targets and their constituent object files
 #
-objs-top-$(CONFIG_MAINFUNCTION_SIP_PHONE) += src/function/sip6phone.o bin/top-kernel.o bin/top-net.o bin/top-phone.o
+objs-top-$(CONFIG_MAINFUNCTION_SIP_PHONE) += src/function/sip6phone/topmain.o bin/top-kernel.o bin/top-net.o bin/top-phone.o
 
-objs-top-$(CONFIG_MAINFUNCTION_BOOTLOADER) += src/function/bootload.o bin/top-kernel.o bin/top-simplenet.o function
+# objs-top-$(CONFIG_MAINFUNCTION_BOOTLOADER) += src/function/bootload.o bin/top-kernel.o bin/top-simplenet.o function
 
-objs-top-$(CONFIG_FUNCTION_DEVEL_NETCONSOLE) += src/function/netconsole.o
+objs-top-$(CONFIG_MAINFUNCTION_BOOTLOADER) += src/function/bootloader.o src/net/llconly.o src/function/netconsole.o
+
+#TODO# Must replace llconly.o with "real" LLC support in src/net/*
+objs-top-$(CONFIG_FUNCTION_NETCONSOLE) += src/function/netconsole.o src/net/llconly.o
+
+objs-top-$(CONFIG_FUNCTION_FIRMWARE_UPGRADES) += src/function/bootloader.o
+
 
 #
 # Test targets, useful during reverse engineering and forward development

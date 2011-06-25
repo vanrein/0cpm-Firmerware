@@ -1,3 +1,23 @@
+/* Network function prototypes
+ *
+ * This file is part of 0cpm Firmerware.
+ *
+ * 0cpm Firmerware is Copyright (c)2011 Rick van Rein, OpenFortress.
+ *
+ * 0cpm Firmerware is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, version 3.
+ *
+ * 0cpm Firmerware is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with 0cpm Firmerware.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+
 #ifndef HEADER_NETFUN
 #define HEADER_NETFUN
 
@@ -64,10 +84,10 @@ struct packet {
 uint16_t netcore_checksum_areas (void *area0, ...);
 void netcore_send_buffer (intptr_t *mem, uint8_t *wbuf);
 void netcore_bootstrap_initiate (void);
+void netcore_bootstrap_success (void);
+void netcore_bootstrap_restart (void);
 void netcore_bootstrap_shutdown (void);
 
-uint8_t *net_arp_reply (uint8_t *pkt, uint32_t pktlen, intptr_t *mem);
-uint8_t *net_arp_query (uint8_t *pkt, uint32_t pktlen, intptr_t *mem);
 uint8_t *net_dhcp4 (uint8_t *pkt, uint32_t pktlen, intptr_t *mem);
 uint8_t *net_rtp (uint8_t *pkt, uint32_t pktlen, intptr_t *mem);
 uint8_t *net_rtcp (uint8_t *pkt, uint32_t pktlen, intptr_t *mem);
@@ -89,6 +109,8 @@ uint8_t *netsend_icmp6_router_solicit (uint8_t *pout, intptr_t *mem);
 uint8_t *netsend_icmp6_ngb_sol (uint8_t *pout, intptr_t *mem);
 uint8_t *netsend_dhcp4_discover (uint8_t *pout, intptr_t *mem);
 uint8_t *netsend_dhcp6_solicit (uint8_t *pout, intptr_t *mem);
+uint8_t *netsend_udp6 (uint8_t *pout, intptr_t *mem);
+uint8_t *netsend_arp_query (uint8_t *pout, intptr_t *mem);
 
 void netdb_initialise (void);
 uint8_t *netdb_router_advertised (uint8_t *pout, intptr_t *mem);
@@ -97,6 +119,8 @@ uint8_t *netdb_dhcp4_ack (uint8_t *pout, intptr_t *mem);
 uint8_t *netdb_dhcp4_nak (uint8_t *pout, intptr_t *mem);
 uint8_t *netdb_dhcp6_reply (uint8_t *pout, intptr_t *mem);
 uint8_t *netdb_dhcp6_reconfigure (uint8_t *pout, intptr_t *mem);
+uint8_t *netdb_arp_reply (uint8_t *pkt, intptr_t *mem);
+void netdb_dhcp6_recurse_options (nint16_t *dhcp6opts, uint16_t optlen);
 
 uint8_t *netout (uint8_t *pkt, uint32_t pktlen, intptr_t *mem);
 

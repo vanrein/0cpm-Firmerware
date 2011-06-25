@@ -1,5 +1,5 @@
-TODO for firmly.0cpm
-====================
+TODO for 0cpm Firmerware
+========================
 
 The current code is a demonstration of a core principle, an alpha
 level implementation that does work.  It demonstrates a way of getting
@@ -31,7 +31,7 @@ look at:
   storage for servers for dns, ntp, sip-proxy.
 
 * tic55x's int.c driver: work out conditions for hibernation sleep.
+  In hibernation, also shutdown the codec.
 
-* tic55x's PLL: get better performance by increasing clock rate.  This
-  will influence other forms of timing, such as RAM, Network and Codec.
+* Append network stack with LLC1 (for TFTP) and LLC2 (for console).
 
