@@ -143,7 +143,7 @@ void ht162x_putchar (uint8_t idx, uint8_t ch, bool notify);
 			goto done;//TODO//break;
 		}
 //TODO:TEST// ht162x_putchar (1, '2', true);
-		bottom_printf ("Received a network packet\n");
+		//TODO:OVERZEALOUS// bottom_printf ("Received a network packet\n");
 		bzero (mymem, sizeof (mymem));
 		rf = (retfn *) netinput (myrbuf.data, rbuflen, mymem);
 //TODO:TEST// ht162x_putchar (1, '3', true);

@@ -117,7 +117,7 @@ uint8_t bad;
 irqtimer_t disptimer;
 int nibblepos = 0;
 timing_t nextrot = 0;
-void show_info (irqtimer_t *tmr) {
+void show_info (irq_t *tmr) {
 	int relpos;
 	//TODO:MANUAL_TIMER_AS_REAL_ONE_FAILS://
 #if 0
@@ -150,7 +150,7 @@ bottom_keyboard_scan ();
 		nibblepos = 0;
 	}
 	ht162x_dispdata_notify (3, 14);
-	irqtimer_restart (tmr, TIME_MSEC (1000));
+	irqtimer_restart ((irqtimer_t *) tmr, TIME_MSEC (1000));
 }
 
 /* The main operational loop for the CPU.  Try to run code, and when

@@ -25,3 +25,6 @@ ifdef CONFIG_PLATFORM_TIC55x
 include src/target/Makefile.tic55x
 endif
 
+ifdef CONFIG_PLATFORM_BLACKFIN
+include src/target/Makefile.blackfin
+endif

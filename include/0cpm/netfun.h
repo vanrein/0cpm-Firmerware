@@ -63,6 +63,11 @@ enum mem_netinput {
 	MEM_VLAN_ID,
 	MEM_BINDING6,
 	MEM_IP6_DST,
+	MEM_LLC_SSAP,
+	MEM_LLC_DSAP,
+	MEM_LLC_CMD,
+	MEM_LLC_PKTLEN,
+	MEM_LLC_PAYLOAD,
 	//
 	// The number of entries in this enum
 	MEM_NETVAR_COUNT
@@ -104,6 +109,14 @@ uint8_t *netreply_icmp6_ngb_disc (uint8_t *pkt, intptr_t *mem);
 uint8_t *netreply_icmp6_echo_req (uint8_t *pkt, intptr_t *mem);
 uint8_t *netreply_dhcp4_offer (uint8_t *pkt, intptr_t *mem);
 uint8_t *netreply_dhcp6_advertise (uint8_t *pout, intptr_t *mem);
+uint8_t *netllc_reply (uint8_t *pout, intptr_t *mem);
+uint8_t *netllc_tftp (uint8_t *pout, intptr_t *mem);
+uint8_t *netllc_console_sabme (uint8_t *pout, intptr_t *mem);
+uint8_t *netllc_console_disc (uint8_t *pout, intptr_t *mem);
+uint8_t *netllc_console_frmr (uint8_t *pout, intptr_t *mem);
+uint8_t *netllc_console_datasentback (uint8_t *pout, intptr_t *mem);
+uint8_t *netllc_console_receiverfeedback (uint8_t *pout, intptr_t *mem);
+
 
 uint8_t *netsend_icmp6_router_solicit (uint8_t *pout, intptr_t *mem);
 uint8_t *netsend_icmp6_ngb_sol (uint8_t *pout, intptr_t *mem);

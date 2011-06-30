@@ -124,6 +124,7 @@ void netcore_send_buffer (intptr_t *mem, uint8_t *wbuf) {
 	struct ip6_hdr *ip6 = (void *) mem [MEM_IP6_HEAD];
 	struct arphdr  *arp = (void *) mem [MEM_ARP_HEAD];
 	struct ethhdr  *eth = (void *) mem [MEM_ETHER_HEAD];
+	bool is_llc = (mem [MEM_LLC_DSAP] != 0) || (mem [MEM_LLC_SSAP] != 0);
 	uint16_t wlen;
 	//
 	// Checksum UDPv6 on IPv6
@@ -203,6 +204,8 @@ void netcore_send_buffer (intptr_t *mem, uint8_t *wbuf) {
 		netset16 (eth->h_proto, ETH_P_IPV6);
 	} else if (arp) {
 		netset16 (eth->h_proto, ETH_P_ARP);
+	} else if (is_llc) {
+		; //TODO// netset16 (eth->h_proto, mem [MEM_ALL_DONE] - mem [MEM_ETHER_HEAD]);
 	} else {
 		return;
 	}

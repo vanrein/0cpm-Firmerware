@@ -1,4 +1,4 @@
-/* netinput.c
+/* netinput.c -- Incoming network packet parser and switch.
  *
  * This file is part of 0cpm Firmerware.
  *
@@ -17,28 +17,10 @@
  * along with 0cpm Firmerware.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
-/* Process networked input and select actions to take.
- *
- * The "assembly language" used below is the BPF pseudo-language,
- * documented in
- *
- * 			The BSD Packet Filter:
- * 	A New Architecture for User-Level Packet Capture
- * 		by Steven McCanne and Van Jacobson
- *
- *	 ftp://ftp.ee.lbl.gov/papers/bpf-usenix93.ps.Z
- *
- * It serves to analyse frames, set aside the juicy details and
- * return a value which in this case is either the address of a
+/*
+ * This code analyses frames, sets aside the juicy details and
+ * returns a value which in this case is either the address of a
  * function to invoke, or NULL if the frame should be dropped.
- *
- * It should not be difficult to interpret the consistent assembly
- * instructions (stored in a fixed structure format) from native
- * code, thus leading to extremely efficient network packet handling
- * with a very high level of flexibility for future extensions.
- *
- * This language is designed for speed, and is used in tcpdump et al.
  *
  * From: Rick van Rein <rick@openfortress.nl>
  */
@@ -64,39 +46,20 @@
 #include <0cpm/netfun.h>
 
 
+/* Utility functions for packet analyses */
 
-
-/*
- * The following is written in BPF assembler, because that is a proper
- * form for handling this kind of problem.  The language lends itself
- * for optimal translation.  In spite of that, it is very flexible.
- *
- * The labels ending in _sel indicate that a definite selection has been
- * made of the kind of frame, but some validation may still be in order.
- *
- * The code below does not calculate checksums yet.  It also does not
- * take packet length into account.
- *
- * The code collects various bits of data in the M[] scratchpad array:
- * TODO:OLD:USING MEM_INPUT ENUM NOW
- * M[0] is the ethernet payload
- * M[1] is the IP4.src address			(or 0 for native IP6)
- * M[2] is the IP4.dst address			(or 0 for native IP6)
- * M[3] is the IP4 payload			(or 0 for native IP6)
- * M[4] is the UDP4 src.PORT|dst.PORT		(or 0 for native IP6)
- * M[5] is the UDP4 payload			(or 0 for native IP6)
- * M[6] is the IP6 frame address (+40 is payload)
- * M[7] is the UDP6 src.PORT|dst.PORT
- * M[8] is the UDP6 payload
- * M[9] is the ethernet header
- *
- * These addresses and values can be used in further analyses, based
- * on the functions returned from the analysis.  Note that the first
- * things these functions do is (1) check lengths and (2) check sums.
- *
- * If all that is okay, it can start processing the frame contents.
- */
-
+#define forward(t) here += sizeof (t); fromhere -= sizeof (t);
+#define store(i, t) if (fromhere < sizeof (t)) return NULL; mem [i] = (intptr_t) (t *) here;
+#define store_forward(i, t) store(i,t) forward(t)
+#ifndef get08
+#  define get08(o) ((uint8_t) here [o])
+#endif
+#ifndef get16
+#  define get16(o) ((((uint16_t) here [o]) << 8) | ((uint16_t) here [o+1]))
+#endif
+#ifndef get32
+#  define get32(o) ((((uint32_t) here [o]) << 24) | (((uint32_t) here [o+1]) << 16) | (((uint32_t) here [o+2]) << 8) | ((uint32_t) here [o+3]))
+#endif
 
 
 /* Analyse incoming network packets.
@@ -116,19 +79,6 @@
  * for specifically known targets.
  */
 
-#define forward(t) here += sizeof (t); fromhere -= sizeof (t);
-#define store(i, t) if (fromhere < sizeof (t)) return NULL; mem [i] = (intptr_t) (t *) here;
-#define store_forward(i, t) store(i,t) forward(t)
-#ifndef get08
-#  define get08(o) ((uint8_t) here [o])
-#endif
-#ifndef get16
-#  define get16(o) ((((uint16_t) here [o]) << 8) | ((uint16_t) here [o+1]))
-#endif
-#ifndef get32
-#  define get32(o) ((((uint32_t) here [o]) << 24) | (((uint32_t) here [o+1]) << 16) | (((uint32_t) here [o+2]) << 8) | ((uint32_t) here [o+3]))
-#endif
-
 intptr_t netinput (uint8_t *pkt, uint16_t pktlen, intptr_t *mem) {
 
 	register uint8_t *here = pkt;
@@ -147,6 +97,8 @@ intptr_t netinput (uint8_t *pkt, uint16_t pktlen, intptr_t *mem) {
 	uint16_t udp6_dst;
 	uint8_t dhcp6_tag;
 	uint16_t dnssd_flags;
+	uint8_t llc_ssap, llc_dsap;
+	uint16_t llc_cmd;
 
 	//
 	// Store the end of the entire packet
@@ -168,7 +120,14 @@ intptr_t netinput (uint8_t *pkt, uint16_t pktlen, intptr_t *mem) {
 	case 0x86dd: goto netin_IP6_sel;
 	case 0x0800: goto netin_IP4_sel;
 	case 0x0806: goto netin_ARP_sel;
-	default: return NULL;
+	default:
+#if defined(CONFIG_FUNCTION_NETCONSOLE) || defined(CONFIG_FUNCTION_FIRMWARE_UPGRADES)
+		if (ethertp <= 1500) {
+			mem [MEM_LLC_PKTLEN] = (intptr_t) ethertp;
+			goto netin_LLC_sel;
+		}
+#endif
+		return NULL;
 	}
 
 	//
@@ -383,4 +342,66 @@ netin_DNSSD_sel:
 
 	// Finally, a catchall that rejects anything that makes it to here
 	return NULL;
+
+
+/********** OPTIONAL CODE FOR LLC: NETCONSOLE, FIRMWARE UPGRADES **********/
+
+
+#if defined (CONFIG_FUNCTION_NETCONSOLE) || defined (CONFIG_FUNCTION_FIRMWARE_UPGRADES)
+
+netin_LLC_sel:
+	mem [MEM_LLC_DSAP] = (intptr_t) get08 (0);
+	mem [MEM_LLC_SSAP] = (intptr_t) get08 (1);;
+	mem [MEM_LLC_CMD] =  get08 (2);
+	if ((mem [MEM_LLC_CMD] & 0x03) != 0x03) {
+		mem [MEM_LLC_CMD] |= get08 (3) << 8;
+		goto netin_LLC2_sel;
+	}
+	// else, fallthrough to netin_LLC1_sel
+
+netin_LLC1_sel:
+	mem [MEM_LLC_PAYLOAD] = (intptr_t) (here + 3);
+	switch (mem [MEM_LLC_CMD]) {
+#ifdef CONFIG_FUNCTION_FIRMWARE_UPGRADES
+	case 0x03:
+		if (mem [MEM_LLC_DSAP] == 68) {
+			return (intptr_t) netllc_tftp;
+		}
+		break;
+#endif // NETCONSOLE
+#ifdef CONFIG_FUNCTION_FIRMWARE_UPGRADES
+	case 0x7f:
+		if (mem [MEM_LLC_DSAP] == 20) {
+			return (intptr_t) netllc_console_sabme;
+		}
+		break;
+	case 0x53:
+		if (mem [MEM_LLC_DSAP] == 20) {
+			return (intptr_t) netllc_console_disc;
+		}
+		break;
+	case 0x87:
+		if (mem [MEM_LLC_DSAP] == 20) {
+			return (intptr_t) netllc_console_frmr;
+		}
+		break;
+#endif // FIRMWARE_UPGRADES
+	default:
+		break;
+	}
+	return NULL;
+
+#ifdef CONFIG_FUNCTION_NETCONSOLE
+netin_LLC2_sel:
+	mem [MEM_LLC_PAYLOAD] = (intptr_t) (here + 4);
+	if ((mem [MEM_LLC_CMD] & 0x0001) == 0x0000) {
+		return (intptr_t) netllc_console_datasentback;
+	} else if ((mem [MEM_LLC_CMD] & 0x0007) == 0x0001) {
+		return (intptr_t) netllc_console_receiverfeedback;
+	}
+	return NULL;
 }
+#endif // NETCONSOLE
+
+#endif // NETCONSOLE || FIRMWARE_UPGRADES
+

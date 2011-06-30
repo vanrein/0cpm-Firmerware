@@ -80,7 +80,7 @@ void irq_fire (irq_t *irq) {
  */
 void jobhopper (void) {
 void ht162x_putchar (uint8_t idx, uint8_t ch, bool notify);
-	bottom_printf ("Jobhopper starts.\n");
+	//OVERZEALOUSLOGGER// bottom_printf ("Jobhopper starts.\n");
 //TODO:TEST// ht162x_putchar (0, '0', true);
 	while (cur_prio > CPU_PRIO_ZERO) {
 		closure_t *here;
@@ -109,7 +109,7 @@ void ht162x_putchar (uint8_t idx, uint8_t ch, bool notify);
 				}
 				todo->irq_next = NULL;
 				bottom_critical_region_end ();
-				bottom_printf ("Jobhopper calls interrupt handler.\n");
+				//OVERZEALOUSLOGGER// bottom_printf ("Jobhopper calls interrupt handler.\n");
 //TODO:TEST// ht162x_audiolevel (2 << 5);
 //TODO:NAAAHHH// if (this->irq_handler)
 				(*todo->irq_handler) (todo);
@@ -138,6 +138,6 @@ void ht162x_putchar (uint8_t idx, uint8_t ch, bool notify);
 		}
 	}
 //TODO:TEST// ht162x_putchar (0, '9', true);
-	bottom_printf ("Jobhopper ends.\n");
+	//OVERZEALOUSLOGGER// bottom_printf ("Jobhopper ends.\n");
 }
 

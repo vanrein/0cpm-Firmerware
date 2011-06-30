@@ -17,10 +17,6 @@ look at:
   (The original idea was to do the entire processing in that style, but
   it turned out not to be sufficiently flexible for that.)
 
-* The replies from netinput.c are functions to be called.  Decide if
-  this is enough, and if it can cover netreply_* as well as netdb_*
-  with the same setup.  Is this all typesafe?
-
 * Must join multicast addresses for local addresses, as described in
   http://tools.ietf.org/html/rfc4291 section 2.7.1, ff02::1:ff00:0/102
   for solicited-node address.  WIDE DHCPv6 server actually needs this.
@@ -32,6 +28,8 @@ look at:
 
 * tic55x's int.c driver: work out conditions for hibernation sleep.
   In hibernation, also shutdown the codec.
+
+* tic55x should include from separate directory for <stdbool.h>
 
 * Append network stack with LLC1 (for TFTP) and LLC2 (for console).
 

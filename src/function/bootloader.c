@@ -34,6 +34,8 @@
 
 #include <0cpm/cons.h>
 #include <0cpm/flash.h>
+#include <0cpm/netinet.h>
+#include <0cpm/netfun.h>
 
 
 /* Sanity check */
@@ -49,45 +51,53 @@ static struct flashpart *current = NULL;
 static uint16_t blocknum;
 static bool sending = false, receiving = false;
 
+extern uint8_t ether_mine [6];
 
-/* Handle an incoming TFTP request (over LLC)
+
+/* Handle a TFTP request that came in over LLC1.
  *
  * This code is rather brutal -- it only does binary transfers,
- * and it supports no options at all.
+ * and it supports no options at all.  It is mainly intended for
+ * bootstrapping (bootloading) purposes, offering access to the
+ * flash memory contained in the machine.
  */
-
-void bootloader_datagram (uint8_t *pkt, uint16_t pktlen) {
-	void netreply_llc1 (uint8_t *pkt, uint16_t pktlen);
+uint8_t *netllc_tftp (uint8_t *pkt, intptr_t *mem) {
 	uint16_t cmd;
-	uint16_t pktlen2;
+	uint16_t pktlen, pktlen2;
+	uint16_t replylen = 0;
+	uint8_t *llc = (uint8_t *) mem [MEM_ETHER_HEAD];
+	pktlen = mem [MEM_ALL_DONE] - mem [MEM_ETHER_HEAD];
+	memcpy (pkt, llc+6, 6);
+	memcpy (pkt+6, ether_mine, 6);
+	pktlen2 = (llc [12] << 8) | llc [13];
+bottom_printf ("netllc_tftp, pktlen=%d, pktlen2=%d\n", pktlen, pktlen2);
 	if (pktlen < 12 + 2 + 3 + 4) {
 		return;
 	}
-	pktlen2 = (pkt [12] << 8) | pkt [13];
 	if (pktlen < pktlen2 + 12 + 2) {
 		return;
 	}
-	cmd = (pkt [12 + 2 + 3 + 0] << 8) | pkt [12 + 2 + 3 + 1];
+	cmd = (llc [12 + 2 + 3 + 0] << 8) | llc [12 + 2 + 3 + 1];
+bottom_printf ("Processing TFTP command %d\n", (int) cmd);
 	if ((cmd == 1) || (cmd == 2)) {		/* 1==RRQ, 2=WRQ, new setup */
-		pkt [pktlen - 1] = 0;
+		llc [pktlen - 1] = 0;
 		bottom_printf ("TFTP %s for %s\n",
 			(cmd == 1)? "RRQ": "WRQ",
-			pkt + 12 + 2 + 3 + 2);
+			llc + 12 + 2 + 3 + 2);
 		current = (struct flashpart *) "TODO"; //TODO// current=flash_find_file(...), return if not found
 		sending   = (current != NULL) && (cmd == 1);
 		receiving = (current != NULL) && (cmd == 2);
-		pktlen = 12 + 2 + 3;
+		replylen = 12 + 2 + 3;
 		blocknum = 0;
 		if (sending) {
 			goto sendblock;
 		}
 		if (receiving) {
-			pkt [pktlen++] = 0x00;	// send ACK
-			pkt [pktlen++] = 0x04;
-			pkt [pktlen++] = 0x00;
-			pkt [pktlen++] = 0x00;
+			pkt [replylen++] = 0x00;	// send ACK
+			pkt [replylen++] = 0x04;
+			pkt [replylen++] = 0x00;
+			pkt [replylen++] = 0x00;
 		}
-		netreply_llc1 (pkt, pktlen);
 	} else if (cmd == 3) {			/* 3==DATA, store or burn */
 		if (!current) {
 			bottom_printf ("TFTP DATA received without connection\n");
@@ -104,7 +114,7 @@ void bootloader_datagram (uint8_t *pkt, uint16_t pktlen) {
 			pkt [12 + 2 + 3 + 1] = 0x04;
 			pkt [12 + 2 + 3 + 2] = blocknum >> 8;
 			pkt [12 + 2 + 3 + 3] = blocknum & 0xff;
-			netreply_llc1 (pkt, 12 + 2 + 3 + 4);
+			replylen = 12 + 2 + 3 + 4;
 		}
 	} else if (cmd == 4) {			/* 4==ACK, send next if sending  */
 		if (!current) {
@@ -126,9 +136,9 @@ sendblock:
 			pkt [12 + 2 + 3 + 2] = blocknum >> 8;
 			pkt [12 + 2 + 3 + 3] = blocknum & 0xff;
 			if (bottom_flash_read (blocknum - 1, pkt + 12 + 2 + 3 + 4)) {
-				netreply_llc1 (pkt, 12 + 2 + 3 + 4 + 512);
+				replylen = 12 + 2 + 3 + 4 + 512;
 			} else {
-				netreply_llc1 (pkt, 12 + 2 + 3 + 4 + 0  );
+				replylen = 12 + 2 + 3 + 4 +   0;
 			}
 		}
 	} else if (cmd == 5) {			/* 5==ERR */
@@ -138,7 +148,21 @@ sendblock:
 			pkt + 12 + 2 + 3 + 4);
 		/* no further error handling */
 	}
-	
+	if (replylen) {
+bottom_printf ("TFTP reply consists of %d bytes\n", replylen);
+		// netllc_reply (pkt, mem);
+		pkt [12] = (replylen - 12 - 2) >> 8;
+		pkt [13] = (replylen - 12 - 2) & 0xff;
+		pkt [12 + 2 + 0] = mem [MEM_LLC_SSAP];		/* DSAP */
+		pkt [12 + 2 + 1] = 68;				/* SSAP */
+		pkt [12 + 2 + 2] = 0x03;	/* UI, unnumbered information */
+		mem [MEM_ETHER_HEAD]  = (intptr_t) pkt;
+		mem [MEM_LLC_PAYLOAD] = (intptr_t) pkt + 17;
+		return pkt + replylen;
+	} else {
+bottom_printf ("No TFTP reply package\n");
+		return NULL;
+	}
 }
 
 

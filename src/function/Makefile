@@ -9,8 +9,7 @@ objs-top-$(CONFIG_MAINFUNCTION_SIP_PHONE) += src/function/sip6phone/topmain.o bi
 
 objs-top-$(CONFIG_MAINFUNCTION_BOOTLOADER) += src/function/bootloader.o src/net/llconly.o src/function/netconsole.o
 
-#TODO# Must replace llconly.o with "real" LLC support in src/net/*
-objs-top-$(CONFIG_FUNCTION_NETCONSOLE) += src/function/netconsole.o src/net/llconly.o
+objs-top-$(CONFIG_FUNCTION_NETCONSOLE) += src/function/netconsole.o
 
 objs-top-$(CONFIG_FUNCTION_FIRMWARE_UPGRADES) += src/function/bootloader.o
 

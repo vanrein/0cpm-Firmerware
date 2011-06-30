@@ -36,6 +36,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdarg.h>
+#include <string.h>
 
 #include <config.h>
 
@@ -43,22 +44,13 @@
 
 
 
-/* Send a reply through LLC1.
- * The packet provided have the responded-to MAC/LLC SAPs.
- * The packet size is completed with any reply content.
- * This routine updates MAC addresses and LLC headers.
- */
-void netreply_llc1 (uint8_t *pkt, uint16_t pktlen) {
-	uint8_t tmp;
-	memcpy (pkt +  0, pkt + 6, 6);
-	memcpy (pkt +  6, "\x00\x0b\x82\x19\xa0\xf4", 6);
-	pkt [12] = (pktlen - 12 - 2) >> 8;
-	pkt [13] = (pktlen - 12 - 2) & 0xff;
-	tmp = pkt [14];
-	pkt [14] = pkt [15];
-	pkt [15] = tmp;	// Command flag -- LLC1 only uses commands
-	// Send and forget -- LLC1 is not guaranteed delivery
-	bottom_network_send (pkt, pktlen);
+
+/* Construct an LLC reply start; fill out ethernet addresses and SSAP/DSAP */
+uint8_t *netreply_llc (uint8_t *pout, intptr_t *mem) {
+        memcpy (pout +  0, ((uint8_t *) mem [MEM_ETHER_HEAD] + 6), 6);
+        memcpy (pout +  6, ether_mine, 6);
+        pout [14] = mem [MEM_LLC_SSAP];
+        pout [15] = mem [MEM_LLC_DSAP];
 }
 
 
@@ -70,6 +62,13 @@ static uint8_t llc_rr [6 + 6 + 2 + 4];
 static uint8_t llc_sent;
 static uint8_t llc_received;
 static uint8_t llc_input;
+static mem [MEM_NETVAR_COUNT];
+
+
+struct llc2 {
+	uint8_t dummy;
+};
+static struct llc2 llc2_dummy_handle;
 
 
 /* Dummy LLC2 send routine, ignoring "cnx" as there is just one LLC2 connection.
@@ -106,11 +105,6 @@ bool netsend_llc2 (struct llc2 *cnx, uint8_t *data, uint16_t datalen) {
 	bottom_network_send (llc_pkt, llc_pktlen);
 	return newpkt;
 }
-
-struct llc2 {
-	uint8_t dummy;
-};
-static struct llc2 llc2_dummy_handle;
 
 /* LLC-only network packet handling, specifically for:
  *  - LLC2 console at SAP 20
@@ -168,8 +162,17 @@ void nethandler_llconly (uint8_t *pkt, uint16_t pktlen) {
 	if (cmd == 0x03) {				// UI (llc.datagram)
 #ifdef CONFIG_FUNCTION_FIRMWARE_UPGRADES
 		if (pkt [14] == 68) {
-			void bootloader_datagram (uint8_t *pkt, uint16_t pktlen);
-			bootloader_datagram (pkt, pktlen);
+			uint16_t pktlen;
+			// Setup minimal mem[] array for TFTP over LLC1
+			bzero (mem, sizeof (mem));
+			mem [MEM_ETHER_HEAD] = (intptr_t) pkt;
+			mem [MEM_ALL_DONE] = (intptr_t) &pkt [pktlen];
+			mem [MEM_LLC_DSAP] = pkt [14];
+			mem [MEM_LLC_SSAP] = pkt [15];
+			pkt = netllc_tftp (pkt, pktlen);
+			pktlen = mem [MEM_ALL_DONE] - (intptr_t) pkt;
+			// Send and forget -- LLC1 is unconfirmed transmission
+			bottom_network_send (pkt, pktlen);
 		} else {
 #ifdef CONFIG_DEVEL
 			bottom_printf ("LLC1 UA is only used for TFTP, use SAP 68 and not %d\n", pkt [14]);

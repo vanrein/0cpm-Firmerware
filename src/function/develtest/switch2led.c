@@ -34,8 +34,9 @@
 #define complete_top_main top_main
 
 
-void top_timer_expiration (timing_t timeout) {
+timing_t top_timer_expiration (timing_t timeout) {
 	/* Keep the linker happy */ ;
+	return timeout;
 }
 
 void top_hook_update (bool offhook) {

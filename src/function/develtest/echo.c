@@ -46,8 +46,9 @@ volatile uint16_t tobeplayed   = 0;
 volatile uint16_t toberecorded = 0;
 
 
-void top_timer_expiration (timing_t timeout) {
+timing_t top_timer_expiration (timing_t timeout) {
         /* Keep the linker happy */ ;
+	return timeout;
 }
 
 void top_hook_update (bool offhook) {

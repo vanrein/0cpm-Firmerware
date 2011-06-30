@@ -120,7 +120,7 @@ static void irqtimer_enable (void) {
 	irqtimer_interrupt_blocked = false;
 	if (irqtimer_interrupt_occurred) {
 		timing_t now, next;
-		bottom_printf ("Activating deferred timer interrupt\n");
+		//TODO:OVERZEALOUS// bottom_printf ("Activating deferred timer interrupt\n");
 		now = bottom_time ();
 		next = top_timer_expiration (now);
 		if (next != now) {

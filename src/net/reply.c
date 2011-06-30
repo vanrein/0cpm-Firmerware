@@ -207,12 +207,11 @@ uint8_t *netreply_icmp4_echo_req (uint8_t *pout, intptr_t *mem) {
 	icmp4in  = (struct icmphdr *) mem [MEM_ICMP4_HEAD];
 	netset8  (icmp4out->type, ICMP_ECHOREPLY);
 	netset8  (icmp4out->code, 0);
-	icmp4out->un.echo.id = icmp4in->un.echo.id;
-	icmp4out->un.echo.sequence = icmp4in->un.echo.sequence;
+	memcpy (&icmp4out->un.echo, &icmp4in->un.echo, 4);
 	pout = pout + sizeof (struct icmphdr);
 	alen = mem [MEM_ALL_DONE] - mem [MEM_ICMP4_HEAD] - sizeof (struct icmphdr);
 	if ((alen > 0) && (alen < 128)) {
-		memcpy (icmp4out + 1, icmp4in + 1, alen);
+		memcpy (pout, &icmp4in [1], alen);
 		pout += alen;
 	}
 	mem [MEM_ICMP4_HEAD] = (intptr_t) icmp4out;

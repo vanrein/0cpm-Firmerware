@@ -105,11 +105,11 @@ void noirq_top_main (void) {
 }
 
 
-void top_timer_expiration (timing_t exptime) {
+timing_t top_timer_expiration (timing_t exptime) {
 	uint16_t ctr;
 	ledstate ^= LED_STABLE_ON ^ LED_STABLE_OFF;
 	nextirq += TIME_MSEC(500);
-	bottom_timer_set (nextirq);
+	return nextirq;
 }
 
 

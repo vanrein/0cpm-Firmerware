@@ -44,6 +44,9 @@
 
 #include <config.h>
 #include <0cpm/cons.h>
+#include <0cpm/cpu.h>
+#include <0cpm/irq.h>
+#include <0cpm/timer.h>
 
 
 /*
@@ -97,12 +100,29 @@ static void trysend (void) {
 	}
 }
 
+#ifndef CONFIG_MAINFUNCTION_DEVEL_NETWORK
+static irqtimer_t console_timer;
+static void netcons_interval (irq_t *tmr) {
+	trysend ();
+	//TODO:Efficiency// if (rpos != wpos) {
+		irqtimer_restart ((irqtimer_t *) tmr, TIME_MSEC(20));
+	//TODO// }
+}
+#endif
+
 void netcons_connect (struct llc2 *cnx) {
 	netcons_connection = cnx;
+#ifdef CONFIG_MAINFUNCTION_DEVEL_NETWORK
 	trysend ();
+#else
+	irqtimer_start (&console_timer, 0, netcons_interval, CPU_PRIO_LOW);
+#endif
 }
 
 void netcons_close (void) {
+#ifndef CONFIG_MAINFUNCTION_DEVEL_NETWORK
+	irqtimer_stop (&console_timer);
+#endif
 	netcons_connection = NULL;
 }
 
@@ -173,7 +193,7 @@ void bottom_console_vprintf (char *fmt, va_list argh) {
 				minpos += fp [-1] - '0';
 				goto moremeuk;
 			case 'c':
-				ch = va_arg (argh, char);
+				ch = (char) va_arg (argh, int);
 				cons_putchar (ch);
 				break;
 			case 's':
@@ -195,7 +215,7 @@ void bottom_console_vprintf (char *fmt, va_list argh) {
 				if (val32bit) {
 					intval =            va_arg (argh, uint32_t);
 				} else {
-					intval = (uint32_t) va_arg (argh, uint16_t);
+					intval = (uint32_t) va_arg (argh, int     );
 				}
 				cons_putint (intval, 10, minpos);
 				break;
@@ -207,7 +227,7 @@ void bottom_console_vprintf (char *fmt, va_list argh) {
 				if (val32bit) {
 					intval =            va_arg (argh, uint32_t);
 				} else {
-					intval = (uint32_t) va_arg (argh, uint16_t);
+					intval = (uint32_t) va_arg (argh, int     );
 				}
 				cons_putint (intval, 16, minpos);
 				break;
@@ -218,7 +238,9 @@ void bottom_console_vprintf (char *fmt, va_list argh) {
 			}
 		}
 	}
+#ifdef CONFIG_MAINFUNCTION_DEVEL_NETWORK
 	trysend ();
+#endif
 }
 
 void bottom_console_printf (char *fmt, ...) {
