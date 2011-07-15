@@ -77,6 +77,12 @@ void irq_fire (irq_t *irq) {
  * enqueued somewhere, and is awaiting a response.  In other words, it
  * is then time to sleep.  This assumes that no task or IRQ will ever
  * be set to CPU_PRIO_ZERO.
+ *
+ * This routine triggers sampling of random seed material after having
+ * lowered the priority level of the CPU.  This ensures that it is
+ * never done while handling anything of high priority.  It also helps
+ * to do this after a series of jobs has been fulfilled, as its timing
+ * is not likely to be very predictable at that point.
  */
 void jobhopper (void) {
 void ht162x_putchar (uint8_t idx, uint8_t ch, bool notify);
@@ -135,6 +141,7 @@ void ht162x_putchar (uint8_t idx, uint8_t ch, bool notify);
 		} else {
 //TODO:TEST// ht162x_putchar (0, '8', true);
 			cur_prio--;
+			bottom_rndseed ();
 		}
 	}
 //TODO:TEST// ht162x_putchar (0, '9', true);

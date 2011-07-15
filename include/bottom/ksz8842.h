@@ -100,6 +100,13 @@ typedef uint32_t kszint32_t;
 #endif
 
 
+/* Data is read 4 bytes at a time, and the buffer
+ * is a multiple of 2 bytes, so reserve 2 bytes
+ * extra for overflow.
+ */
+#define HAVE_NET_TRAILER 2
+
+
 /* Map KSZ8842 network data to or from general purpose memory */
 void ksz_memset16 (kszint16_t ksz, uint8_t *mem);
 kszint16_t ksz_memget16 (uint8_t *mem);

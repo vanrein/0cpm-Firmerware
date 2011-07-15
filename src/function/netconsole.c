@@ -47,6 +47,7 @@
 #include <0cpm/cpu.h>
 #include <0cpm/irq.h>
 #include <0cpm/timer.h>
+#include <0cpm/text.h>
 
 
 /*
@@ -59,11 +60,13 @@
 /******** BUFFER STATIC VARIABLES ********/
 
 // TODO: Configuration option would be nice for CONSBUFLEN (max 64k - 1)
-#define CONSBUFLEN 1024
+#define CONSBUFLEN 4096
 
 static char consbuf [CONSBUFLEN];
 
 static uint16_t rpos = 0, wpos = 0;
+
+static bool console_timer_is_running = false;
 
 
 /******** NETWORK INTERFACE ROUTINES ********/
@@ -104,9 +107,18 @@ static void trysend (void) {
 static irqtimer_t console_timer;
 static void netcons_interval (irq_t *tmr) {
 	trysend ();
-	//TODO:Efficiency// if (rpos != wpos) {
+	if (rpos == wpos) {
+		console_timer_is_running = false;
+	}
+	if (console_timer_is_running) {
 		irqtimer_restart ((irqtimer_t *) tmr, TIME_MSEC(20));
-	//TODO// }
+	}
+}
+static void ensure_console_timer_runs (void) {
+	if (netcons_connection && !console_timer_is_running) {
+		console_timer_is_running = true;
+		irqtimer_start (&console_timer, 0, netcons_interval, CPU_PRIO_LOW);
+	}
 }
 #endif
 
@@ -115,7 +127,7 @@ void netcons_connect (struct llc2 *cnx) {
 #ifdef CONFIG_MAINFUNCTION_DEVEL_NETWORK
 	trysend ();
 #else
-	irqtimer_start (&console_timer, 0, netcons_interval, CPU_PRIO_LOW);
+	ensure_console_timer_runs ();
 #endif
 }
 
@@ -142,6 +154,7 @@ static void cons_putchar (char c) {
 		}
 	}
 	consbuf [wpos++] = c;
+	ensure_console_timer_runs ();
 }
 
 static void cons_putint (unsigned long int val, uint8_t base, uint8_t minpos) {
@@ -159,11 +172,15 @@ static void cons_putint (unsigned long int val, uint8_t base, uint8_t minpos) {
 	} while (divisor > 0);
 }
 
+static textptr_t const nulltext = { "(NULL)", 6 };
+
 void bottom_console_vprintf (char *fmt, va_list argh) {
 	char *fp = fmt;
 	char *str;
 	char ch;
 	uint32_t intval;
+	textptr_t const *txt;
+	uint16_t idx;
 	while (*fp) {
 		uint8_t minpos = 0;
 		bool val32bit = false;
@@ -193,11 +210,11 @@ void bottom_console_vprintf (char *fmt, va_list argh) {
 				minpos += fp [-1] - '0';
 				goto moremeuk;
 			case 'c':
-				ch = (char) va_arg (argh, int);
+				ch = (char) va_arg (argh, intptr_t);
 				cons_putchar (ch);
 				break;
 			case 's':
-				str = va_arg (argh, char *);
+				str = (char *) va_arg (argh, intptr_t);
 				if (str == NULL) {
 					str = "(NULL)";
 				}
@@ -211,23 +228,33 @@ void bottom_console_vprintf (char *fmt, va_list argh) {
 					cons_putchar (' ');
 				}
 				break;
+			case 't':
+				txt = (textptr_t *) va_arg (argh, intptr_t);
+				idx = 0;
+				if (textisnull (txt)) {
+					txt = &nulltext;
+				}
+				while (idx < txt->len) {
+					cons_putchar (txt->str [idx++]);
+				}
+				break;
 			case 'd':
 				if (val32bit) {
-					intval =            va_arg (argh, uint32_t);
+					intval = (uint32_t) va_arg (argh, intptr_t);
 				} else {
-					intval = (uint32_t) va_arg (argh, int     );
+					intval = (uint32_t) va_arg (argh, intptr_t);
 				}
 				cons_putint (intval, 10, minpos);
 				break;
 			case 'p':
-				intval = (uint32_t) va_arg (argh, void *);
+				intval = (uint32_t) va_arg (argh, intptr_t);
 				cons_putint (intval, 16, (minpos > 8)? minpos: 8);
 				break;
 			case 'x':
 				if (val32bit) {
-					intval =            va_arg (argh, uint32_t);
+					intval = (uint32_t) va_arg (argh, intptr_t);
 				} else {
-					intval = (uint32_t) va_arg (argh, int     );
+					intval = (uint32_t) va_arg (argh, intptr_t);
 				}
 				cons_putint (intval, 16, minpos);
 				break;

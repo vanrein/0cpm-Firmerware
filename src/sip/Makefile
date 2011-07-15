@@ -1,4 +1,4 @@
-# Makefile for the 0cpm phone
+# Makefile for the 0cpm SIP stack
 #
 # This file is part of 0cpm Firmerware.
 #
@@ -16,4 +16,5 @@
 # You should have received a copy of the GNU General Public License
 # along with 0cpm Firmerware.  If not, see <http://www.gnu.org/licenses/>.
 
-objs-top-phone-y += src/phone/todo.o
+objs-top-kernel-y += src/sip/dialog.o src/sip/gen.o src/sip/parse.o src/sip/register.o src/sip/tract.o src/sip/app.o
+

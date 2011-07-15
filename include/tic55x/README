@@ -1,0 +1,6 @@
+This directory defined standard C headers for tic55x.
+This is done to comply with the compiler conditions,
+which forbid shipping the source code unless it is
+only aimed at TI's processors.
+
+For details, read src/driver/tic55x/LICENSE-WARNING.TXT

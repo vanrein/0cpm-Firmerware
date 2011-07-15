@@ -29,6 +29,8 @@
 #define HAVE_LED_HANDSET 1
 #define HAVE_LED_SPEAKERPHONE 1
 
+#define HAVE_LINES 2
+
 #define HAVE_BUTTON_MESSAGE	'i'
 #define HAVE_BUTTON_HOLD	'h'
 #define HAVE_BUTTON_TRANSFER	'x'

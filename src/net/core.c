@@ -103,7 +103,7 @@ void netcore_checksum_area (uint16_t *checksum, nint16_t *area, uint16_t len) {
 		len -= 2;
 	}
 	if (len > 0) {
-		csum = csum + netget8 (*(nint8_t *)area);
+		csum = csum + (netget8 (*(nint8_t *)area) << 8);
 	}
 	csum = (csum & 0xffff) + (csum >> 16);
 	csum = (csum & 0xffff) + (csum >> 16);

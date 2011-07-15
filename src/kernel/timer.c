@@ -84,7 +84,6 @@ static bool irqtimer_interrupt_occurred = false;
 /* Process a timer interrupt.
  */
 timing_t top_timer_expiration (timing_t exptime) {
-bottom_led_set (LED_IDX_BACKLIGHT, 0);
 	if (irqtimer_interrupt_blocked) {
 		irqtimer_interrupt_occurred = true;
 	} else {
@@ -98,7 +97,6 @@ bottom_led_set (LED_IDX_BACKLIGHT, 0);
 			exptime = irqtimer_wait_queue->tmr_expiry;
 		}
 	}
-bottom_led_set (LED_IDX_BACKLIGHT, 1);
 	return exptime;
 }
 

@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdarg.h>
 
 #include <config.h>
 
@@ -28,7 +29,10 @@
 #include <0cpm/kbd.h>
 #include <0cpm/led.h>
 #include <0cpm/irq.h>	//TODO:ONLY-FOR-PATCHWORK-BELOW
-
+#include <0cpm/timer.h>
+#include <0cpm/cons.h>
+#include <0cpm/text.h>
+#include <0cpm/sip.h>
 
 
 /* TODO: shared variables for debugging's sake */
@@ -47,10 +51,6 @@ enum netcfgstate {
 extern enum netcfgstate boot_state;
 static uint8_t nextround = 0x00;	// Local, only for test purposes
 
-
-void top_hook_update (bool offhook) {
-	/* Keep the linker happy */ ;
-}
 
 void top_can_play (uint16_t samples) {
 	/* Keep the linker happy */ ;
@@ -90,21 +90,6 @@ void top_button_release (void) {
 	nextround = 0x00;
 }
 
-
-extern priority_t cur_prio;
-
-
-
-/* TODO: bottom definitions shouldn't be copied in the top */
-extern volatile uint16_t IER0, IER1;
-asm ("_IER0 .set 0x0000");
-asm ("_IER1 .set 0x0045");
-#define REGBIT_IER0_TINT0       4
-#define REGBIT_IER0_DMAC1       9
-#define REGBIT_IER0_INT0	2
-#define REGBIT_IER1_TINT1       6
-#define REGBIT_IER1_DMAC0       2
-
 /* TODO: shared variables for debugging's sake */
 extern uint8_t          boot_retries;
 #include <0cpm/cpu.h>
@@ -116,19 +101,126 @@ uint8_t bad;
 
 irqtimer_t disptimer;
 int nibblepos = 0;
-timing_t nextrot = 0;
+
+bool registered = false;
+bool am_offhook = false;
+bool connected = false;
+bool talking = false;
+irqtimer_t regtimer;
+dialog_t *regdia = NULL;
+dialog_t *calldia = NULL;
+
+void invite_response (textptr_t *sip, textptr_t *sdp) {
+	textptr_t code, desc;
+	sip_splitline_response (sip, &code, &desc);
+	bottom_printf ("SIP response to INVITE received: %t %t\n", &code, &desc);
+	if (memcmp (code.str, "180", 3)) {
+		ht162x_led_set (11, 1, true); // ringing
+		ht162x_led_set (13, 0, true); // horn.off
+		ht162x_led_set (15, 0, true); // error.off
+	} else if (memcmp (code.str, "200", 3)) {
+		ht162x_led_set (11, 0, true); // ringing.off
+		ht162x_led_set (13, 1, true); // horn
+		ht162x_led_set (15, 0, true); // error.off
+	} else if (*code.str >= '4') {
+		ht162x_led_set (11, 0, true); // ringing.off
+		ht162x_led_set (13, 0, true); // horn.off
+		ht162x_led_set (15, 1, true); // error.on
+	} else {
+		ht162x_led_set (11, 0, true); // ringing.off
+		ht162x_led_set (13, 0, true); // horn.off
+		ht162x_led_set (15, 0, true); // error.off
+	}
+}
+
+void byeresponse (textptr_t *sip, textptr_t *sdp) {
+	textptr_t code, desc;
+	sip_splitline_response (sip, &code, &desc);
+	bottom_printf ("SIP response (TODO:process) to BYE received: %t %t\n", &code, &desc);
+}
+
+void cancelresponse (textptr_t *sip, textptr_t *sdp) {
+	textptr_t code, desc;
+	sip_splitline_response (sip, &code, &desc);
+	bottom_printf ("SIP response (TODO:process) to CANCEL received: %t %t\n", &code, &desc);
+}
+
+void register_response (textptr_t *sip, textptr_t *sdp) {
+	textptr_t code, desc;
+	sip_splitline_response (sip, &code, &desc);
+	bottom_printf ("SIP response to REGISTER: %t %t\n", &code, &desc);
+	if (regdia) {
+		sipdia_deallocate (regdia);
+		regdia = NULL;
+	}
+}
+
+void top_hook_update (bool offhook) {
+	bottom_led_set (LED_IDX_BACKLIGHT, offhook? LED_STABLE_ON: LED_STABLE_OFF);
+	if (am_offhook != offhook) {
+		am_offhook = offhook;
+		if (registered && offhook) {
+			if (calldia) {
+				sipdia_deallocate (calldia);
+				calldia = NULL;
+			}
+			calldia = sipdia_allocate (NULL, true);
+			if (calldia) {
+				sipdia_setlinenr (calldia, 2);
+				siptr_client (calldia, &invite_m, invite_response);
+			}
+		}
+		if (registered && !offhook) {
+			siptr_client (calldia,
+					talking? &bye_m: &cancel_m,
+					talking? byeresponse: cancelresponse);
+		}
+	}
+}
+
+
+extern priority_t cur_prio;
+
+/* TODO: bottom definitions shouldn't be copied in the top */
+extern volatile uint16_t IER0, IER1;
+asm ("_IER0 .set 0x0000");
+asm ("_IER1 .set 0x0045");
+#define REGBIT_IER0_TINT0       4
+#define REGBIT_IER0_DMAC1       9
+#define REGBIT_IER0_INT0	2
+#define REGBIT_IER1_TINT1       6
+#define REGBIT_IER1_DMAC0       2
+
+void register_phone (irq_t *tmr) {
+	if (regdia) {
+		bottom_printf ("Previous registration still active -- repeating the attempt\n");
+	}
+	if (!regdia) {
+		regdia = sipdia_allocate (NULL, true);
+	}
+	if (regdia) {
+		sipdia_setlinenr (regdia, 1);
+		bottom_printf ("Registering phone\n");
+		siptr_client (regdia, &register_m, register_response);
+	} else {
+		bottom_printf ("No free phone line -- not registering\n");
+	}
+	irqtimer_restart ((irqtimer_t *) tmr, TIME_SEC (300));
+}
+
 void show_info (irq_t *tmr) {
 	int relpos;
-	//TODO:MANUAL_TIMER_AS_REAL_ONE_FAILS://
-#if 0
-	timing_t now = bottom_time ();
-	if (TIME_BEFORE (now, nextrot)) {
-		return;
-	}
-	nextrot += TIME_MSEC (1000);
+#if defined NEED_KBD_SCANNER_BETWEEN_KEYS || defined NEED_KBD_SCANNER_DURING_KEYPRESS
+	bottom_keyboard_scan ();
 #endif
-bottom_keyboard_scan ();
+#if defined NEED_HOOK_SCANNER_WHEN_ONHOOK || defined NEED_HOOK_SCANNER_WHEN_OFFHOOK
+	bottom_hook_scan ();
+#endif
 	if ((ip6binding [0].flags & (I6B_DEFEND_ME | I6B_EXPIRED)) == I6B_DEFEND_ME) {
+		if (!registered) {
+			registered = true;
+			irqtimer_start (&regtimer, 0, register_phone, CPU_PRIO_LOW);
+		}
 		for (relpos = 0; relpos < 12; relpos++) {
 			int actpos = relpos + nibblepos;
 			uint8_t ip6digit = 0x00;
@@ -157,49 +249,18 @@ bottom_keyboard_scan ();
  * nothing remains to be done, stop to wait for interrupts.
  */
 void top_main (void) {
-#if 0
-bool have_ipv4 (void);
-bool have_ipv6 (void);
-#endif
 	uint8_t ipish [4] = { 0, 0, 0, 0 };
-	// TODO: init ();
-bottom_led_set (LED_IDX_SPEAKERPHONE, 1);
-bottom_led_set (LED_IDX_BACKLIGHT, 1);
-	// netdb_initialise ();
-	// TODO: cpu_add_closure (X);
-	// TODO: cpu_add_closure (Y);
-	// TODO: cpu_add_closure (Z);
-// IER0 &= ~(1 << REGBIT_IER0_INT0);
-// IER1 &= 0xffff; // ~(1 << REGBIT_IER1_DMAC0);
+	bottom_led_set (LED_IDX_BACKLIGHT, LED_STABLE_OFF);
+	netdb_initialise ();
+	sipdia_initialise ();
 	bottom_critical_region_end ();
-	// netcore_bootstrap_initiate ();
-bottom_led_set (LED_IDX_SPEAKERPHONE, 0);
 	irqtimer_start (&disptimer, TIME_MSEC (1000), show_info, CPU_PRIO_LOW);
 	while (true) {
-#if 0
-		if (have_ipv6 ()) {
-			bottom_show_ip6 (1, ip6binding [0].ip6addr);
-		} else {
-			ipish [0] = (uint8_t) boot_state;
-			ipish [1] = boot_retries;
-			ipish [2] = bad;
-			ipish [3] = have_ipv4 ()? 4: 0;
-			bottom_show_ip4 (1, ipish);
-		}
-#else
-		//TODO:TIMERED// show_info (&disptimer);
-#endif
-bottom_led_set (LED_IDX_BACKLIGHT, bottom_phone_is_offhook ()? 1: 0);
-
 		jobhopper ();
-bottom_led_set (LED_IDX_HANDSET, 1);
 		//TODO// bottom_sleep_prepare ();
 		//TODO// if (cur_prio == CPU_PRIO_ZERO) {
 			//TODO// bottom_sleep_commit (SLEEP_SNOOZE);
 		//TODO// }
-#if defined NEED_KBD_SCANNER_BETWEEN_KEYS || defined NEED_KBD_SCANNER_DURING_KEYPRESS
-		//TODO:TIMERED// bottom_keyboard_scan ();
-#endif
 	}
 }
 

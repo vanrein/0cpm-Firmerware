@@ -101,7 +101,6 @@ uint16_t netinputlen;
 void onlinetest_top_main (void) {
 	void nethandler_llconly (uint8_t *pkt, uint16_t pktlen);
 	bottom_critical_region_end ();
-	bottom_led_set (LED_IDX_BACKLIGHT, LED_STABLE_ON);
 	while (true) {
 		if (online) {
 			bottom_show_fixed_msg (APP_LEVEL_BACKGROUNDED, FIXMSG_READY);
@@ -109,20 +108,18 @@ void onlinetest_top_main (void) {
 			if (bottom_network_recv (netinput, &netinputlen)) {
 				if (memcmp (netinput, "\xff\xff\xff\xff\xff\xff", 6) == 0) {
 					bottom_printf ("Broadcast from %2x:%2x:%2x:%2x:%2x:%2x\n",
-							(uint16_t) netinput [ 6],
-							(uint16_t) netinput [ 7],
-							(uint16_t) netinput [ 8],
-							(uint16_t) netinput [ 9],
-							(uint16_t) netinput [10],
-							(uint16_t) netinput [11]);
+							(intptr_t) netinput [ 6],
+							(intptr_t) netinput [ 7],
+							(intptr_t) netinput [ 8],
+							(intptr_t) netinput [ 9],
+							(intptr_t) netinput [10],
+							(intptr_t) netinput [11]);
 				} else {
-					bottom_led_set (LED_IDX_BACKLIGHT, LED_STABLE_OFF);
 					nethandler_llconly (netinput, netinputlen);
 				}
 			}
 		} else {
 			bottom_show_fixed_msg (APP_LEVEL_BACKGROUNDED, FIXMSG_OFFLINE);
-			bottom_led_set (LED_IDX_BACKLIGHT, LED_STABLE_ON);
 		}
 	}
 }

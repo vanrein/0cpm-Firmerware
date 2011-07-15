@@ -102,11 +102,11 @@ void bottom_led_set (led_idx_t lednum, led_colour_t col) {
 	static headctr = 0;
 	if (headctr++ % 20 == 0) {
 		for (i = 0; i < LED_IDX_COUNT; i++) {
-			bottom_printf ("\t%s", num2descr [i].name);
+			bottom_printf ("\t%s", (intptr_t) num2descr [i].name);
 		}
 		bottom_printf ("\n");
 	}
-	bottom_printf ("%3d.%03d", tv.tv_sec, tv.tv_usec / 1000);
+	bottom_printf ("%3d.%03d", (intptr_t) tv.tv_sec, (intptr_t) (tv.tv_usec / 1000));
 	char capscol [8];
 	char *colnm = num2descr [lednum].states [col];
 	for (i = 0; i < 7; i++) {
@@ -124,7 +124,7 @@ void bottom_led_set (led_idx_t lednum, led_colour_t col) {
 		} else {
 			colnm = "UNSET";
 		}
-		bottom_printf ("\t%s", colnm);
+		bottom_printf ("\t%s", (intptr_t) colnm);
 	}
 	bottom_printf ("\n");
 }

@@ -119,20 +119,20 @@ void nethandler_llconly (uint8_t *pkt, uint16_t pktlen) {
 #if 0
 	if ((pktlen < 14) || (typelen < 46)) {
 #ifdef CONFIG_DEVEL
-		bottom_printf ("Unpadded packet length %d received\n", pktlen);
+		bottom_printf ("Unpadded packet length %d received\n", (intptr_t) pktlen);
 #endif
 		return;
 	}
 #endif
 	if (typelen > 1500) {
 #ifdef CONFIG_DEVEL
-		bottom_printf ("Traffic is not LLC but protocol 0x%4x\n", typelen);
+		bottom_printf ("Traffic is not LLC but protocol 0x%4x\n", (intptr_t) typelen);
 #endif
 		return;
 	}
 	if ((typelen > 64) && (typelen != pktlen - 14)) {
 #ifdef CONFIG_DEVEL
-		bottom_printf ("Illegal length %d received (pktlen = %d)\n", typelen, pktlen);
+		bottom_printf ("Illegal length %d received (pktlen = %d)\n", (intptr_t) typelen, (intptr_t) pktlen);
 #endif
 		return;
 	}
@@ -175,7 +175,7 @@ void nethandler_llconly (uint8_t *pkt, uint16_t pktlen) {
 			bottom_network_send (pkt, pktlen);
 		} else {
 #ifdef CONFIG_DEVEL
-			bottom_printf ("LLC1 UA is only used for TFTP, use SAP 68 and not %d\n", pkt [14]);
+			bottom_printf ("LLC1 UA is only used for TFTP, use SAP 68 and not %d\n", (intptr_t) pkt [14]);
 #endif
 		}
 #else
@@ -184,7 +184,7 @@ void nethandler_llconly (uint8_t *pkt, uint16_t pktlen) {
 #endif
 	} else if (pkt [14] != 20) {
 #ifdef CONFIG_DEVEL
-		bottom_printf ("To access the network console, use SAP 20 and not %d\n", pkt [14]);
+		bottom_printf ("To access the network console, use SAP 20 and not %d\n", (intptr_t) pkt [14]);
 #endif
 #endif
 	} else if (cmd == 0x7f) {			// SABME (llc.connect)
@@ -213,7 +213,7 @@ void nethandler_llconly (uint8_t *pkt, uint16_t pktlen) {
 	} else {
 #ifdef CONFIG_DEVEL
 		bottom_printf ("Selfishly ignoring LLC traffic with cmd bytes 0x%2x%2x\n",
-					(uint16_t) pkt [16], (uint16_t) pkt [17]);
+					(intptr_t) pkt [16], (intptr_t) pkt [17]);
 #endif
 	}
 	if (ack) {

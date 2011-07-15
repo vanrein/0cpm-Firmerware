@@ -929,6 +929,57 @@ played in the future.  A small delay before a packet is actually
 played may be healthy to avoid future sound glitches.
 
 
+Entropy
+-------
+
+Some top applications will require pseudo-random bits.  Although
+not all hardware has a random generator on-board, it is not hard
+to find on a phone:
+
+* A number of low bits from a counter running at the CPU clock,
+  sampled at unpredictable times -- such as network interrupts.
+
+* While coding samples, the amount by which the sample is off
+  in compressed form.
+
+* While the phone is not active, a microphone can still be sampled
+  and its lower bits used.  This would introduce a potential
+  privacy problem though, so it is not something to do without
+  marking it clearly in the phone's specifications!
+
+* When the top half is done doing a certain task, it may invoke
+  a random seeding routine, possible to gather data from the
+  sources above.  The bottom half may assume that the top half
+  will regularly call a random seeding function if it also wants
+  to be able to collect random material.
+
+The bottom half builds an entropy buffer of a prime number of bytes.
+The prime number greatly reduces the chances of cycles occurring;
+the lowest number of bytes that should be supported is 17.  When
+entropy drips in, it is exclusive-ored with the buffer bytes in a
+cyclic fashion.  When random material is needed, the next few
+bytes are taken out and the pointer for such retrieval moves forward
+while doing so.  There is no synchronisation between writing and
+reading, as the service is not truely random, but pseudo-random:
+best-effort suffices for telephony applications.
+
+::
+	void bottom_rndseed (void);
+	void bottom_rnd_pseudo (uint8_t *rnd, uint8_t len);
+	//TBD// void bottom_rnd_strong (uint8_t *rnd, uint8_t len);
+
+The ``bottom_rndseed()`` function is used to tell the bottom that
+now would be a nice time to sample some entropy; this will usually
+be called when the top is done with some job, so that it is as far
+and unpredictably away from a reliable measurement moment as possible.
+
+The ``bottom_rnd_pseudo()`` function fills the first ``len`` bytes
+pointed at by ``rnd`` with random bytes, each consisting of 8 random
+bits.  That is, pseudo-random bits.  The top half should never ask
+for more than 4 bytes at a time, to avoid emptying the entropy from
+the buffer.
+
+
 Special hardware
 ================
 

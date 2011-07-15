@@ -138,7 +138,7 @@ timing_t bottom_time (void) {
 	struct timeval now;
 	timing_t retval;
 	if (gettimeofday (&now, NULL) != 0) {
-		bottom_printf ("Failed to get clock time: %s\n", strerror (errno));
+		bottom_printf ("Failed to get clock time: %s\n", (intptr_t) strerror (errno));
 		return 0;
 	}
 	retval = now.tv_sec * 1000 + (now.tv_usec / 1000);
@@ -196,7 +196,7 @@ void bottom_sleep_commit (sleep_depth_t depth) {
 		top_timer_expiration (exptm);
 		sleepy = false;
 	} else {
-		bottom_printf ("select() returned an error: %s\n", strerror (errno));
+		bottom_printf ("select() returned an error: %s\n", (intptr_t) strerror (errno));
 		sleep (1);
 	}
 }
@@ -210,7 +210,7 @@ bool bottom_network_send (uint8_t *buf, uint16_t buflen) {
 		if (errno == EAGAIN) {
 			return false;
 		} else {
-			bottom_printf ("Ignoring error after write to tunnel: %s\n", strerror (errno));
+			bottom_printf ("Ignoring error after write to tunnel: %s\n", (intptr_t) strerror (errno));
 		}
 	}
 	return true;
@@ -223,7 +223,7 @@ bool bottom_network_recv (uint8_t *buf, uint16_t *buflen) {
 		if (errno == EAGAIN) {
 			return false;
 		} else {
-			bottom_printf ("Ignoring error after read from tunnel: %s\n", strerror (errno));
+			bottom_printf ("Ignoring error after read from tunnel: %s\n", (intptr_t) strerror (errno));
 		}
 		*buflen = 0;
 	} else if (rsz > sizeof (struct tun_pi)) {
@@ -264,8 +264,8 @@ int process_packets (int secs) {
 #if 0
 			int i;
 			for (i=0; i<28; i++) {
-				bottom_printf ("  M[%d]=0x%08x%s", i, mem [i],
-						((i+1)%4 == 0)? "\n": "");
+				bottom_printf ("  M[%d]=0x%08x%s", (intptr_t) i, (intptr_t) mem [i],
+						(intptr_t) (((i+1)%4 == 0)? "\n": ""));
 			}
 #endif
 			if (rf != NULL) {

@@ -70,7 +70,7 @@ uint8_t *netllc_tftp (uint8_t *pkt, intptr_t *mem) {
 	memcpy (pkt, llc+6, 6);
 	memcpy (pkt+6, ether_mine, 6);
 	pktlen2 = (llc [12] << 8) | llc [13];
-bottom_printf ("netllc_tftp, pktlen=%d, pktlen2=%d\n", pktlen, pktlen2);
+bottom_printf ("netllc_tftp, pktlen=%d, pktlen2=%d\n", (intptr_t) pktlen, (intptr_t) pktlen2);
 	if (pktlen < 12 + 2 + 3 + 4) {
 		return;
 	}
@@ -78,12 +78,12 @@ bottom_printf ("netllc_tftp, pktlen=%d, pktlen2=%d\n", pktlen, pktlen2);
 		return;
 	}
 	cmd = (llc [12 + 2 + 3 + 0] << 8) | llc [12 + 2 + 3 + 1];
-bottom_printf ("Processing TFTP command %d\n", (int) cmd);
+bottom_printf ("Processing TFTP command %d\n", (intptr_t) cmd);
 	if ((cmd == 1) || (cmd == 2)) {		/* 1==RRQ, 2=WRQ, new setup */
 		llc [pktlen - 1] = 0;
 		bottom_printf ("TFTP %s for %s\n",
-			(cmd == 1)? "RRQ": "WRQ",
-			llc + 12 + 2 + 3 + 2);
+			(intptr_t) ((cmd == 1)? "RRQ": "WRQ"),
+			(intptr_t) (llc + 12 + 2 + 3 + 2));
 		current = (struct flashpart *) "TODO"; //TODO// current=flash_find_file(...), return if not found
 		sending   = (current != NULL) && (cmd == 1);
 		receiving = (current != NULL) && (cmd == 2);
@@ -144,8 +144,8 @@ sendblock:
 	} else if (cmd == 5) {			/* 5==ERR */
 		pkt [pktlen-1] = 0;
 		bottom_printf ("TFTP error %d received: %s\n", 
-			(pkt [12 + 2 + 3 + 2] << 8) | pkt [12 + 2 + 3 + 3],
-			pkt + 12 + 2 + 3 + 4);
+			(intptr_t) ((pkt [12 + 2 + 3 + 2] << 8) | pkt [12 + 2 + 3 + 3]),
+			(intptr_t) (pkt + 12 + 2 + 3 + 4));
 		/* no further error handling */
 	}
 	if (replylen) {

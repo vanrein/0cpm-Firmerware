@@ -180,5 +180,6 @@ to the user's ability to exercise the freedom brought to the
 
 As soon as TI permits this redistribution of their TIC55x toolkit,
 we will update or remove this file from the software distribution,
-and the cautioning note in src/target/Kconfig.platform
+and the cautioning notes in src/target/Kconfig.platform and
+include/tic55x/README
 

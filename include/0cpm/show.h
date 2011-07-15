@@ -47,6 +47,7 @@ typedef enum {
 	FIXMSG_SENDING,		// A call request is being / has been sent
 	FIXMSG_RINGING,		// The remote phone is ringing
 	FIXMSG_CALL_ENDED,	// The call has ended
+	//
 	FIXMSG_COUNT		// The number of fixed messages
 } fixed_msg_t;
 

@@ -123,3 +123,23 @@ Checking in code
   this was first discussed and agreed; the design of the API should stay as
   clean as possible.
 
+
+Small steps at a time
+=====================
+
+Debugging in an embedded environment is difficult, as you will not be able
+to easily detect on what line your code gets stuck.  If you forget to
+increment a counter (yes, you will!) you will have to resort to iterating
+before you know where the problem arises.  The logging facilities don't
+help much either; they need to get a turn running on the CPU, and if your
+code gets stuck the logged information will not actually be sent.  (That
+might be an interesting change though?)
+
+For this reason, make small steps at a time.  The best approach is probably
+to make one conceptual improvement at a time (as half-written code is usually
+not half bad, but double bad).  At times, this will mean writing a lot of
+code and testing it all at once.  Still, its structure will help you to
+find the problem spot more easily.
+
+Just don't forget to increment your counters...
+

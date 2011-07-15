@@ -66,4 +66,9 @@ void bottom_irq_disable (irq_t *irq);
 void bottom_irq_wait (void);
 
 
+/* Bottom-half operations to process pseudo-random information */
+void bottom_rndseed (void);
+void bottom_rnd_pseudo (uint8_t *rnd, uint8_t len);
+
+
 #endif

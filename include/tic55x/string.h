@@ -1,4 +1,4 @@
-/* Temporary settings during development
+/* String and byte array handling for tic55x.
  *
  * This file is part of 0cpm Firmerware.
  *
@@ -17,14 +17,8 @@
  * along with 0cpm Firmerware.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
-// TODO: The following nethandlers have not been implemented yet
-#include <stdlib.h>
-inline uint8_t *net_rtp (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_rtcp (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_resp_error (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_resp_dyn (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_resp_std (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_query_error (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_query_ok (uint8_t *pkt, intptr_t *mem) { return NULL; }
+int memcmp(const void *s1, const void *s2, size_t n);
+void *memcpy(void *dest, const void *src, size_t n);
+void *memset(void *s, int c, size_t n);
+void bzero(void *s, size_t n);
 

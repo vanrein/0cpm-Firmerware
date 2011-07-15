@@ -29,7 +29,18 @@ look at:
 * tic55x's int.c driver: work out conditions for hibernation sleep.
   In hibernation, also shutdown the codec.
 
-* tic55x should include from separate directory for <stdbool.h>
+* SIP handling:
+   + UAC-tract: move from dialog-function to method-name
+   + replace fixed offsets (sip + 8) with a startline parser routine
+   + match client transactions for a given dialog
+   - correct timing and counts for client's initiation rituals
+   - ensure proper termination of dialogs (always have a timeout)
+   - handle SIP response codes from remote UASs
+   - handle SIP requests from remote UACs
+   - wrap distinction between request & response in a parser function
+   - process incoming requests (such as an INVITE)
+   - route headers
 
-* Append network stack with LLC1 (for TFTP) and LLC2 (for console).
+* create & use a irqtimer_stop_completely() that halts prepared fire()
 
+* handle packet fragmentation

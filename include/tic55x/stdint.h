@@ -1,4 +1,4 @@
-/* Temporary settings during development
+/* Standard integer types on tic55x
  *
  * This file is part of 0cpm Firmerware.
  *
@@ -17,14 +17,13 @@
  * along with 0cpm Firmerware.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+typedef unsigned char uint8_t;
+typedef unsigned short int uint16_t;
+typedef unsigned long int uint32_t;
 
-// TODO: The following nethandlers have not been implemented yet
-#include <stdlib.h>
-inline uint8_t *net_rtp (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_rtcp (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_resp_error (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_resp_dyn (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_resp_std (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_query_error (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_query_ok (uint8_t *pkt, intptr_t *mem) { return NULL; }
+typedef char int8_t;
+typedef short int int16_t;
+typedef long int int32_t;
+
+typedef uint32_t intptr_t;
 

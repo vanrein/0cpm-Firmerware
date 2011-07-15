@@ -66,6 +66,11 @@
 
 static timing_t current_timer = 0;
 
+#define ENTROPY_BUFLEN 17
+static uint8_t entropy_pseudo [ENTROPY_BUFLEN];
+static uint8_t entropy_wpos = 0;
+static uint8_t entropy_rpos = 0;
+
 
 /* Read the current time from timer1's top part.  Be careful about
  * timer increments between the two word reads.
@@ -132,6 +137,29 @@ interrupt void tic55x_tint0_isr (void) {
 		bottom_timer_set (now);
 	}
 	tic55x_top_has_been_interrupted = true;
+}
+
+
+/* Read the lower-half timer for a bit of entropy, at a time
+ * deemed appropriate by the top half.
+ */
+void bottom_rndseed (void) {
+	entropy_pseudo [entropy_wpos++] ^= GPTCNT3_1 & 0xff;
+	if (entropy_wpos >= ENTROPY_BUFLEN) {
+		entropy_wpos = 0;
+	}
+}
+
+/* Retrieve a given number of random bytes from the entropy
+ * buffer.
+ */
+void bottom_rnd_pseudo (uint8_t *rnd, uint8_t len) {
+	while (len-- > 0) {
+		*rnd++ = entropy_pseudo [entropy_rpos += 4];
+		if (entropy_rpos >= ENTROPY_BUFLEN) {
+			entropy_rpos -= ENTROPY_BUFLEN;
+		}
+	}
 }
 
 

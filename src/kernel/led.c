@@ -73,7 +73,9 @@ void led_set (led_idx_t ledidx, led_colour_t col, led_flashtime_t ft) {
 	leds [ledidx].led_colour = col;
 	leds [ledidx].led_flashtime = ft;
 	bottom_led_set (ledidx, col);
-	irqtimer_start (&leds [ledidx].led_timer, ft, led_irq, CPU_PRIO_LOW);
+	if (ft != LED_FLASHTIME_NONE) {
+		irqtimer_start (&leds [ledidx].led_timer, ft, led_irq, CPU_PRIO_LOW);
+	}
 }
 
 

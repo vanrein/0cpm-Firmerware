@@ -179,7 +179,7 @@ bool bottom_network_recv (uint8_t *pkt, uint16_t *pktlen) {
 	}
 	//
 	// Check if the frame length does not exceed the available buffer
-	rxlen = (kszmap16 (KSZ8842_BANK18_RXBC) & 0x03ff);
+	rxlen = (kszmap16 (KSZ8842_BANK18_RXBC) & 0x07ff);
 	ok = ok && (rxlen >= 6 + 6 + 2);
 	ok = ok && (rxlen <= *pktlen);
 	KSZ8842_BANK_SET (17);

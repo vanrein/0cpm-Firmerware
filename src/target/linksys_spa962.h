@@ -27,6 +27,7 @@
 #define HAVE_KBD_ABCD		0
 #define HAVE_KBD_FLASH		0
 #define HAVE_KBD_LINES		6
+#define HAVE_LINES		6
 #define HAVE_KBD_SOFT_FUNCTION	4
 #ifndef HAVE_KBD_SIDECARS
 #   define HAVE_KBD_SIDECARS	0

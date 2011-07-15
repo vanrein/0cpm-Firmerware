@@ -1,4 +1,4 @@
-/* Temporary settings during development
+/* Vararg handling for tic55x processors.
  *
  * This file is part of 0cpm Firmerware.
  *
@@ -17,14 +17,9 @@
  * along with 0cpm Firmerware.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+typedef void *va_list;
 
-// TODO: The following nethandlers have not been implemented yet
-#include <stdlib.h>
-inline uint8_t *net_rtp (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_rtcp (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_resp_error (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_resp_dyn (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_resp_std (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_query_error (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_query_ok (uint8_t *pkt, intptr_t *mem) { return NULL; }
+#define va_start(list,var) list=((&var)+1)
+#define va_end(list)
+#define va_arg(list,type) (((type *)(list=(((type *)list)+1)))[-1])
 

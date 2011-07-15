@@ -94,7 +94,7 @@ uint8_t *netreply_ip4 (uint8_t *pout, intptr_t *mem) {
 	netset16 (ip4out->frag_off, 0x4000);	// Don't fragment
 	memcpy (&ip4out->saddr, &ip4in->daddr, 4);
 	memcpy (&ip4out->daddr, &ip4in->saddr, 4);
-	mem [MEM_IP4_HEAD] = (uintptr_t) ip4out;
+	mem [MEM_IP4_HEAD] = (intptr_t) ip4out;
 	return &pout [sizeof (struct iphdr)];
 }
 
@@ -298,7 +298,7 @@ uint8_t *netreply_dhcp4_offer (uint8_t *pout, intptr_t *mem) {
 					// mask, router, ntp?, time offset?.
 		255			// End Option
 	};
-	bottom_printf ("DHCPv4 offer for %d.%d.%d.%d received -- requesting its activation\n", (int) yiaddrptr [0], (int) yiaddrptr [1], (int) yiaddrptr [2], (int) yiaddrptr [3]);
+	bottom_printf ("DHCPv4 offer for %d.%d.%d.%d received -- requesting its activation\n", (intptr_t) yiaddrptr [0], (intptr_t) yiaddrptr [1], (intptr_t) yiaddrptr [2], (intptr_t) yiaddrptr [3]);
 	// TODO: Validate offer to be mine
 	mem [MEM_ETHER_DST] = (intptr_t) ether_broadcast;
 	pout = netreply_udp4 (pout, mem);

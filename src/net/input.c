@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdarg.h>		//TODO:TESTONLY//
 
 // #include <netinet/ip.h>
 // #include <netinet/ip6.h>
@@ -44,12 +45,12 @@
 #include <0cpm/netinet.h>
 #include <0cpm/netcmd.h>
 #include <0cpm/netfun.h>
-
+#include <0cpm/cons.h>		//TODO:TESTONLY//
 
 /* Utility functions for packet analyses */
 
 #define forward(t) here += sizeof (t); fromhere -= sizeof (t);
-#define store(i, t) if (fromhere < sizeof (t)) return NULL; mem [i] = (intptr_t) (t *) here;
+#define store(i, t) if (fromhere < sizeof (t)) return (intptr_t) NULL; mem [i] = (intptr_t) (t *) here;
 #define store_forward(i, t) store(i,t) forward(t)
 #ifndef get08
 #  define get08(o) ((uint8_t) here [o])
@@ -127,7 +128,7 @@ intptr_t netinput (uint8_t *pkt, uint16_t pktlen, intptr_t *mem) {
 			goto netin_LLC_sel;
 		}
 #endif
-		return NULL;
+		return (intptr_t) NULL;
 	}
 
 	//
@@ -135,7 +136,7 @@ intptr_t netinput (uint8_t *pkt, uint16_t pktlen, intptr_t *mem) {
 netin_ARP_sel:
 	arpproto = get16 (2);
 ht162x_led_set (4, 1, true); // Chinese top symbol
-	if (arpproto != 0x0800) return NULL;
+	if (arpproto != 0x0800) return (intptr_t) NULL;
 ht162x_led_set (5, 1, true); // Chinese bottom symbol
 	store (MEM_ARP_HEAD, struct ether_arp);
 	mem [MEM_IP4_SRC] = get32 (14);
@@ -150,14 +151,14 @@ ht162x_led_set (4, 0, true); // Chinese top symbol (off)
 	case 0x06040002:
 ht162x_led_set (5, 0, true); // Chinese bottom symbol (off)
 			 return (intptr_t) netdb_arp_reply;
-	default: return NULL;
+	default: return (intptr_t) NULL;
 	}
 
 	//
 	// Decide what IPv4 protocol has come in
 netin_IP4_sel:
 	store (MEM_IP4_HEAD, struct iphdr);
-	if (get08 (0) != 0x45) return NULL;
+	if (get08 (0) != 0x45) return (intptr_t) NULL;
 	mem [MEM_IP4_SRC] = get32 (12);
 	mem [MEM_IP4_DST] = get32 (15);
 	ip4_ptype = get08 (9);
@@ -168,7 +169,7 @@ netin_IP4_sel:
 	switch (ip4_ptype) {
 	case 17: goto netin_UDP4_sel;
 	case 1:  goto netin_ICMP4_sel;
-	default: return NULL;
+	default: return (intptr_t) NULL;
 	}
 
 	//
@@ -177,7 +178,7 @@ netin_ICMP4_sel:
 	icmp4_type_code = get16 (0);
 	switch (icmp4_type_code) {
 	case 8 << 8: return (intptr_t) netreply_icmp4_echo_req;
-	default: return NULL;
+	default: return (intptr_t) NULL;
 	}
 
 	//
@@ -193,15 +194,15 @@ netin_UDP4_sel:
 	if (udp4_src == 3653) goto netin_6BED4_sel;
 	if ((udp4_src == 67) && (udp4_dst == 68)) goto netin_DHCP4_sel;
 	if (udp4_dst == 53) goto netin_DNS_sel;
-	return NULL;
+	return (intptr_t) NULL;
 
 	//
 	// Handle incoming DHCP4 traffic
 netin_DHCP4_sel:
 	store (MEM_DHCP4_HEAD, uint8_t);
-	if (fromhere < 236 + 4) return NULL;
+	if (fromhere < 236 + 4) return (intptr_t) NULL;
 	dhcp4_magic_cookie = get32 (236);
-	if (dhcp4_magic_cookie != 0x63825363) return NULL;	// TODO: BOOTP?
+	if (dhcp4_magic_cookie != 0x63825363) return (intptr_t) NULL;	// TODO: BOOTP?
 	here     += 236 + 4;
 	fromhere -= 236 + 4;
 	//
@@ -210,12 +211,12 @@ netin_DHCP4_sel:
 		uint8_t dhcp4_option = get08 (0);
 		if (dhcp4_option != 0) {
 			if (2 + get08 (1) > fromhere) {
-				return NULL;
+				return (intptr_t) NULL;
 			}
 		}
 		switch (dhcp4_option) {
 		case 255: // Termination, not run into an offer
-			return NULL;
+			return (intptr_t) NULL;
 		case 0: // Padding
 			here++;
 			continue;
@@ -224,7 +225,7 @@ netin_DHCP4_sel:
 			case 2: return (intptr_t) netreply_dhcp4_offer;
 			case 5: return (intptr_t) netdb_dhcp4_ack;
 			case 6: return (intptr_t) netdb_dhcp4_nak;
-			default: return NULL;
+			default: return (intptr_t) NULL;
 			}
 		default:
 			here += 2 + here [1];
@@ -241,7 +242,7 @@ netin_6BED4_sel:
 	//
 	// Handle incoming IP6 traffic
 netin_IP6_sel:
-	if ((get08 (0) & 0xf0) != 0x60) return NULL;
+	if ((get08 (0) & 0xf0) != 0x60) return (intptr_t) NULL;
 	store (MEM_IP6_HEAD, struct ip6_hdr);
 	ip6_nxthdr = get08 (6);
 	forward (struct ip6_hdr);
@@ -251,7 +252,7 @@ netin_IP6_sel:
 	switch (ip6_nxthdr) {
 	case 17: goto netin_UDP6_sel;
 	case 58: goto netin_ICMP6_sel;
-	default: return NULL;
+	default: return (intptr_t) NULL;
 	}
 
 	//
@@ -260,13 +261,13 @@ netin_ICMP6_sel:
 	store (MEM_ICMP6_HEAD, struct icmp6_hdr);
 	icmp6_type_code = get16 (0);
 	switch (icmp6_type_code) {
-	case ND_ROUTER_ADVERT << 8:	return (fromhere < 16)? NULL: (intptr_t) netdb_router_advertised;
-	case ND_NEIGHBOR_SOLICIT << 8:	return (fromhere < 24)? NULL: (intptr_t) netreply_icmp6_ngb_disc;
-	case ND_NEIGHBOR_ADVERT << 8:	return (fromhere < 24)? NULL: (intptr_t) netdb_neighbour_advertised;
-	case ND_REDIRECT << 8:		return (fromhere < 40)? NULL: NULL; /* TODO */
-	case ICMP6_ECHO_REQUEST << 8:	return (fromhere <  8)? NULL: (intptr_t) netreply_icmp6_echo_req;
-	case ICMP6_ECHO_REPLY << 8:	return (fromhere <  8)? NULL: NULL; /* Future option */
-	default: return NULL;
+	case ND_ROUTER_ADVERT << 8:	return (fromhere < 16)? (intptr_t) NULL: (intptr_t) netdb_router_advertised;
+	case ND_NEIGHBOR_SOLICIT << 8:	return (fromhere < 24)? (intptr_t) NULL: (intptr_t) netreply_icmp6_ngb_disc;
+	case ND_NEIGHBOR_ADVERT << 8:	return (fromhere < 24)? (intptr_t) NULL: (intptr_t) netdb_neighbour_advertised;
+	case ND_REDIRECT << 8:		return (fromhere < 40)? (intptr_t) NULL: (intptr_t) NULL; /* TODO */
+	case ICMP6_ECHO_REQUEST << 8:	return (fromhere <  8)? (intptr_t) NULL: (intptr_t) netreply_icmp6_echo_req;
+	case ICMP6_ECHO_REPLY << 8:	return (fromhere <  8)? (intptr_t) NULL: (intptr_t) NULL; /* Future option */
+	default: return (intptr_t) NULL;
 	}
 
 	//
@@ -301,7 +302,7 @@ netin_UDP6_sel:
 	} else if (udp6_dst == 546) {
 		goto netin_DHCP6_sel;
 	} else {
-		return NULL;
+		return (intptr_t) NULL;
 	}
 	
 
@@ -312,12 +313,12 @@ netin_DHCP6_sel:
 	case 2: return (intptr_t) netreply_dhcp6_advertise;
 	case 7: return (intptr_t) netdb_dhcp6_reply;
 	case 10: return (intptr_t) netdb_dhcp6_reconfigure;
-	default: return NULL;
+	default: return (intptr_t) NULL;
 	}
 
 netin_DNS_sel:
 	store (MEM_DNS_HEAD, uint8_t);
-	return NULL;	// TODO: Actually, split/process DNS
+	return (intptr_t) NULL;	// TODO: Actually, split/process DNS
 
 netin_DNSSD_sel:
 	store (MEM_DNSSD_HEAD, uint8_t);
@@ -341,7 +342,7 @@ netin_DNSSD_sel:
 	}
 
 	// Finally, a catchall that rejects anything that makes it to here
-	return NULL;
+	return (intptr_t) NULL;
 
 
 /********** OPTIONAL CODE FOR LLC: NETCONSOLE, FIRMWARE UPGRADES **********/
@@ -389,7 +390,7 @@ netin_LLC1_sel:
 	default:
 		break;
 	}
-	return NULL;
+	return (intptr_t) NULL;
 
 #ifdef CONFIG_FUNCTION_NETCONSOLE
 netin_LLC2_sel:
@@ -399,7 +400,7 @@ netin_LLC2_sel:
 	} else if ((mem [MEM_LLC_CMD] & 0x0007) == 0x0001) {
 		return (intptr_t) netllc_console_receiverfeedback;
 	}
-	return NULL;
+	return (intptr_t) NULL;
 }
 #endif // NETCONSOLE
 

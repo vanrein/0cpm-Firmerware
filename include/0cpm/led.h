@@ -121,8 +121,8 @@ typedef uint8_t led_colour_t;
  */
 typedef timing_t led_flashtime_t;
 #define LED_FLASHTIME_NONE	((led_flashtime_t) (TIME_MSEC(0)   ))
-#define LED_FLASHTIME_FAST	((led_flashtime_t) (TIME_MSEC(500) ))
-#define LED_FLASHTIME_MEDIUM	((led_flashtime_t) (TIME_MSEC(1000)))
+#define LED_FLASHTIME_FAST	((led_flashtime_t) (TIME_MSEC(100 )))
+#define LED_FLASHTIME_MEDIUM	((led_flashtime_t) (TIME_MSEC(500 )))
 #define LED_FLASHTIME_SLOW	((led_flashtime_t) (TIME_MSEC(2000)))
 
 

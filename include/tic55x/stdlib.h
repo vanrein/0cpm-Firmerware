@@ -1,4 +1,4 @@
-/* Temporary settings during development
+/* Standard C library definitions for tic55x.
  *
  * This file is part of 0cpm Firmerware.
  *
@@ -17,14 +17,7 @@
  * along with 0cpm Firmerware.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define NULL ((void *) 0)
 
-// TODO: The following nethandlers have not been implemented yet
-#include <stdlib.h>
-inline uint8_t *net_rtp (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_rtcp (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_resp_error (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_resp_dyn (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_resp_std (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_query_error (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_query_ok (uint8_t *pkt, intptr_t *mem) { return NULL; }
+typedef unsigned int size_t;
 
