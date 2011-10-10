@@ -155,7 +155,8 @@ void bottom_rndseed (void) {
  */
 void bottom_rnd_pseudo (uint8_t *rnd, uint8_t len) {
 	while (len-- > 0) {
-		*rnd++ = entropy_pseudo [entropy_rpos += 4];
+		// Sigh: 16-bit DSP... so uint8_t is 16-bit
+		*rnd++ = entropy_pseudo [entropy_rpos += 4] & 0xff;
 		if (entropy_rpos >= ENTROPY_BUFLEN) {
 			entropy_rpos -= ENTROPY_BUFLEN;
 		}

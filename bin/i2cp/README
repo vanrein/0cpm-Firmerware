@@ -1,0 +1,46 @@
+README for 0cpm Firmerware I2C tools
+====================================
+
+This directory contains tools that can be used on a Linux host,
+attached over I2C to a BT200 (and possibly other) phone.
+
+
+i2cp
+	Copies a binary ROM image to an EEPROM that can subsequently
+	be loaded by the builtin bootloader.  The BT200 phone has an
+	edge connector making this really simple.  A series of up to
+	8 I2C EEPROMs can be attached by arranging different address
+	selection bits.
+
+aic2x-dump
+	Dumps the contents of a TLV320AIC2x codec that can be reached
+	over I2C.  The registers are printed for all possible channels
+	based on the default I2C base address.
+
+aic2x-config
+	Sends configuration register values to a TLV320AIC2x codec over
+	I2C.  The channel and I2C base address result in an I2C slave
+	address, which must be provided.  All registers are written at
+	once, including the A/B/C/D subregisters if they exist.
+
+aic2x-setup
+	Sends configuration register values to a TLV320AIC2x codec over
+	I2C.  The channel and I2C base address result in an I2C slave
+	address, which must be provided.  Each register can be specified
+	individually, and even a single A/B/C/D subregister can be setup.
+
+
+Usage examples
+--------------
+
+To send built firmware to the EEPROM for the next boot::
+
+	./bin/i2cp/i2cp bin/firmerware.bin /dev/i2c-2
+
+To instruct a TLV320AIC20K to start producing some noise sent to it::
+
+	./aic2x-setup /dev/i2c-2 0x40 1=0x49 2=0x20 3a=0x00 3b=0x40 3c=0x88 3d=0xc0 4=0x00 5a=0x1f 5b=0x45 5c=0x80 5d=0xc0 6a=0x20 6b=0x83
+
+or, since all registers are written anyway::
+
+	./aic2x-config /dev/i2c-2 0x40 0x49 0x20 0x00 0x40 0x88 0xc0 0x00 0x1f 0x45 0x80 0xc0 0x20 0x83

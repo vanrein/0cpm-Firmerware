@@ -57,6 +57,9 @@ uint8_t ether_mine [ETHER_ADDR_LEN] = { 0x00, 0x0b, 0x82, 0x19, 0xa0, 0xf4 };
 
 uint16_t bootsecs = 0;
 
+extern uint8_t dhcp4_txnid [4];
+extern uint8_t dhcp6_txnid [3];
+
 
 /******************* HEADERVEL CREATION UTILITIES *******************/
 
@@ -294,10 +297,16 @@ uint8_t *netreply_dhcp4_offer (uint8_t *pout, intptr_t *mem) {
 		99, 130, 83, 99,	// Magic cookie, RFC 1497
 		53, 1, 3,		// DHCP message type REQUEST
 		50, 4, 0, 0, 0, 0,	// Requested IP @ 4 + 3 + 2
-		// 55, 4, 1, 3, 42, 2,	// Param Request List:
-					// mask, router, ntp?, time offset?.
+		// // Param Request List: ...
+		// 55, 6,
+		// // ...mask, router, ntp, time offset, dns, mtu
+		// 1, 3, 42, 2, 5, 26,
 		255			// End Option
 	};
+	if (memcmp ((uint8_t *) (mem [MEM_DHCP4_HEAD] + 4), dhcp4_txnid, sizeof (dhcp4_txnid)) != 0) {
+		// Not for me
+		return NULL;
+	}
 	bottom_printf ("DHCPv4 offer for %d.%d.%d.%d received -- requesting its activation\n", (intptr_t) yiaddrptr [0], (intptr_t) yiaddrptr [1], (intptr_t) yiaddrptr [2], (intptr_t) yiaddrptr [3]);
 	// TODO: Validate offer to be mine
 	mem [MEM_ETHER_DST] = (intptr_t) ether_broadcast;
@@ -308,7 +317,7 @@ uint8_t *netreply_dhcp4_offer (uint8_t *pout, intptr_t *mem) {
 	pout [1] = 1;		// ARP hardware address type
 	pout [2] = 6;		// ARP hardware address length
 	pout [3] = 0;		// hops
-	memcpy (pout + 4, ether_mine + 2, 4);		// client-randomiser
+	memcpy (pout + 4, dhcp4_txnid, sizeof (dhcp4_txnid));
 	*(uint16_t *) (pout +  8) = htons (bootsecs++);	// 0 or seconds trying -- TODO:netset16
 	// flags=0, no broadcast reply needed
 	// ciaddr [4] is 0.0.0.0, the initial client address
@@ -342,6 +351,10 @@ uint8_t *netreply_dhcp6_advertise (uint8_t *pout, intptr_t *mem) {
 	adlen = mem [MEM_ALL_DONE] - mem [MEM_DHCP6_HEAD];
 	if (adlen > 1024) {
 		return NULL;	// Suspicuously long options
+	}
+	if (memcmp ((uint8_t *) (mem [MEM_DHCP6_HEAD] + 1), dhcp6_txnid, sizeof (dhcp6_txnid)) != 0) {
+		// Not for me
+		return NULL;
 	}
 	pout = netreply_udp6 (pout, mem);
 	udp = (struct udphdr *) mem [MEM_UDP6_HEAD];

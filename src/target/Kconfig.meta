@@ -46,5 +46,22 @@ config PLATFORM_INCLUDE_PATH
 	string "Path to toolchain include files"
 	default "$PLATFORM_PREFIX/include"
 
+config NET_6BED4_SERVER
+	string "6bed4 server IPv4 address"
+	help
+	  Specify the IPv4 address of the remote tunnel endpoint
+	  that will unpack 6bed4 packages.  This is basically
+	  IPv6 stateless autoconfiguration over an UDP-tunnel.
+
+	  Details about 6bed4 can be found on:
+	  http://devel.0cpm.org/6bed4/
+	  This page should also help you to an IP-number; first,
+	  experimental values but after RFC-acceptance there should
+	  be an IANA-registered anycast address.
+
+	  Work is underway for making this globally available on
+	  an anycast-address.  Until that has been setup, there is
+	  a need to specify an IPv4 address explicitly.
+
 endmenu
 

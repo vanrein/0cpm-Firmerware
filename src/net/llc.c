@@ -52,8 +52,6 @@
 /********** OPTIONAL CONSOLE ACCESS FUNCTIONS **********/
 #ifdef CONFIG_FUNCTION_NETCONSOLE
 
-extern uint8_t ether_mine [6];
-
 static bool console_is_connected = false;
 static uint8_t console_remote_mac [6];
 static uint8_t console_remote_sap;
@@ -82,7 +80,7 @@ static bool mismatch_console_connection (intptr_t *mem) {
 /* Construct an LLC reply start; fill out ethernet addresses and SSAP/DSAP */
 uint8_t *netllc_reply (uint8_t *pout, intptr_t *mem) {
 	memcpy (pout +  0, ((uint8_t *) mem [MEM_ETHER_HEAD] + 6), 6);
-	memcpy (pout +  6, ether_mine, 6);
+	bottom_flash_get_mac (pout + 6);
 	pout [14] = mem [MEM_LLC_SSAP] | 0x00;	/* Individual */
 	pout [15] = mem [MEM_LLC_DSAP] | 0x01;	/* Response */
 }
@@ -114,6 +112,9 @@ bool netsend_llc2 (struct llc2 *cnx, uint8_t *data, uint16_t datalen) {
         newpkt = (llc_sent == llc_received);
         if (newpkt) {
                 // Sending is complete, construct new packet as requested
+		if (datalen == 0) {
+			return true;
+		}
                 memcpy (llc_pkt +  0, console_remote_mac, 6);
                 memcpy (llc_pkt +  6, "\x00\x0b\x82\x19\xa0\xf4", 6);
                 llc_pkt [12] = 0x00;

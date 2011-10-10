@@ -117,7 +117,9 @@ void onlinetest_top_main (void) {
 				} else {
 					nethandler_llconly (netinput, netinputlen);
 				}
+				{ uint32_t ctr = 10000; while (ctr-- > 0) ; }
 			}
+			trysend ();
 		} else {
 			bottom_show_fixed_msg (APP_LEVEL_BACKGROUNDED, FIXMSG_OFFLINE);
 		}

@@ -1,6 +1,7 @@
 /* sipparse.c -- Normalisation and parsing of SIP messages.
  *
- * This file is part of 0cpm Firmerware.
+ * This file is part of 0cpm Firmerware and SIPproxy64.
+ * Its origin (and the place to patch) is in the 0cpm Firmerware.
  *
  * 0cpm Firmerware is Copyright (c)2011 Rick van Rein, OpenFortress.
  *
@@ -21,6 +22,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include <config.h>
 
@@ -257,29 +259,6 @@ bool sip_splitline_response (textptr_t const *sipmsg, textptr_t *code, textptr_t
 	return true;
 }
 
-/* Find the first header in a given SIP message.  The result consists
- * of the full name in "Standard-capitalisation" stored in headername,
- * and the contents as a single line without termination stored in
- * headerval.  The application should pickup headers in their order
- * of appearance, and process them accordingly.
- * Return true if the header was found.
- */
-bool sip_firstheader (textptr_t const *sipmsg, textptr_t *headername, textptr_t *headerval) {
-	char *here   = sipmsg->str;
-	uint16_t len = sipmsg->len;
-	//
-	// First find the end of the start-line
-	while ((len > 0) && (*here != '\r') && (*here != '\n')) {
-		here++;
-		len--;
-	}
-	//
-	// Then share the sip_nextheader() algorithm
-	headerval->str = sipmsg->str;
-	headerval->len = sipmsg->len - len;
-	return sip_nextheader (sipmsg, headername, headerval);
-}
-
 /* Find the next header in a given SIP message.  The result consists
  * of the full name in "Standard-capitalisation" stored in headername,
  * and the contents as a single line without termination stored in
@@ -336,7 +315,77 @@ bool sip_nextheader (textptr_t const *sipmsg, textptr_t *headername, textptr_t *
 	headerval->len -= togo;
 	//
 	// There should always be a CRLF left to skip; if not, fail
-	return (togo > 0);
+	return (headername->len > 0) && (togo > 0);
+}
+
+/* Find the first header in a given SIP message.  The result consists
+ * of the full name in "Standard-capitalisation" stored in headername,
+ * and the contents as a single line without termination stored in
+ * headerval.  The application should pickup headers in their order
+ * of appearance, and process them accordingly.
+ * Return true if the header was found.
+ */
+bool sip_firstheader (textptr_t const *sipmsg, textptr_t *headername, textptr_t *headerval) {
+	char *here   = sipmsg->str;
+	uint16_t len = sipmsg->len;
+	//
+	// First find the end of the start-line
+	while ((len > 0) && (*here != '\r') && (*here != '\n')) {
+		here++;
+		len--;
+	}
+	//
+	// Then share the sip_nextheader() algorithm
+	headerval->str = sipmsg->str;
+	headerval->len = sipmsg->len - len;
+	return sip_nextheader (sipmsg, headername, headerval);
+}
+
+/* Find the previous header in a given SIP message.  The result consists
+ * of the full name in "Standard-capitalisation" stored in headername,
+ * and the contents as a single line without termination stored in
+ * headerval.  When called, these values contain the next header,
+ * the one to find the previous for.  The application should pickup
+ * headers in their reverse order of appearance, and process them
+ * accordingly.
+ * Return true if the header was found.
+ */
+bool sip_prevheader (textptr_t const *sipmsg, textptr_t *headername, textptr_t *headerval) {
+	int togo = ((intptr_t) headername->str) - ((intptr_t) sipmsg->str);
+	int hcolon = togo;
+	while ((togo > 0) && ((sipmsg->str [togo - 1] == '\r') || (sipmsg->str [togo - 1] == '\n'))) {
+		togo--;
+	}
+	headerval->len = togo;
+	// Search backward for the start of the previous line, noting colons on the way
+	while ((togo > 0) && (sipmsg->str [togo -1] != '\r') && (sipmsg->str [togo - 1] != '\n')) {
+		if (sipmsg->str [togo] == ':') {
+			hcolon = togo;
+		}
+		togo--;
+	}
+	headerval->str = sipmsg->str + hcolon + 1;
+	headerval->len -= hcolon + 1;
+	headername->len = hcolon - togo;
+	headername->str = sipmsg->str + togo;
+	if (sipmsg->str [hcolon + 1] == ' ') {
+		headerval->str++;
+		headerval->len--;
+	}
+	return togo > 0;
+}
+
+/* Find the last header in a given SIP message.  The result consists
+ * of the full name in "Standard-capitalisation" stored in headername,
+ * and the contents as a single line without termination stored in
+ * headerval.  The application should pickup headers in their reverse
+ * order of appearance, and process them accordingly.
+ * Return true if the header was found.
+ */
+bool sip_lastheader (textptr_t const *sipmsg, textptr_t *headername, textptr_t *headerval) {
+	// Skip beyond the message and search back with sip_prevheader()
+	headername->str = sipmsg->str + sipmsg->len;
+	return sip_prevheader (sipmsg, headername, headerval);
 }
 
 
@@ -676,5 +725,81 @@ bool sip_split_cseq (textptr_t const *cseq, uint32_t *serial, textptr_t *mth) {
 	//
 	// Succeeded -- return the two components and signal success
 	return true;
+}
+
+/* Parse a Via: header to extract the transport (usually UDP or TCP) and
+ * the host and port.  Parameters can be extracted with the usual methods.
+ */
+bool sip_components_invia (textptr_t const *via, textptr_t *transport, textptr_t *host, uint16_t *port) {
+	char *here = via->str;
+	uint16_t togo = via->len;
+	bool hostbrackets;
+	char hostend;
+	//
+	// Ensure a propoer start of the Via: header value
+	if ((togo < 8) || memcmp (here, "SIP/2.0/", 8)) {
+		return false;
+	}
+	//
+	// Record the transport mechanism
+	transport->str = here += 8;
+	transport->len = togo -= 8;
+	while ((togo > 0) && (*here != ' ')) {
+		togo--;
+		here++;
+	}
+	transport->len -= togo;
+	if (togo == 0) {
+		return false;
+	}
+	//
+	// Skip the (now confirmed) space
+	togo--;
+	here++;
+	//
+	// Take in the host, quite possibly surrounded by [ and ]
+	host->str = here;
+	host->len = togo;
+	hostbrackets = (togo > 0) && (*here == '[');
+	if (hostbrackets) {
+		togo--;
+		here++;
+		hostend = ']';
+	} else {
+		hostend = ':';
+	}
+	while ((togo > 0) && (*here != ';') && (*here != '\r') && (*here != '\n') && (*here != hostend)) {
+		togo--;
+		here++;
+	}
+	if (hostbrackets) {
+		if ((togo == 0) || (*here != hostend)) {
+			return false;
+		}
+		togo--;
+		here++;
+	}
+	host->len -= togo;
+	//
+	// Parse the optional port number
+	if ((togo > 0) && (*here == ':')) {
+		*port = 0;
+		togo--;
+		here++;
+		while ((togo > 0) && (*here >= '0') && (*here <= '9')) {
+			*port *= 10;
+			*port += *here - '0';
+		}
+	} else {
+		*port = 5060;
+	}
+	//
+	// Now ensure that the next character is proper
+	if ((togo == 0) || ((*here != ';') && (*here != '\r') && (*here != '\n'))) {
+		return false;
+	}
+	//
+	// Done -- just a quick check that all values are non-empty
+	return (transport->len > 0) && (host->len > 0);
 }
 

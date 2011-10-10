@@ -219,16 +219,17 @@ void sipapp_cancel (tract_t *tr, textptr_t const *requri, coreheaders_t *corehea
 bottom_printf ("UAS received CANCEL for %t\n", requri);
 	//
 	// Ignore the request if this is not a dialog
-	if (!tr->dialog) {
+	if (tr && !tr->dialog) {
 		sipdia_respond (&report_notexist, coreheaders, sip, NULL);
 		return;
 	}
-	line = tr->dialog->linenr;
+	//TODO// line = tr->dialog->linenr;
+	line = 3;
 	//
 	// Stop ringing the phone line for this dialog
 	// TODO: phoneline_setstate (line, PLS_INACTIVE);
 	// TODO: phoneringer_update (line);
-bottom_led_set (LED_IDX_MESSAGE, LED_STABLE_ON);
+led_set (LED_IDX_MESSAGE, LED_STABLE_ON, LED_FLASHTIME_NONE);
 	//
 	// Disconnect the phone line and dialog from each other
 	//SAME_AS_BELOW// sipdia_setlinenr (tr->dialog, LINENR_NULL);
@@ -253,7 +254,7 @@ bottom_printf ("UAS received BYE for %t\n", requri);
 	// Stop using the phone line for this dialog
 	// TODO: phoneline_setstate (line, PLS_HANGUP);
 	// TODO: phonetone_update (line);
-bottom_led_set (LED_IDX_MESSAGE, LED_STABLE_OFF);
+led_set (LED_IDX_MESSAGE, LED_STABLE_OFF, LED_FLASHTIME_NONE);
 	//
 	// Disconnect the phone line and dialog from each other
 	//SAME_AS_BELOW// sipdia_setlinenr (tr->dialog, LINENR_NULL);

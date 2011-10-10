@@ -34,7 +34,18 @@
 
 _tic55x_bootld	.set	0xff8000
 
+;
+; NOTE: According to SPRU371, the interrupt vectors are not
+;       mapped logically: isrmap0 / IVPD points to interrupts
+;	0-15 and 24-31; isrmap1 / IVPH points to interrupts
+;	16-23.  Go figure.  Also, it is not documented that
+;	the latter series is prefixed by 128 bytes of... what?
+;	We'll make them overlap, as we're not using soft irqs.
+;
+
 isrmap0:
+isrmap1:
+
 resetvect	.ivec	_c_int00, NO_RETA
 nmi		.ivec	_tic55x_no_isr
 int0		.ivec	_tic55x_int0_isr
@@ -51,6 +62,7 @@ uart		.ivec	_tic55x_no_isr
 		.ivec	_tic55x_no_isr
 dmac4		.ivec	_tic55x_no_isr
 dmac5		.ivec	_tic55x_no_isr
+
 int1		.ivec	_tic55x_no_isr
 xint0		.ivec	_tic55x_no_isr
 dmac0		.ivec	_tic55x_dmac0_isr
@@ -62,40 +74,6 @@ iic		.ivec	_tic55x_no_isr
 berr		.ivec	_tic55x_no_isr
 dlog		.ivec	_tic55x_no_isr
 rtos		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-
-isrmap1:
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
-		.ivec	_tic55x_no_isr
 		.ivec	_tic55x_no_isr
 		.ivec	_tic55x_no_isr
 		.ivec	_tic55x_no_isr

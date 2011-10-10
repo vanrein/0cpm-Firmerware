@@ -37,11 +37,14 @@
  */
 
 
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdarg.h>
 
 #include <config.h>
 #include <0cpm/snd.h>
+#include <0cpm/cons.h>
 
 
 /* The code below distinguishes the two directions of using the
@@ -81,7 +84,7 @@ static uint8_t volume [2];
 
 /* Read and write buffers, with counters of read-ahead */
 
-#define BUFSZ (64*4)
+#define BUFSZ (64*25)
 
 volatile uint16_t samplebuf_play   [BUFSZ];
 volatile uint16_t samplebuf_record [BUFSZ];
@@ -118,7 +121,7 @@ void bottom_soundchannel_device (uint8_t chan, sounddev_t dev) {
 		// (but for now just powerdown the codec)
 		tlv320aic2x_setreg (chan, 6, 0x00 | 0x04);
 		tlv320aic2x_setreg (chan, 6, 0x80 | 0x00);
-		tlv320aic2x_setreg (chan, 3, 0x00 | 0x31); /* power down */
+		//TODO:TMP_NO_POWERDOWN// tlv320aic2x_setreg (chan, 3, 0x00 | 0x31); /* power down */
 		break;
 	case SOUNDDEV_HANDSET:
 		tlv320aic2x_setreg (chan, 6, 0x00 | 0x02);
@@ -180,6 +183,13 @@ void tlv320aic2x_set_samplerate (uint32_t samplerate);
 
 
 void bottom_codec_play_samplerate   (uint8_t chan, uint32_t samplerate) {
+	/* TODO: Filters only work up to rate 26000 (bandwidth 11700);
+	 * TODO: Consider 2x oversampling and no filter for higher rates?
+	 * TODO: Stop oversampling for really high frequencies, over 52000
+	 * TODO: Disable playback for out-of-range frequencies, over 104000
+	 * TODO: Consider disabling over 52000 (which is already excessive)
+	 * TODO: Consider downsampling of rediculously high rates
+	 */
 	tlv320aic2x_set_samplerate (samplerate);
 }
 
@@ -191,6 +201,7 @@ void bottom_codec_record_samplerate (uint8_t chan, uint32_t samplerate) {
 
 int16_t bottom_codec_play   (uint8_t chan, codec_t codec, uint8_t *coded_samples, uint16_t coded_bytes, uint16_t samples) {
 	int16_t retval;
+	//TODO// Guard against buffer wraparound
 	retval = codec_decode (codec,
 				coded_samples, coded_bytes,
 				(uint16_t *) (samplebuf_play + nextwrite_play), samples);
@@ -209,6 +220,11 @@ int16_t bottom_codec_play   (uint8_t chan, codec_t codec, uint8_t *coded_samples
 
 int16_t bottom_codec_record (uint8_t chan, codec_t codec, uint8_t *coded_samples, uint16_t coded_bytes, uint16_t samples) {
 	int16_t retval;
+	//TODO// Guard against buffer wraparound
+	uint16_t ar = available_record;
+	if (samples > ar) {
+		samples = ar;
+	}
 	retval = codec_encode (codec,
 				(uint16_t *) (samplebuf_play + nextread_play), samples,
 				coded_samples, coded_bytes);
@@ -220,6 +236,7 @@ int16_t bottom_codec_record (uint8_t chan, codec_t codec, uint8_t *coded_samples
 	}
 	dmahint_record ();
 	return retval;
+	//TODO:ALT-API-TEST// return available_record;
 }
 
 void bottom_codec_play_skip (codec_t codec, uint16_t samples) {

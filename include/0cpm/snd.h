@@ -32,10 +32,24 @@ typedef enum {
 } sounddev_t;
 
 
-/* The codec types that may be supported */
+/* The codec types that may be supported.
+ * The selection is based on cost & patent freedeom, as specified on
+ * http://en.wikipedia.org/wiki/Comparison_of_audio_codecs
+ */
 typedef enum {
+	CODEC_L8,
+	CODEC_L16,
 	CODEC_G711A,
-	CODEC_G711MU
+	CODEC_G711MU,
+	CODEC_G722,	/* G722 is free, but .1 and .2 are non-free */
+	CODEC_G726,
+	CODEC_ILBC,
+	CODEC_SPEEX,
+#ifdef CONFIG_FUNCTION_RADIO_VORBIS
+	CODEC_VORBIS,
+#endif
+	// End marker and the number of codecs:
+	CODEC_COUNT
 } codec_t;
 
 

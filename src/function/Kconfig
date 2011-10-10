@@ -1,9 +1,9 @@
 # Function for the target image
 
-menu "Firmerware functions"
+menu "5. Firmerware functions"
 
 choice
-	prompt "Functionality to build"
+	prompt "Primary firmware function"
 	default MAINFUNCTION_SIP_PHONE
 
 source "src/function/Kconfig.devel"
@@ -11,15 +11,15 @@ source "src/function/Kconfig.devel"
 config MAINFUNCTION_SIP_PHONE
 	bool "SIP phone over IPv6"
 	help
-	  This is the main target for the 0cpm firmerware.  It implements
-	  SIP phone functionality over IPv6.  Included are facilities to
-	  obtain IPv6 connectivity on all networks.
+	  This is the customary primary function for the 0cpm firmerware.
+          It implements SIP phone functionality over IPv6.  Included are
+	  facilities to obtain IPv6 connectivity on all networks.
 
 
 config MAINFUNCTION_SIP_DOORBELL
-	bool "SIP doorbell"
+	bool "SIP doorbell over IPv6"
 	help
-	  This is an alternative main target for the 0cpm firmerware.
+	  This is an alternative primary function for the 0cpm firmerware.
 	  It implements a doorbell that is switched off until a button
 	  is pressed.  As soon as the device boots, it will dial out to
 	  a predefined number on a predefined server.
@@ -33,16 +33,17 @@ config MAINFUNCTION_SIP_DOORBELL
 
 
 config MAINFUNCTION_SIP_ALARMCLOCK
-	bool "SIP alarm clock"
+	bool "SIP alarm clock over IPv6"
 	help
-	  This is an alternate main target for the 0cpm firmerware.
+	  This is an alternate primary function for the 0cpm firmerware.
 	  It implements an alarm clock that does not ring the phone,
 	  but rather picks up immediately and plays whatever sound
 	  is sent to it.  It is imagined that a network service would
 	  wake up all those souls who have a hard time hearing a
 	  rooster nearby.
 
-	  To furhter implement the logic of an alarm clock, use of the
+	  TODO:
+	  To further implement the logic of an alarm clock, use of the
 	  hook contact will make it speak out the current time.  There
 	  is a facility for a button that will set the alarm to go a
 	  predefined number of hours after it was pressed.  You might
@@ -79,11 +80,124 @@ config MAINFUNCTION_BOOTLOADER
 endchoice
 
 config FUNCTION_SOUND_PLAYER
-	bool "Sound player"
+	bool "Networked sound player device"
 	help
-	  Condfigure the phone as a networked sound device.  This enables
+	  Configure the phone as a networked sound device.  This enables
 	  computers on the LAN to send sound to the phone to have it played.
-	  This is only possible on an IPv6-enabled LAN.
+	  This is only supported on an IPv6-enabled LAN.
+
+	  The protocol to use is RTP/L16, which is a standard audio/video
+	  codec intended for uncompressed sample data, just like you
+	  would offer to a local sound card.
+
+	  You can send such RTP Multicast streams with PulseAudio, using
+	  the s16ne or s16be sample format.  For information on support of
+	  PulseAudio in your software, see http://www.pulseaudio.org/
+
+config FUNCTION_RADIO
+	bool "Internet radio"
+	default y
+	help
+	  Enable Internet Radio functions.  This makes the phone pickup
+	  stream announcements, and play one as selected by the user.
+	  The radio function works over the speaker, and stop playing
+	  during phone calls.  The radio volume can be set separately
+	  from other volume settings.
+
+	  This function is targeted at business networks, rewarding
+	  them for supplying IPv6 Multicast on their LANs.  It is only
+	  supported on LANs with native IPv6.  Any stream with a suitable
+	  codec (like RTP/Vorbis) that is multicasted over IPv6/UDP/RTP
+	  and announced with SAP can be played back by the phone.
+
+	  You could consider finding a suitable radio station on m6bone,
+	  and permitting that infrastructure to get to your LAN.  This
+	  would only require you to broadcast the channel listing over
+	  SAP every now and then.
+
+	  Do not forget to select the codecs used for streaming the
+	  content.
+
+	  TODO - not implemented yet.
+
+config FUNCTION_RADIO_CHANNELS
+	int "Maximum number of channels to store"
+	default 32
+	help
+	  The number of Internet Radio channels that are stored is
+	  fixed.  You can specify a high enough upper limit to be
+	  on the safe side.
+
+config FUNCTION_RADIO_L16
+	bool "Internet radio with RTP/L16"
+	default y
+	depends on FUNCTION_RADIO
+	help
+	  Support 16-bit linear audio coding over RTP.  This is a
+	  standard audio/video codec intended for uncompressed
+	  exchange of audio.  This is a lightweight version of an
+	  Internet Radio, that should work well enough on any
+	  speaker phone.  To feed the stream, you will probably
+	  need a decoder near your multicast router.  You could
+	  setup a gstreamer pipeline for this.
+
+	  TODO - not implemented yet.
+	  
+config FUNCTION_RADIO_VORBIS
+	bool "Internet radio with RTP/Vorbis (read help)"
+	default n
+	depends on FUNCTION_RADIO
+	help
+	  Support Vorbis over RTP (not Vorbis in the file format Ogg)
+	  as a radio codec.  Any such streams announced through SAP
+	  will be offered to the phone user, who can select a favourite
+	  station and tune into others as they please.
+
+	  Your mileage may vary -- not all phones are powerful enough
+	  to decode Vorbis, and in fact some Vorbis streams could be
+	  too complex to decode live.  Furthermore, this codec may
+	  occupy more program memory than available on your phone.
+	  You can safely try it, and enjoy it if/when it works.
+
+	  TODO - not implemented yet.
+
+config FUNCTION_RADIO_MP3
+	bool "Internet radio with RTP/MP3 (READ HELP)"
+	default n
+	depends on FUNCTION_RADIO
+	help
+	  This toggle does not include MP3 support, it is a placeholder
+	  to explain why it is NOT SUPPORTED.
+
+	  MP3 is a tightly controlled codec, with patent license costs
+	  for every single device.  It is problematic to combine patents
+	  and expenses with an open source solution.  Although we would
+	  have liked to support MP3, you should probably resolve matters
+	  near your multicast router.  More info on MP3 licensing costs
+	  can be found on http://mp3licensing.com/royalty/hardware.html
+
+	  What you can do is setup a gstreamer pipeline that decodes MP3
+	  and re-encodes as RTP/L16, and multicasts that over IPv6.  Note
+	  that an MP3 plugin for gstreamer is kindly provided by Fluendo,
+	  on http://www.fluendo.com/shop/product/fluendo-mp3-decoder/
+
+config FUNCTION_RADIO_AAC
+	bool "Internet radio with RTP/AAC (READ HELP)"
+	default n
+	depends on FUNCTION_RADIO
+	help
+	  This toggle does not include AAC support, it is a placeholder
+	  to explain why it is NOT SUPPORTED.
+
+	  AAC is a controlled codec, although not as badly as MP3.  To
+	  avoid breaking the licenses for the codec, they may only be
+	  distributed as source code, which seems too restrictive to be
+	  worth the effort of adding it.  (Somewhat open for discussion.)
+
+	  What you can do is setup a gstreamer pipeline that decodes AAC
+	  and re-encodes as RTP/L16, and multicasts that over IPv6.  Note
+	  that a plugin for gstreamer is made available in the "bad"
+	  plugins collection for gstreamer, in a module named faad.
 
 config FUNCTION_NETCONSOLE
 	bool "LAN-based console"

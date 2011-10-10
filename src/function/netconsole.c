@@ -57,6 +57,19 @@
 #ifdef CONFIG_FUNCTION_NETCONSOLE
 
 
+/*
+ * Avoid including parts from the kernel while testing.
+ */
+#define FILECONFIG_IRQTIMER
+
+#ifdef CONFIG_MAINFUNCTION_DEVEL_NETWORK
+#undef FILECONFIG_IRQTIMER
+#endif
+
+#ifdef CONFIG_MAINFUNCTION_DEVEL_SOUND
+#undef FILECONFIG_IRQTIMER
+#endif
+
 /******** BUFFER STATIC VARIABLES ********/
 
 // TODO: Configuration option would be nice for CONSBUFLEN (max 64k - 1)
@@ -73,7 +86,7 @@ static bool console_timer_is_running = false;
 
 static struct llc2 *netcons_connection = NULL;
 
-static void trysend (void) {
+void trysend (void) {
 	if (netcons_connection) {
 		if (rpos > wpos) {
 			while (rpos < CONSBUFLEN) {
@@ -103,7 +116,7 @@ static void trysend (void) {
 	}
 }
 
-#ifndef CONFIG_MAINFUNCTION_DEVEL_NETWORK
+#ifdef FILECONFIG_IRQTIMER
 static irqtimer_t console_timer;
 static void netcons_interval (irq_t *tmr) {
 	trysend ();
@@ -124,7 +137,7 @@ static void ensure_console_timer_runs (void) {
 
 void netcons_connect (struct llc2 *cnx) {
 	netcons_connection = cnx;
-#ifdef CONFIG_MAINFUNCTION_DEVEL_NETWORK
+#ifndef FILECONFIG_IRQTIMER
 	trysend ();
 #else
 	ensure_console_timer_runs ();
@@ -132,7 +145,7 @@ void netcons_connect (struct llc2 *cnx) {
 }
 
 void netcons_close (void) {
-#ifndef CONFIG_MAINFUNCTION_DEVEL_NETWORK
+#ifdef FILECONFIG_IRQTIMER
 	irqtimer_stop (&console_timer);
 #endif
 	netcons_connection = NULL;
@@ -154,7 +167,9 @@ static void cons_putchar (char c) {
 		}
 	}
 	consbuf [wpos++] = c;
+#ifdef FILECONFIG_IRQTIMER
 	ensure_console_timer_runs ();
+#endif
 }
 
 static void cons_putint (unsigned long int val, uint8_t base, uint8_t minpos) {
@@ -265,7 +280,7 @@ void bottom_console_vprintf (char *fmt, va_list argh) {
 			}
 		}
 	}
-#ifdef CONFIG_MAINFUNCTION_DEVEL_NETWORK
+#ifndef FILECONFIG_IRQTIMER
 	trysend ();
 #endif
 }

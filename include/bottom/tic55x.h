@@ -274,7 +274,7 @@ asm ("_SRGR2_1 .set 0x2c0b");
 asm ("_MCR1_1 .set 0x2c0c");
 asm ("_MCR2_1 .set 0x2c0d");
 asm ("_DXR1_1 .set 0x2c02");
-asm ("_DRR1_1 .set 0x2c02");
+asm ("_DRR1_1 .set 0x2c00");
 
 #define REGVAL_SPCR1_CLKSTP_WITHDELAY	0x1800
 #define REGVAL_SPCR1_RRST_NOTRESET	0x0001

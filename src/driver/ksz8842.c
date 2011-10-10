@@ -126,6 +126,7 @@ bool bottom_network_send (uint8_t *pkt, uint16_t pktlen) {
 	KSZ8842_BANK_SET (17);
 	//
 	// Hold while previous send data is being queued
+#ifdef 0
 	while (KSZ8842_BANK17_TXQCR & kszmap16 (REGVAL_KSZ8842_TXQCR_TXETF)) {
 		/* Yes, this is busy waiting.  It should not take long.
 		 * Usually, all work will have been done when we get back here.
@@ -134,6 +135,11 @@ bool bottom_network_send (uint8_t *pkt, uint16_t pktlen) {
 		 */
 		;
 	}
+#else
+	if (KSZ8842_BANK17_TXQCR & kszmap16 (REGVAL_KSZ8842_TXQCR_TXETF)) {
+		return false;
+	}
+#endif
 	//
 	// First send packet metadata: control, bytecount
 	// TODO: It is possible to set a control-ID in QDRL, see Table 4

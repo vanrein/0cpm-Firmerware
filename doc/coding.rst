@@ -124,8 +124,46 @@ Checking in code
   clean as possible.
 
 
-Small steps at a time
-=====================
+Strings
+=======
+
+I never understood why every product defines their own string abstraction.
+Then I caught myself building one for this one :)
+
+I'd tried to work with libosip2 in the past, and found
+that its API neither documents nor conceals memory allocation, which
+clearly is a problem that can lead to memory leaks and freeing memory
+that was not used.  This was a reason to build my own SIP parser, which
+turned out to be no big deal at all, given my approach to string handling.
+
+While parsing SIP, the message gets cut up in ever smaller pieces, and
+doing this with standard C strings would imply either overwriting the
+message with '\0' bytes, thus destroying larger wholes while zooming
+in on them, or it would imply copying lots of strings, managing memory,
+and having copies of the same content in many places.  This seemed like
+a waste.
+
+In order to store string references, a structure ``textptr_t`` contains
+a pointer to the first character, plus the number of characters from
+that point onwards.  These structures can be stored in all sorts of
+scopes that matches the lifetime during which that zooming-in on text
+is interesting; if the ``textptr_t`` is removed, nobody will miss it
+because the actual string is not stored explicitly.  A null string
+would contain a NULL pointer reference to the first character.
+
+A few macros/functions exist to make life easier while working with
+these simple strings.  They are defined in include file ``<0cpm/text.h>``
+to do the following:
+
+* ``textnullify()`` clears a ``textptr_t`` to a null string;
+* ``textisnull()`` checks if a ``textptr_t`` is a null string;
+* ``texteq()`` checks if two strings (their length and content) are equal;
+* ``txtcat()`` concatenates a ``textptr_t`` to a ``(char *)`` pointer;
+* ``intcat()`` and ``hexcat()`` append an integer value to a ``(char *)`` pointer.
+
+
+Development cycles: Small steps at a time
+=========================================
 
 Debugging in an embedded environment is difficult, as you will not be able
 to easily detect on what line your code gets stuck.  If you forget to

@@ -51,8 +51,6 @@ static struct flashpart *current = NULL;
 static uint16_t blocknum;
 static bool sending = false, receiving = false;
 
-extern uint8_t ether_mine [6];
-
 
 /* Handle a TFTP request that came in over LLC1.
  *
@@ -68,7 +66,7 @@ uint8_t *netllc_tftp (uint8_t *pkt, intptr_t *mem) {
 	uint8_t *llc = (uint8_t *) mem [MEM_ETHER_HEAD];
 	pktlen = mem [MEM_ALL_DONE] - mem [MEM_ETHER_HEAD];
 	memcpy (pkt, llc+6, 6);
-	memcpy (pkt+6, ether_mine, 6);
+	bottom_flash_get_mac (pkt+6);
 	pktlen2 = (llc [12] << 8) | llc [13];
 bottom_printf ("netllc_tftp, pktlen=%d, pktlen2=%d\n", (intptr_t) pktlen, (intptr_t) pktlen2);
 	if (pktlen < 12 + 2 + 3 + 4) {

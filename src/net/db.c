@@ -46,6 +46,9 @@ extern const uint8_t ether_unknown [];
 
 uint32_t localtime_ofs = 0;
 
+extern uint8_t dhcp4_txnid [4];
+extern uint8_t dhcp6_txnid [3];
+
 /* The binding table shows all available bindings and their routing */
 // TODO: Initialise all binding entries as expired
 struct ip4binding ip4binding [IP4BINDING_COUNT];
@@ -268,6 +271,10 @@ uint8_t *netdb_dhcp4_ack (uint8_t *pout, intptr_t *mem) {
 	uint8_t *opt;
 	static const uint8_t cookie [4] = { 99, 130, 83, 99 };
 	int bndidx = 0; //TODO -- select an ip4binding dynamically?
+	if (memcmp ((uint8_t *) (mem [MEM_DHCP4_HEAD] + 4), dhcp4_txnid, sizeof (dhcp4_txnid)) != 0) {
+		// Not for me
+		return NULL;
+	}
 	bottom_printf ("Received: DHCP4 ACK\n");
 	opt = (uint8_t *) (mem [MEM_DHCP4_HEAD] + 240);
 	if (memcmp (opt - 4, cookie, 4) != 0) {
@@ -316,6 +323,10 @@ uint8_t *netdb_dhcp4_ack (uint8_t *pout, intptr_t *mem) {
 /* DHCPv4 sends a negative acknowledgement.  Whatever :)
  */
 uint8_t *netdb_dhcp4_nak (uint8_t *pout, intptr_t *mem) {
+	if (memcmp ((uint8_t *) (mem [MEM_DHCP6_HEAD] + 4), dhcp4_txnid, sizeof (dhcp4_txnid)) != 0) {
+		// Not for me
+		return NULL;
+	}
 	bottom_printf ("Received: DHCP4 NAK\n");
 	// Drop this, it is non-information to us
 	return NULL;
@@ -390,6 +401,10 @@ void netdb_dhcp6_recurse_options (nint16_t *dhcp6opts, uint16_t optlen) {
 uint8_t *netdb_dhcp6_reply (uint8_t *pout, intptr_t *mem) {
 	// TODO: Validate offer to be mine
 	uint8_t bindidx = 0;	// TODO: Proper binding
+	if (memcmp ((uint8_t *) (mem [MEM_DHCP6_HEAD] + 1), dhcp6_txnid, sizeof (dhcp6_txnid)) != 0) {
+		// Not for me
+		return NULL;
+	}
 	bottom_printf ("Received: DHCP6 REPLY\n");
 	ip6binding [bindidx].flags |=  I6B_DEFEND_ME;
 	ip6binding [bindidx].flags &= ~I6B_TENTATIVE;
@@ -399,7 +414,11 @@ uint8_t *netdb_dhcp6_reply (uint8_t *pout, intptr_t *mem) {
 /* DHCPv6 wants to reconfigure our settings
  */
 uint8_t *netdb_dhcp6_reconfigure (uint8_t *pout, intptr_t *mem) {
-	// TODO: Validate offer to be mine + update configuration data
+	if (memcmp ((uint8_t *) (mem [MEM_DHCP6_HEAD] + 1), dhcp6_txnid, sizeof (dhcp6_txnid)) != 0) {
+		// Not for me
+		return NULL;
+	}
+	// TODO: Update configuration data
 	bottom_printf ("Received: DHCP6 RECONFIGURE\n");
 	return NULL;
 }

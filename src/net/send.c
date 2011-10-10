@@ -108,6 +108,11 @@ uint8_t ipv6_router_solicitation [] = {
         0x01, 0x01, 0, 0, 0, 0, 0x00, 0x01,
 };
 
+uint8_t dhcp4_txnid [4];
+uint8_t dhcp6_txnid [3];
+
+bool dhcp4_txnid_set = false;
+bool dhcp6_txnid_set = false;
 
 
 
@@ -300,21 +305,29 @@ uint8_t *netsend_dhcp4_discover (uint8_t *pout, intptr_t *mem) {
 	static const uint8_t dhcp4_options [] = {
 		99, 130, 83, 99,	// Magic cookie, RFC 1497
 		53, 1, 1,		// DHCP message type DISCOVER
-		55, 4, 1, 3, 42, 2,	// Param Request List:
-					// mask, router, ntp?, time offset?.
+		// Param Request List: ...
+		55, 7,
+		// ...mask, bcast, router, ntp, time offset, dns, mtu
+		1, 28, 3, 42, 2, 5, 26,
+		// but not: domnm, domsearch, hostnm, netbios-ns, netbios-scope, classless-staticroute, server-id
 		255			// End Option
 	};
+	if (!dhcp4_txnid_set) {
+		bottom_rnd_pseudo (dhcp4_txnid, sizeof (dhcp4_txnid));
+		dhcp4_txnid_set = true;
+	}
 	mem [MEM_UDP4_SRC_PORT] = 68;
 	mem [MEM_UDP4_DST_PORT] = 67;
 	mem [MEM_IP4_DST] = 0xffffffff;
 	mem [MEM_ETHER_DST] = (intptr_t) ether_broadcast;
 	pout = netsend_udp4 (pout, mem);
+	mem [MEM_DHCP4_HEAD] = (intptr_t) pout;
 	bzero (pout, 576);	// erase the acceptable package size
 	pout [0] = 1;		// bootrequest
 	pout [1] = 1;		// ARP hardware address type
 	pout [2] = 6;		// ARP hardware address length
 	pout [3] = 0;		// hops
-	memcpy (pout + 4, ether_mine + 2, 4);		// client-randomiser
+	memcpy (pout + 4, dhcp4_txnid, sizeof (dhcp4_txnid));
 	*(uint16_t *) (pout +  8) = htons (bootsecs++);	// 0 or seconds trying -- TODO: netset16?
 	// flags=0, no broadcast reply needed
 	// ciaddr [4] is 0.0.0.0, the initial client address
@@ -351,18 +364,22 @@ uint8_t *netsend_dhcp6_solicit (uint8_t *pout, intptr_t *mem) {
 			0x00,0x28,0xde,0x80,	// Valid: 31d
 		// 0,14, 0,0,	// Rapid Commit -- IMPOSSIBLE with IP assignmt
 	};
+	if (!dhcp6_txnid_set) {
+		bottom_rnd_pseudo (dhcp6_txnid, sizeof (dhcp6_txnid));
+		dhcp6_txnid_set = true;
+	}
 	mem [MEM_UDP6_SRC_PORT] = 546;
 	mem [MEM_UDP6_DST_PORT] = 547;
 	mem [MEM_BINDING6] = (intptr_t) binding_linklocal;
 	mem [MEM_IP6_DST] = (intptr_t) ip6_multicast_all_dhcp6_servers;
 	mem [MEM_ETHER_DST] = (intptr_t) ether_multicast_all_dhcp6_servers;
 	pout = netsend_udp6 (pout, mem);
+	mem [MEM_DHCP6_HEAD] = (intptr_t) pout;
 	pout [0] = 1;
-	memcpy (pout + 1, ether_mine + 3, 3);
-	memcpy (pout + 4          , dhcp6_options, sizeof (dhcp6_options));
+	memcpy (pout + 1, dhcp6_txnid,   sizeof (dhcp6_txnid)  );
+	memcpy (pout + 4, dhcp6_options, sizeof (dhcp6_options));
 	memcpy (pout + 4 + 4+4    , ether_mine, ETHER_ADDR_LEN);
 	memcpy (pout + 4 + 4+4+6+4, ether_mine, ETHER_ADDR_LEN);
-	mem [MEM_DHCP6_HEAD] = (intptr_t) pout;
 	return pout + 4 + sizeof (dhcp6_options);
 }
 

@@ -18,6 +18,8 @@
  */
 
 
+#include <stdlib.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -32,6 +34,7 @@
 #include <0cpm/show.h>
 #include <0cpm/flash.h>
 #include <0cpm/snd.h>
+#include <0cpm/cons.h>
 
 #include <bottom/ht162x.h>
 #include <bottom/ksz8842.h>
@@ -140,11 +143,11 @@ void bottom_flash_get_mac (uint8_t mac [6]) {
 
 void tlv320aic2x_setreg (uint8_t channel, uint8_t reg, uint8_t val) {
 	// Wait as long as the bus is busy
-// bottom_led_set (LED_IDX_SPEAKERPHONE, 0);
-// bottom_led_set (LED_IDX_BACKLIGHT, 1);
+bottom_led_set (LED_IDX_MESSAGE, 1);
 	while (I2CSTR & REGVAL_I2CSTR_BB) {
 		;
 	}
+// bottom_printf ("I2C.pre  = 0x%04x,0x%04x\n", (intptr_t) I2CSTR, (intptr_t) I2CMDR);
 	// Set transmission mode for 2 bytes to "channel"
 	I2CSAR = 0x40 | channel;
 	//TODO// I2CSAR = 0x00;	// Broadcast
@@ -153,34 +156,39 @@ void tlv320aic2x_setreg (uint8_t channel, uint8_t reg, uint8_t val) {
 	// Send the register index
 	// Initiate the transfer by setting STT and STP flags
 	I2CMDR = REGVAL_I2CMDR_TRX | REGVAL_I2CMDR_MST | REGVAL_I2CMDR_STT | REGVAL_I2CMDR_STP | REGVAL_I2CMDR_NORESET | REGVAL_I2CMDR_FREE | REGVAL_I2CMDR_BC_8;
+// bottom_printf ("I2C.set  = 0x%04x,0x%04x\n", (intptr_t) I2CSTR, (intptr_t) I2CMDR);
 	// Wait for the START condition to occur
 // bottom_led_set (LED_IDX_HANDSET, 1);
 	while (I2CMDR & REGVAL_I2CMDR_STT) {
 		;
 	}
+// bottom_printf ("I2C.stt  = 0x%04x,0x%04x\n", (intptr_t) I2CSTR, (intptr_t) I2CMDR);
 // bottom_led_set (LED_IDX_HANDSET, 0);
 	// Wait until the I2C bus is ready, then send the value
 // bottom_led_set (LED_IDX_SPEAKERPHONE, 1);
 	while (!(I2CSTR & REGVAL_I2CSTR_XRDY)) {
 		if (I2CSTR & REGVAL_I2CSTR_NACK) {
+			bottom_printf ("I2C received NACK\n");
 			I2CSTR = REGVAL_I2CSTR_NACK;
 			I2CMDR = REGVAL_I2CMDR_MST | REGVAL_I2CMDR_STP | REGVAL_I2CMDR_NORESET | REGVAL_I2CMDR_FREE | REGVAL_I2CMDR_BC_8;
 			return;
 		}
 	}
+// bottom_printf ("I2C.xrdy = 0x%04x,0x%04x\n", (intptr_t) I2CSTR, (intptr_t) I2CMDR);
 // bottom_led_set (LED_IDX_SPEAKERPHONE, 0);
 	I2CDXR = val;
 	// Wait for the STOP condition to occur
 	while (I2CMDR & REGVAL_I2CMDR_STP) {
 		;
 	}
-// bottom_led_set (LED_IDX_BACKLIGHT, 0);
+// bottom_printf ("I2C.post = 0x%04x,0x%04x\n", (intptr_t) I2CSTR, (intptr_t) I2CMDR);
+bottom_led_set (LED_IDX_MESSAGE, 0);
 }
 
 uint8_t tlv320aic2x_getreg (uint8_t channel, uint8_t reg) {
 	uint8_t val;
 uint32_t ctr;
-// bottom_led_set (LED_IDX_BACKLIGHT, 1);
+bottom_led_set (LED_IDX_MESSAGE, 1);
 // bottom_led_set (LED_IDX_HANDSET, 0);
 	// Wait as long as the bus is busy
 	while (I2CSTR & REGVAL_I2CSTR_BB) {
@@ -193,7 +201,7 @@ uint32_t ctr;
 	I2CDXR = reg;
 	// Send the register index
 	// Initiate the transfer by setting STT flag, but withhold STP
-	I2CMDR = REGVAL_I2CMDR_TRX | REGVAL_I2CMDR_MST | REGVAL_I2CMDR_STT | REGVAL_I2CMDR_STP | REGVAL_I2CMDR_NORESET | REGVAL_I2CMDR_FREE | REGVAL_I2CMDR_BC_8;
+	I2CMDR = REGVAL_I2CMDR_TRX | REGVAL_I2CMDR_MST | REGVAL_I2CMDR_STT | /* REGVAL_I2CMDR_STP | */ REGVAL_I2CMDR_NORESET | REGVAL_I2CMDR_FREE | REGVAL_I2CMDR_BC_8;
 	// Wait until the START condition has occurred
 	while (I2CMDR & REGVAL_I2CMDR_STT) {
 		;
@@ -201,9 +209,10 @@ uint32_t ctr;
 	// ...send address and write mode bit...
 // bottom_led_set (LED_IDX_HANDSET, 1);
 	// Wait until ready to setup for receiving
-	while (I2CMDR & REGVAL_I2CMDR_STP) {
-		if (I2CSTR & REGVAL_I2CSTR_NACK) {
-			I2CSTR = REGVAL_I2CSTR_NACK;
+	// while (I2CMDR & REGVAL_I2CMDR_STP) {
+	while (I2CSTR & (REGVAL_I2CSTR_XRDY | REGVAL_I2CSTR_XSMT) != (REGVAL_I2CSTR_XRDY | REGVAL_I2CSTR_XSMT)) {
+		if (I2CSTR & (REGVAL_I2CSTR_NACK | REGVAL_I2CSTR_AL)) {
+			I2CSTR = REGVAL_I2CSTR_NACK | REGVAL_I2CSTR_AL;
 			I2CMDR = REGVAL_I2CMDR_MST | REGVAL_I2CMDR_STP | REGVAL_I2CMDR_NORESET | REGVAL_I2CMDR_FREE | REGVAL_I2CMDR_BC_8;
 			return 0;
 		}
@@ -211,7 +220,7 @@ uint32_t ctr;
 // bottom_led_set (LED_IDX_HANDSET, 0);
 	I2CCNT = 1;
 	// Restart with STT flag, also permit stop with STP; do not set TRX
-	I2CMDR = REGVAL_I2CMDR_MST | REGVAL_I2CMDR_STT | REGVAL_I2CMDR_STP | REGVAL_I2CMDR_NORESET | REGVAL_I2CMDR_FREE | REGVAL_I2CMDR_BC_8;
+	I2CMDR = REGVAL_I2CMDR_MST | /* REGVAL_I2CMDR_STT | */ REGVAL_I2CMDR_STP | REGVAL_I2CMDR_NORESET | REGVAL_I2CMDR_FREE | REGVAL_I2CMDR_BC_8;
 	// ...recv val...
 	while (!(I2CSTR & REGVAL_I2CSTR_RRDY)) {
 #if 0
@@ -224,7 +233,7 @@ uint32_t ctr;
 		;
 	}
 	val = I2CDRR;
-// bottom_led_set (LED_IDX_BACKLIGHT, 0);
+bottom_led_set (LED_IDX_MESSAGE, 0);
 	return val;
 }
 
@@ -232,7 +241,7 @@ uint32_t ctr;
 /******** TLV320AIC20K DATA ACCESS OVER MCBSP1 ********/
 
 
-#define BUFSZ (64*4)
+#define BUFSZ (64*25)
 
 extern volatile uint16_t samplebuf_play   [BUFSZ];
 extern volatile uint16_t samplebuf_record [BUFSZ];
@@ -244,12 +253,44 @@ extern volatile uint16_t threshold_play;
 extern volatile uint16_t threshold_record;
 
 
-/* TODO: RAW CODEC FUNCTIONS: ASSUMING ALWAYS U-LAW and A-LAW, PLAIN COPY */
-
 /* Copy encoded samples to plain samples */
+//TODO// Better to switch once and then loop in a separate routine which may even be .asm -- but that could require a codec-specific state storage structure
 int16_t codec_decode (codec_t codec, uint8_t *in, uint16_t inlen, uint16_t *out, uint16_t outlen) {
 	while ((inlen > 0) && (outlen > 0)) {
-		*out++ = *in++ << 8;
+		register uint16_t outval;
+		register uint8_t inval = *in++;
+		switch (codec) {
+		case CODEC_L8:
+			*out++ = (inval ^ 0x80) << 8;
+			break;
+		case CODEC_L16:
+			*out++ = inval;
+			break;
+		case CODEC_G711A:
+			outval = (inval & 0x0f);
+			if (inval & 0x70) {
+				outval |= 0x10;
+			}
+			outval <<= ((inval >> 4) & 0x07);
+			if (inval & 0x80) {
+				outval = -outval;
+			}
+			*out++ = outval;
+			break;
+		case CODEC_G711MU:
+			outval = (inval & 0x0f);
+			outval |= 0x10;
+			outval <<= ((inval >> 4) & 0x07);
+			outval -= 32;
+			if (inval & 0x80) {
+				outval = -outval;
+			}
+			*out++ = outval;
+			break;
+		default:
+			*out++ = 0;
+			break;
+		}
 		inlen--;
 		outlen--;
 	}
@@ -257,8 +298,55 @@ int16_t codec_decode (codec_t codec, uint8_t *in, uint16_t inlen, uint16_t *out,
 }
 
 /* Copy plain samples to encoded samples */
+//TODO// Better to switch once and then loop in a separate routine which may even be .asm -- but that could require a codec-specific state storage structure
 int16_t codec_encode (codec_t codec, uint16_t *in, uint16_t inlen, uint8_t *out, uint16_t outlen) {
 	while ((inlen > 0) && (outlen > 0)) {
+		register uint16_t inval = *in++;
+		bool signbit;
+		uint8_t exp;
+		switch (codec) {
+		case CODEC_L8:
+			*out++ = (inval >> 8) ^ 0x80;
+			break;
+		case CODEC_L16:
+			*out++ = inval;
+			break;
+		case CODEC_G711A:
+			// Handle sign bit
+			signbit = inval >> 15;
+			if (signbit) {
+				inval = -inval;
+			}
+			// Find exponent part of sample
+			for (exp = 7; exp >= 0; exp--) {
+				if (inval >= (1 << (8 + exp))) {
+					break;
+				}
+			}
+			// Encode is sign/exp/mant
+			*out++ = 0x55 ^ ( (signbit << 7) | (exp << 4) | ((inval >> (exp + 3)) & 0x0f) );
+			break;
+		case CODEC_G711MU:
+			// Handle sign bit
+			signbit = inval >> 15;
+			if (signbit) {
+				inval = -inval;
+			}
+			// Shift range for uLaw
+			inval += 32;
+			// Find exponent part of sample
+			for (exp = 7; exp >= 0; exp--) {
+				if (inval >= (1 << (8 + exp))) {
+					break;
+				}
+			}
+			// Encode in sign/exp/mant
+			*out++ = 0xff ^ ( (signbit << 7) | (exp << 4) | ((inval >> (exp + 3)) & 0x0f) );
+			break;
+		default:
+			*out++ = 0x00;
+			break;
+		}
 		*out++ = *in++ >> 8;
 		inlen--;
 		outlen--;
@@ -277,48 +365,41 @@ void tlv320aic2x_set_samplerate (uint32_t samplerate) {
 	SRGR2_1 = REGVAL_SRGR2_CLKSM | REGVAL_SRGR2_FSGM | ((samplerate - 1) & 0x0fff);
 }
 
-/* A full frame of 64 samples has been played.  See if another is availabe,
- * otherwise disable DMA until a dmahint_play() restarts it.
+/* A full frame of 64 samples has been recorded.  See if space exists for
+ * another, otherwise disable DMA until a dmahint_play() restarts it.
  */
 interrupt void tic55x_dmac0_isr (void) {
-	uint16_t irq = DMACSR_0;
+	uint16_t irq = DMACSR_0;	// Note causes and clear
+	tic55x_top_has_been_interrupted = true;
+	if ((available_record += 64) > (BUFSZ - 64)) {
+		DMACCR_0 &= ~REGVAL_DMACCR_EN;
+		SPCR1_1 &= ~REGVAL_SPCR1_RRST_NOTRESET;
+		if ((SPCR2_1 & REGVAL_SPCR2_XRST_NOTRESET) == 0) {
+			SPCR2_1 &= ~ (REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET);
+		}
+	}
+	if (available_record >= threshold_record) {
+		top_can_record (available_record);
+	}
+}
+
+/* A full frame of 64 samples has been played.  See if another is availabe,
+ * otherwise disable DMA until a dmahint_record() restarts it.
+ */
+interrupt void tic55x_dmac1_isr (void) {
+	uint16_t irq = DMACSR_1;	// Note causes and clear
 	uint16_t toplay;
 	tic55x_top_has_been_interrupted = true;
 	if ((available_play -= 64) < 64) {
-		DMACCR_0 &= ~REGVAL_DMACCR_EN;
-	}
-	toplay = BUFSZ - available_play;
-	if (BUFSZ - available_play > threshold_play) {
-		//TODO: Lower toplay if it exceeds the buffer size
-		// top_can_play (available_play);
-		top_can_play (64);
-	}
-}
-
-/* A full frame of 64 samples has been recorded.  See if space exists for
- * another, otherwise disable DMA until a dmahint_record() restarts it.
- */
-interrupt void tic55x_dmac1_isr (void) {
-	uint16_t irq = DMACSR_1;
-	tic55x_top_has_been_interrupted = true;
-	if ((available_record += 64) >= (BUFSZ - 64)) {
+		SPCR2_1 &= ~REGVAL_SPCR2_XRST_NOTRESET;
+		if ((SPCR1_1 & REGVAL_SPCR1_RRST_NOTRESET) == 0) {
+			SPCR2_1 &= ~ (REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET);
+		}
 		DMACCR_1 &= ~REGVAL_DMACCR_EN;
 	}
-	if (available_record > threshold_record) {
-		//TODO: Lower value if it exceeds the buffer size
-		// top_can_record (availabl_record);
-		top_can_record (64);
-	}
-}
-
-/* New data has been written for playback.  As a result, it may
- * be possible to restart DMA channel 0 if it was disabled.
- */
-void dmahint_play (void) {
-	if (available_play >= 64) {
-		if (!(DMACCR_0 & REGVAL_DMACCR_EN)) {
-			DMACCR_0 |= REGVAL_DMACCR_EN;
-		}
+	toplay = BUFSZ - available_play;
+	if (BUFSZ - available_play >= threshold_play) {
+		top_can_play (available_play);
 	}
 }
 
@@ -326,11 +407,28 @@ void dmahint_play (void) {
  * it may be possible to restart DMA channel 1 if it was disabled.
  */
 void dmahint_record (void) {
-	if (available_record <= (BUFSZ - 64)) {
-		if (!(DMACCR_1 & REGVAL_DMACCR_EN)) {
-			DMACCR_1 |= REGVAL_DMACCR_EN;
+	if (! (DMACCR_0 & REGVAL_DMACCR_EN)) {
+		if (available_record <= (BUFSZ - 64)) {
+			if (!(DMACCR_0 & REGVAL_DMACCR_EN)) {
+				DMACCR_0 |= REGVAL_DMACCR_EN;
+				SPCR1_1 |= REGVAL_SPCR1_RRST_NOTRESET;
+				SPCR2_1 |= REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
+			}
+// bottom_printf ("dmahint_record() enabled DMA from %d bytes out of %d\n", (intptr_t) available_record, (intptr_t) BUFSZ);
 		}
 	}
+}
+
+/* New data has been written for playback.  As a result, it may
+ * be possible to restart DMA channel 0 if it was disabled.
+ */
+void dmahint_play (void) {
+	if ((available_play >= 64) && ! (DMACCR_1 & REGVAL_DMACCR_EN)) {
+		DMACCR_1 |= REGVAL_DMACCR_EN;
+bottom_printf ("dmahint_play() started playing DMA\n");
+		SPCR2_1 |= REGVAL_SPCR2_XRST_NOTRESET | REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
+	}
+//TODO:DEBUG// else bottom_printf ("dmahint_play() did not start playing -- available_play = %d\n", (intptr_t) available_play);
 }
 
 
@@ -867,20 +965,20 @@ void main (void) {
 	// following the procedure of spru592e section 3.5
 	//
 	DXR1_1 = 0x0000;
-	SPCR1_1 = 0x0000;
-	SPCR2_1 = 0x0000;
+	SPCR1_1 = 0x0000;	// Disable/reset receiver, required in spru592e
+	SPCR2_1 = 0x0000;	// Disable/reset sample rate generator
 	SRGR1_1 = REGVAL_SRGR1_FWID_1 | REGVAL_SRGR1_CLKGDIV_4;
 	SRGR2_1 = REGVAL_SRGR2_CLKSM | REGVAL_SRGR2_FSGM | REGVAL_SRGR2_FPER_1535;
-	PCR1 = /*TODO: (1 << REGBIT_PCR_IDLEEN) | */ (1 << REGBIT_PCR_FSXM) | /* TODO:CIRCUITED_TO_FSXM (1 << REGBIT_PCR_FSRM) | */ (1 << REGBIT_PCR_CLKXM) | (1 << REGBIT_PCR_CLKRM) /* TODO:WRONG? | (1 << REGBIT_PCR_CLKXP) | (1 << REGBIT_PCR_CLKRP) */;
-	SPCR1_1 = REGVAL_SPCR1_RRST_NOTRESET;
-	SPCR2_1 = REGVAL_SPCR2_XRST_NOTRESET | REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
+	PCR1 = /*TODO: (1 << REGBIT_PCR_IDLEEN) | */ (1 << REGBIT_PCR_FSXM) | (1 << REGBIT_PCR_FSRM) | (1 << REGBIT_PCR_CLKXM) | (1 << REGBIT_PCR_CLKRM) /* TODO:WRONG? | (1 << REGBIT_PCR_CLKXP) | (1 << REGBIT_PCR_CLKRP) */;
 	//
 	// Setup I2C for communication with the TLV320AIC20K codec
-	// Prescale SYSCLK2 down from 61.44 MHz to 10.24 MHz; support a
-	// 100 kHz I2C bus by setting low/high period to 51 such periods.
-	//
+	// Prescale SYSCLK2 down from 61.44 MHz to 10.24 MHz so it falls
+	// in the required 7 Mhz to 12 MHz range; support a 100 kHz I2C bus
+	// by setting low/high period to 51 such periods.
+	// Note: The only peripheral TLV320AIC20K could go up to 900 kHz
+	I2CMDR = REGVAL_I2CMDR_MST | /* reset to set PSC */  REGVAL_I2CMDR_FREE | REGVAL_I2CMDR_BC_8;
 	I2CPSC = 5;
-	I2CCLKH = 51 - 5;
+	I2CCLKH = 51 - 5;	/* TODO: 900 kHz is possible on TLV320AIC20K */
 	I2CCLKL = 51 - 5;
 	I2COAR = REGVAL_I2COAR;
 	I2CMDR = REGVAL_I2CMDR_MST | REGVAL_I2CMDR_NORESET | REGVAL_I2CMDR_FREE | REGVAL_I2CMDR_BC_8;
@@ -904,24 +1002,33 @@ void main (void) {
 	//
 	DMAGCR = REGVAL_DMAGCR_FREE;
 	DMAGTCR = 0x00;		// No timeout support
-	DMACCR_0 = REGVAL_DMACCR_SRCAMODE_POSTINC | REGVAL_DMACCR_DSTAMODE_CONST | REGVAL_DMACCR_PRIO | REGVAL_DMACCR_SYNC_MCBSP1_TEV | REGVAL_DMACCR_REPEAT | REGVAL_DMACCR_AUTOINIT;
-	DMACCR_1 = REGVAL_DMACCR_SRCAMODE_CONST | REGVAL_DMACCR_DSTAMODE_POSTINC | REGVAL_DMACCR_PRIO | REGVAL_DMACCR_SYNC_MCBSP1_REV | REGVAL_DMACCR_REPEAT | REGVAL_DMACCR_AUTOINIT;
+	DMACCR_0 = REGVAL_DMACCR_SRCAMODE_CONST | REGVAL_DMACCR_DSTAMODE_POSTINC | REGVAL_DMACCR_PRIO | REGVAL_DMACCR_SYNC_MCBSP1_REV | REGVAL_DMACCR_REPEAT | REGVAL_DMACCR_AUTOINIT;
+	DMACCR_1 = REGVAL_DMACCR_SRCAMODE_POSTINC | REGVAL_DMACCR_DSTAMODE_CONST | REGVAL_DMACCR_PRIO | REGVAL_DMACCR_SYNC_MCBSP1_TEV | REGVAL_DMACCR_REPEAT | REGVAL_DMACCR_AUTOINIT;
 	DMACICR_0 = REGVAL_DMACICR_FRAMEIE;
 	DMACICR_1 = REGVAL_DMACICR_FRAMEIE;
-	DMACSDP_0 = REGVAL_DMACSDP_SRC_DARAM0 | REGVAL_DMACSDP_DST_PERIPH | REGVAL_DMACSDP_DATATYPE_16BIT;
-	DMACSDP_1 = REGVAL_DMACSDP_SRC_PERIPH | REGVAL_DMACSDP_DST_DARAM1 | REGVAL_DMACSDP_DATATYPE_16BIT;
-	DMACSSAL_0 = ((uint16_t) samplebuf_play)   << 1;
-	DMACSSAU_0 = ((uint16_t) samplebuf_play)   >> 15;
-	DMACDSAL_0 = ((uint16_t) DXR1_1) <<  1;
-	DMACDSAU_0 = ((uint16_t) DXR1_1) >> 15;
-	DMACSSAL_1 = ((uint16_t) DRR1_1) <<  1;
-	DMACSSAU_1 = ((uint16_t) DRR1_1) >> 15;
-	DMACDSAL_1 = ((uint32_t) samplebuf_record) << 1;
-	DMACDSAU_1 = ((uint32_t) samplebuf_record) >> 15;
+	//TODO// DMACSDP_0 = REGVAL_DMACSDP_SRC_PERIPH | REGVAL_DMACSDP_DST_DARAM1 | REGVAL_DMACSDP_DATATYPE_16BIT;
+	//TODO// DMACSDP_1 = REGVAL_DMACSDP_SRC_DARAM0 | REGVAL_DMACSDP_DST_PERIPH | REGVAL_DMACSDP_DATATYPE_16BIT;
+	DMACSDP_0 = REGVAL_DMACSDP_SRC_PERIPH | REGVAL_DMACSDP_DST_EMIF | REGVAL_DMACSDP_DATATYPE_16BIT;
+	DMACSDP_1 = REGVAL_DMACSDP_SRC_EMIF | REGVAL_DMACSDP_DST_PERIPH | REGVAL_DMACSDP_DATATYPE_16BIT;
+	DMACSSAL_0 = ((intptr_t) &DRR1_1) <<  1;
+	DMACSSAU_0 = ((intptr_t) &DRR1_1) >> 15;
+	DMACDSAL_0 = (uint16_t) (((intptr_t) samplebuf_record) <<  1);
+	DMACDSAU_0 = (uint16_t) (((intptr_t) samplebuf_record) >> 15);
+	DMACSSAL_1 = (uint16_t) (((intptr_t) samplebuf_play)   <<  1);
+	DMACSSAU_1 = (uint16_t) (((intptr_t) samplebuf_play)   >> 15);
+	DMACDSAL_1 = ((intptr_t) &DXR1_1) <<  1;
+	DMACDSAU_1 = ((intptr_t) &DXR1_1) >> 15;
+#if TRY_SOMETHING_ELSE_TO_GET_INTERRUPTS
 	DMACEN_0 = 64;           /* 64 elements (samples) per frame (continue-checks) */
 	DMACEN_1 = 64;
 	DMACFN_0 = (BUFSZ / 64); /* 25 frames (continue-checks) per block (buffer) */
 	DMACFN_1 = (BUFSZ / 64);
+#else
+	DMACEN_0 = 64;
+	DMACEN_1 = 64;
+	DMACFN_0 = 1;
+	DMACFN_1 = 1;
+#endif
 	/* TODO? */
 	//
 	// Further initiation follows

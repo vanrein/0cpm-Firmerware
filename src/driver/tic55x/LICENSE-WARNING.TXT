@@ -12,7 +12,7 @@ Contents:
 Introduction to the license conflict
 ------------------------------------
 
-Before starting a project in which you use the 0cpm firmerware
+Before starting a project in which you use the 0cpm Firmerware
 on TI's C55x architecture, please understand that there is a
 licensing conflict between TI's compiler licenses and the GPLv3
 under which this software resides.
@@ -51,7 +51,7 @@ not suffer from it.
 	code that runs on your phone.  We apologise for the
 	inconvenience of having to download the toolchain from
 	TI's website instead of finding it alongside the
-	0cpm firmerware.
+	0cpm Firmerware.
 	As soon as you start start passing around (for instance,
 	selling) your modified code the GPL applies; you are
 	then in violation of either the GPL or the TI license
@@ -128,7 +128,7 @@ that could serve as a basis for developers in any company, anywhere.
 
 We also wanted to avoid the return of the same situation in the
 future; by choosing the GPLv3, we ensured that future versions of
-the shared 0cpm firmerware would stay open and free.  Furthermore,
+the shared 0cpm Firmerware would stay open and free.  Furthermore,
 the same license ensures absolute freedom for end users to replace,
 update and modify the firmware.  Effectively, this will mean that
 not only the manufacturers, but knowledgeable users can join the
@@ -144,7 +144,7 @@ possible out of court, cases are being trialed, at a staggering success
 rate.  Please do not understand this as a threat to undermine you or
 your product, but merely to cooperate under clear and fair guidelines
 of sharing.  The same rules apply to your competitors!  Manufacturers,
-distributors and resellers who ship products with the 0cpm firmerware
+distributors and resellers who ship products with the 0cpm Firmerware
 or derivatives are all required to act in accordance with GPLv3.
 
 
@@ -162,24 +162,25 @@ or code that could be compiled to other platforms than those marketed
 by TI.  It does not seem very practical to distribute a compiler or
 assembler without source code to pass through it  ;-)
 
-We expect that the inability for manufacturers to live up to the GPL
-without us as an intermediary might put them off, and drive some of
-them to VoIP solutions by other chip manufacturers.  We do not believe
-that the mere legality of the toolchain should have such a powerful
-impact.
+We expect that the inability for device manufacturers to live up to
+the GPL without us as an intermediary might put them off, and drive
+some of them to VoIP solutions by other chip manufacturers.  We do
+not believe that the mere legality of the toolchain should have such
+a powerful impact.
 
 For that reason, we ask TI to consider making an exemption for the
-0cpm firmerware and its derivatives, by granting permission to
+0cpm Firmerware and its derivatives, by granting permission to
 redistribute the complete toolchain alongside the source code of
-the 0cpm firmerware and its derivatives.  We suspect that TI will
+the 0cpm Firmerware and any derivatives.  We suspect that TI will
 want to include a clause that no user has the freedom to use the
 toolchain to target non-TI targets.  Since this is not a limitation
 to the user's ability to exercise the freedom brought to the
-0cpm firmerware by the GPL, we do not expect this to be challenged.
+0cpm Firmerware by the GPL, we do not expect this to be challenged.
 
 
 As soon as TI permits this redistribution of their TIC55x toolkit,
 we will update or remove this file from the software distribution,
 and the cautioning notes in src/target/Kconfig.platform and
-include/tic55x/README
+include/tic55x/README -- or we could accept your patch doing the
+same.  We are open for discussion on this issue!
 

@@ -10,6 +10,9 @@ config MAINFUNCTION_DEVEL_GPIO
 	  The application continuously scans the hook.  It makes the message
 	  LED burn while the phone is off-hook.
 
+	  Additional firmware functions will not work, as the kernel and
+	  other support infrastructure is not incorporated into this test.
+
 config MAINFUNCTION_DEVEL_TIMER
 	bool "Test timer interrupts"
 	depends on DEVEL
@@ -18,6 +21,9 @@ config MAINFUNCTION_DEVEL_TIMER
 	  flash with a 1 second period and a 50% duty cycle.  It can be
 	  used to develop timer drivers.
 
+	  Additional firmware functions will not work, as the kernel and
+	  other support infrastructure is not incorporated into this test.
+
 config MAINFUNCTION_DEVEL_KEYBOARD
 	bool "Test keyboard / display"
 	depends on DEVEL
@@ -25,6 +31,9 @@ config MAINFUNCTION_DEVEL_KEYBOARD
 	  This test processes input from the keyboard, and shows it on
 	  the display, as well as printing it to the platform's console,
 	  if any.
+
+	  Additional firmware functions will not work, as the kernel and
+	  other support infrastructure is not incorporated into this test.
 
 config MAINFUNCTION_DEVEL_NETWORK
 	bool "Test network"
@@ -42,6 +51,9 @@ config MAINFUNCTION_DEVEL_NETWORK
 	  The details of the networked console are described under the
 	  add-on function for this console, one menu level up.
 
+	  Additional firmware functions will not work, as the kernel and
+	  other support infrastructure is not incorporated into this test.
+
 config MAINFUNCTION_DEVEL_SOUND
 	bool "Test sound"
 	depends on DEVEL
@@ -56,4 +68,7 @@ config MAINFUNCTION_DEVEL_SOUND
 	  save lots of interrupts while working on other things, but the reliance
 	  on hardware timers and not on any software aspects helps to keep the
 	  sample rate very stable, thus leading to better voice quality.
+
+	  Additional firmware functions will not work, as the kernel and
+	  other support infrastructure is not incorporated into this test.
 

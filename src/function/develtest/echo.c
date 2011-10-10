@@ -32,11 +32,13 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
+//TODO// test inclusion of bottom definitions
+#define BOTTOM
 #include <config.h>
 
 #include <0cpm/kbd.h>
 #include <0cpm/app.h>
-// #include <0cpm/cons.h>
+#include <0cpm/cons.h>
 #include <0cpm/show.h>
 #include <0cpm/snd.h>
 #include <0cpm/led.h>
@@ -53,9 +55,9 @@ timing_t top_timer_expiration (timing_t timeout) {
 
 void top_hook_update (bool offhook) {
         if (offhook) {
-		bottom_soundchannel_device (0, SOUNDDEV_SPEAKER);
-	} else {
 		bottom_soundchannel_device (0, SOUNDDEV_HANDSET);
+	} else {
+		bottom_soundchannel_device (0, SOUNDDEV_SPEAKER);
 	}
 }
 
@@ -83,16 +85,47 @@ void top_button_release (void) {
 	/* Keep the linker happy */
 }
 
+uint16_t plyirqs = 0;
 void top_can_play (uint16_t samples) {
 	tobeplayed = samples;
+	plyirqs++;
 }
 
+uint16_t recirqs = 0;
 void top_can_record (uint16_t samples) {
 	toberecorded = samples;
+	recirqs++;
 }
 
 
-uint8_t samples [10000];
+// #define top_main_delay_1sec top_main
+#define top_main_sine_1khz  top_main
+
+
+/******** TOP_MAIN FOR A 1 KHZ SINE WAVE OUTPUT ********/
+
+uint8_t sinewave [8] = {
+	0x00, 0x5a, 0x7f, 0x5a, 0x00, 0xa5, 0x80, 0xa5
+};
+
+void top_main_sine_1khz (void) {
+	top_hook_update (bottom_phone_is_offhook ());
+	bottom_codec_play_samplerate (0, 8000);
+	bottom_codec_record_samplerate (0, 8000); // Both MUST be called for now
+	bottom_show_fixed_msg (APP_LEVEL_ZERO, FIXMSG_RINGING); // TODO: Not really necessary
+	tobeplayed = 64;
+	while (true) {
+		if (tobeplayed > 8) {
+			bottom_codec_play (0, CODEC_L8, sinewave, 8, 8);
+			bottom_critical_region_begin ();
+			tobeplayed -= 8;
+			bottom_critical_region_end ();
+		}
+	}
+}
+
+
+/******** TOP_MAIN FOR AN ECHO WITH 1 SECOND DELAY ********/
 
 uint16_t playpos = 0;
 uint16_t recpos = 0;
@@ -100,44 +133,115 @@ uint16_t sampled = 0;
 
 #define abs(x) (((x)>0)?(x):(-(x)))
 
-void top_main (void) {
+/* 1 second at 8000 samples per second, plus 25% extra */
+uint8_t samples [10000];
+
+#ifdef CONFIG_FUNCTION_NETCONSOLE
+uint8_t netinput [1000];
+uint16_t netinputlen;
+#endif
+
+void top_main_delay_1sec (void) {
+	uint16_t prevsampled = 0;
+	uint16_t prevrecirqs = 0;
+	uint16_t prevplyirqs = 0;
+uint16_t loop = 0;
+	void nethandler_llconly (uint8_t *pkt, uint16_t pktlen);
 	bottom_critical_region_end ();
 	top_hook_update (bottom_phone_is_offhook ());
 	bottom_codec_play_samplerate (0, 8000);
 	bottom_codec_record_samplerate (0, 8000);
+	bottom_soundchannel_setvolume (0, 127);
 	bottom_show_fixed_msg (APP_LEVEL_ZERO, FIXMSG_READY); // TODO: Not really necessary
+	bottom_printf ("Running the development function \"echo\" (Test sound)\n");
 	while (true) {
+#ifndef TODO_DONT_PRINT_I2C_REGISTERS_AFTER_SETTING_THEM
+if (loop++ == 0) {
+uint8_t reg, subreg;
+uint8_t chan = 0;
+for (reg = 1; reg <= 6; reg++) {
+uint8_t val0, val1, val2, val3;
+for (subreg = 0; subreg <=3 ; subreg++) {
+val0 = tlv320aic2x_getreg (chan, reg);
+val1 = tlv320aic2x_getreg (chan, reg);
+val2 = tlv320aic2x_getreg (chan, reg);
+val3 = tlv320aic2x_getreg (chan, reg);
+}
+bottom_printf ("TLV_%d = %02x, %02x, %02x, %02x\n", (intptr_t) reg, (intptr_t) val0, (intptr_t) val1, (intptr_t) val2, (intptr_t) val3);
+}
+}
+#endif
+#if 0
+		if (recirqs != prevrecirqs) {
+			bottom_printf ("Record IRQs #%d, ", (intptr_t) recirqs);
+			bottom_printf ("available %d\n", (intptr_t) toberecorded);
+			prevrecirqs = recirqs;
+		}
+		if (plyirqs != prevplyirqs) {
+			bottom_printf ("Playbk IRQs #%d, ", (intptr_t) plyirqs);
+			bottom_printf ("available %d\n", (intptr_t) tobeplayed);
+			prevplyirqs = plyirqs;
+		}
+#endif
+		if (sampled != prevsampled) {
+			bottom_printf ("Buffered %d samples\n", (intptr_t) sampled);
+			prevsampled = sampled;
+		}
 		if (toberecorded > 0) {
 			int16_t rec = toberecorded;
 bottom_led_set (LED_IDX_HANDSET, 1);
-			if (rec > 10000 - sampled) {
+			if (sampled + rec > 10000) {
 				rec = 10000 - sampled;
 			}
+			if (recpos + rec > 10000) {
+				rec = 10000 - recpos;
+			}
 			if (rec > 0) {
+				bottom_printf ("Recording %d extends buffer from %d to %d\n", (intptr_t) rec, (intptr_t) sampled, (intptr_t) (rec+sampled));
 				// Codec implies that #samples and #bytes are the same
 				rec -= abs (bottom_codec_record (0, CODEC_G711A, samples + recpos, rec, rec));
-				recpos += rec;
 				sampled += rec;
+				recpos += rec;
+				if (recpos >= 10000) {
+					recpos = 0;
+				}
 				bottom_critical_region_begin ();
-				toberecorded -= rec;
+				//TODO:SPYING-ON-NEXT-LINE// toberecorded -= rec;
+				{ extern uint16_t available_record; toberecorded = available_record; }
 				bottom_critical_region_end ();
 			}
+bottom_led_set (LED_IDX_SPEAKERPHONE, 0);
 		}
-		if (tobeplayed > 0) {
-			int16_t ply = tobeplayed;
+		if (sampled > 8000) {
+			uint16_t ply = sampled - 8000;
 bottom_led_set (LED_IDX_SPEAKERPHONE, 1);
-			if (ply > sampled - 8000) {
-				ply = sampled - 8000;
+			if (playpos + ply > 10000) {
+				ply = 10000 - playpos;
 			}
 			if (ply > 0) {
+				bottom_printf ("Playback of %d samples reduces buffer from %d to %d\n", (intptr_t) ply, (intptr_t) sampled, (intptr_t) (sampled - ply));
 				ply -= abs (bottom_codec_play (0, CODEC_G711A, samples + playpos, ply, ply));
-				playpos += ply;
 				sampled -= ply;
-				bottom_critical_region_begin ();
-				tobeplayed -= ply;
-				bottom_critical_region_end ();
+				playpos += ply;
+				if (playpos >= 10000) {
+					playpos = 0;
+				}
+bottom_led_set (LED_IDX_HANDSET, 0);
 			}
 		}
+#ifdef CONFIG_FUNCTION_NETCONSOLE
+		// { uint32_t ctr = 10000; while (ctr--) ; }
+		trysend ();
+		// { uint32_t ctr = 10000; while (ctr--) ; }
+bottom_led_set (LED_IDX_BACKLIGHT, 1);
+		netinputlen = sizeof (netinput);
+		if (bottom_network_recv (netinput, &netinputlen)) {
+			nethandler_llconly (netinput, netinputlen);
+			{ uint32_t ctr = 10000; while (ctr--) ; }
+bottom_led_set (LED_IDX_BACKLIGHT, 0);
+		}
+		trysend ();
+#endif
 	}
 }
 

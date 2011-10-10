@@ -44,3 +44,6 @@ look at:
 * create & use a irqtimer_stop_completely() that halts prepared fire()
 
 * handle packet fragmentation
+
+* test RTP sound playback.  The retrocast tools can help with that:
+  basicast /etc/hosts 2001:980:420a:1:020b:82ff:fe19:a0f4 32768

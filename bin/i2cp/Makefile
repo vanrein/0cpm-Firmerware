@@ -16,5 +16,5 @@
 # You should have received a copy of the GNU General Public License
 # along with 0cpm Firmerware.  If not, see <http://www.gnu.org/licenses/>.
 
-i2cp: i2cp.c
-	gcc -o i2cp i2cp.c
+all: i2cp aic2x-dump aic2x-config aic2x-setup
+

@@ -33,6 +33,7 @@
  */
 
 
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdarg.h>
@@ -41,14 +42,15 @@
 #include <config.h>
 
 #include <0cpm/cons.h>
-
+#include <0cpm/netinet.h>
+#include <0cpm/netfun.h>
 
 
 
 /* Construct an LLC reply start; fill out ethernet addresses and SSAP/DSAP */
 uint8_t *netreply_llc (uint8_t *pout, intptr_t *mem) {
         memcpy (pout +  0, ((uint8_t *) mem [MEM_ETHER_HEAD] + 6), 6);
-        memcpy (pout +  6, ether_mine, 6);
+	bottom_flash_get_mac (pout + 6);
         pout [14] = mem [MEM_LLC_SSAP];
         pout [15] = mem [MEM_LLC_DSAP];
 }
@@ -62,7 +64,7 @@ static uint8_t llc_rr [6 + 6 + 2 + 4];
 static uint8_t llc_sent;
 static uint8_t llc_received;
 static uint8_t llc_input;
-static mem [MEM_NETVAR_COUNT];
+static intptr_t mem [MEM_NETVAR_COUNT];
 
 
 struct llc2 {
@@ -118,27 +120,27 @@ void nethandler_llconly (uint8_t *pkt, uint16_t pktlen) {
 	typelen = (pkt [12] << 8) | pkt [13];
 #if 0
 	if ((pktlen < 14) || (typelen < 46)) {
-#ifdef CONFIG_DEVEL
+#ifdef CONFIG_MAINFUNCTION_DEVEL_NETWORK
 		bottom_printf ("Unpadded packet length %d received\n", (intptr_t) pktlen);
 #endif
 		return;
 	}
 #endif
 	if (typelen > 1500) {
-#ifdef CONFIG_DEVEL
+#ifdef CONFIG_MAINFUNCTION_DEVEL_NETWORK
 		bottom_printf ("Traffic is not LLC but protocol 0x%4x\n", (intptr_t) typelen);
 #endif
 		return;
 	}
 	if ((typelen > 64) && (typelen != pktlen - 14)) {
-#ifdef CONFIG_DEVEL
+#ifdef CONFIG_MAINFUNCTION_DEVEL_NETWORK
 		bottom_printf ("Illegal length %d received (pktlen = %d)\n", (intptr_t) typelen, (intptr_t) pktlen);
 #endif
 		return;
 	}
 #if 0
 	if (pkt [14] != 20) {
-#ifdef CONFIG_DEVEL
+#ifdef CONFIG_MAINFUNCTION_DEVEL_NETWORK
 		bottom_printf ("Received LLC traffic for SAP %d instead of 20\n", pkt [14]);
 #endif
 		return;
@@ -169,21 +171,21 @@ void nethandler_llconly (uint8_t *pkt, uint16_t pktlen) {
 			mem [MEM_ALL_DONE] = (intptr_t) &pkt [pktlen];
 			mem [MEM_LLC_DSAP] = pkt [14];
 			mem [MEM_LLC_SSAP] = pkt [15];
-			pkt = netllc_tftp (pkt, pktlen);
+			pkt = netllc_tftp (pkt, mem);
 			pktlen = mem [MEM_ALL_DONE] - (intptr_t) pkt;
 			// Send and forget -- LLC1 is unconfirmed transmission
 			bottom_network_send (pkt, pktlen);
 		} else {
-#ifdef CONFIG_DEVEL
+#ifdef CONFIG_MAINFUNCTION_DEVEL_NETWORK
 			bottom_printf ("LLC1 UA is only used for TFTP, use SAP 68 and not %d\n", (intptr_t) pkt [14]);
 #endif
 		}
 #else
-#ifdef CONFIG_DEVEL
+#ifdef CONFIG_MAINFUNCTION_DEVEL_NETWORK
 		bottom_printf ("No bootloader -- ignoring TFTP over LLC1\n");
 #endif
 	} else if (pkt [14] != 20) {
-#ifdef CONFIG_DEVEL
+#ifdef CONFIG_MAINFUNCTION_DEVEL_NETWORK
 		bottom_printf ("To access the network console, use SAP 20 and not %d\n", (intptr_t) pkt [14]);
 #endif
 #endif
@@ -211,7 +213,7 @@ void nethandler_llconly (uint8_t *pkt, uint16_t pktlen) {
 	} else if ((cmd & 0x0007) == 0x0001) {		// Receiver ready / Receiver Reject
 		llc_received = (cmd >> 9);
 	} else {
-#ifdef CONFIG_DEVEL
+#ifdef CONFIG_MAINFUNCTION_DEVEL_NETWORK
 		bottom_printf ("Selfishly ignoring LLC traffic with cmd bytes 0x%2x%2x\n",
 					(intptr_t) pkt [16], (intptr_t) pkt [17]);
 #endif

@@ -19,6 +19,8 @@
 
 # Function-dependent construction of top-objs list
 
+objs-top-$(CONFIG_FUNCTION_NETCONSOLE) += src/net/llconly.o src/function/netconsole.o
+
 #
 # Actual targets and their constituent object files
 #
