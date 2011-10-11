@@ -122,6 +122,27 @@ the PCB's silk screen for every fifth pin.  Always do this work in
 broad daylight; nothing can beat the Sun for proper illumination.
 Closing one eye may help, and using a magnifying glass may help too.
 
+No matter how well you do it, you will short-circuit parts of the
+circuitry.  When you pull a probe along pins you are inevitably going
+to connect neighbouring pins.  You should realise that this is a risk,
+albeit a modest one -- most electronic circuitry will survive such
+a beating without much more trouble than some spurious behaviour, such
+as a spontaneous reset.  More surprisingly perhaps, you may also create
+a lasting connection between neighbouring pins.  This can happen if you
+use very sharp (and thus useful) probes to measure a pin for some time.
+In fixating on the pin, you can easily apply too much force, causing
+the pin to split apart and cover a bit more area.  With the small sizes
+of surface mount technology, this may lead to a short-circuit with
+the neighbouring pins!  Most circuitry will even survive such a harsh
+treatment, and you can resolve it by taking a needle (not a sewing pin,
+as those will bend) and scratching carefully between the pins that got
+connected.  A strong sign of such unwanted connectivity is if the
+original firmware starts to behave strangely and it appears as though
+you destroyed a piece of its hardware.  Still, it will take quite a bit
+of your intuition and ingenuity to determine the error spot, but on the
+other hand it is simple to check by measuring, once you have a
+suspicion.
+
 And yes... I would love to have probes with one conductive side and
 one isolated side, so I could poke it in between two pins instead
 of balancing it on top of one while moving something else around.

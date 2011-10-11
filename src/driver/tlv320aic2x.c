@@ -45,6 +45,7 @@
 #include <config.h>
 #include <0cpm/snd.h>
 #include <0cpm/cons.h>
+#include <0cpm/led.h>
 
 
 /* The code below distinguishes the two directions of using the
@@ -121,10 +122,10 @@ void bottom_soundchannel_device (uint8_t chan, sounddev_t dev) {
 		// (but for now just powerdown the codec)
 		tlv320aic2x_setreg (chan, 6, 0x00 | 0x04);
 		tlv320aic2x_setreg (chan, 6, 0x80 | 0x00);
-		//TODO:TMP_NO_POWERDOWN// tlv320aic2x_setreg (chan, 3, 0x00 | 0x31); /* power down */
+		tlv320aic2x_setreg (chan, 3, 0x00 | 0x31); /* power down */
 		break;
 	case SOUNDDEV_HANDSET:
-		tlv320aic2x_setreg (chan, 6, 0x00 | 0x02);
+		tlv320aic2x_setreg (chan, 6, 0x00 | 0x22);
 		tlv320aic2x_setreg (chan, 6, 0x80 | 0x02);
 		break;
 	case SOUNDDEV_HEADSET:
@@ -264,19 +265,24 @@ void bottom_codec_play_skip (codec_t codec, uint16_t samples) {
  */
 void tlv320aic2x_setup_sound (void) {
 	uint8_t chan;
+	tlv320aic2x_set_samplerate (8000);
 	// Setup the various registers in the TLV320AIC2x
 	for (chan = 0; chan < 2; chan++) {
 		tlv320aic2x_setreg (chan, 1,        0x49);	/* Continuous 16-bit, 2.35V bias */
 		tlv320aic2x_setreg (chan, 2,        0xa0);	/* Turbo mode */
 		/* Setup to SOUNDDEV_NONE below will power down the device */
-		tlv320aic2x_setreg (chan, 3, 0x40 | 0x20);	/* Arrange mute with volume 0 */
-		/* Ignore register 3C */
-		tlv320aic2x_setreg (chan, 3, 0xc0 | 0x00);	/* Switch off LCD DAC */
-		/* Bypass MNP setup, it is phone-speficic */
-		tlv320aic2x_setreg (chan, 5, 0x00 | 0x20);	/* ADC gain 27 dB -- ok? */
-		bottom_soundchannel_setvolume (chan, 16);	/* DAC gain -24 dB initially */
+		/* Register 3A resets ok to 0x01: no sleep, FS/fs == 1 */
+		tlv320aic2x_setreg (chan, 3, 0x40 | 0x20);	/* Setup 8 kHz filter, no mute */
+		/* Register 3C resets ok to 0x80 | (chip_id << 2) */
+		/* Register 3D resets ok to 0xc0: no LCD DAC */
+		/* Skip MNP setup, but samplerate-setup per phone may override */
+		tlv320aic2x_setreg (chan, 5, 0x00 | 0x12);	/* ADC gain 27 dB -- ok? */
+		bottom_soundchannel_setvolume (chan, 15);	/* DAC gain -24 dB initially */
 		tlv320aic2x_setreg (chan, 5, 0x80 | 0x00);	/* No sidetones */
-		tlv320aic2x_setreg (chan, 5, 0xc0 | 0x30);	/* SPKR gain +3 dB -- ok? */
+		/* Register 5D resets ok to 0xc0: No speaker gain */
+		tlv320aic2x_setreg (chan, 6, 0x00 | 0x20);	/* Handset feedback, no input */
+		/* Register 6B resets ok to 0x80: No output selected */
 		bottom_soundchannel_device (chan, SOUNDDEV_NONE);/* No input/output, powerdown */
 	}
 }
+

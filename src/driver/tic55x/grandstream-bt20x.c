@@ -356,13 +356,32 @@ int16_t codec_encode (codec_t codec, uint16_t *in, uint16_t inlen, uint8_t *out,
 
 /* Set a frequency divisor for the intended sample rate */
 void tlv320aic2x_set_samplerate (uint32_t samplerate) {
+#ifndef TODO_FS_ONLY_DURING_SOUND_IO
+	SPCR2_1 &= ~ ( REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET );
+#endif
 	samplerate = 12288000 / samplerate;
 	if (samplerate >= 4096) {
 		samplerate = 4096;
 	} else if (samplerate == 0) {
 		samplerate = 1;
 	}
-	SRGR2_1 = REGVAL_SRGR2_CLKSM | REGVAL_SRGR2_FSGM | ((samplerate - 1) & 0x0fff);
+	SRGR2_1 = REGVAL_SRGR2_CLKSM | REGVAL_SRGR2_FSGM | (samplerate - 1);
+#ifndef TODO_FS_ONLY_DURING_SOUND_IO
+	SPCR2_1 |= REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
+	SPCR1_1 |= REGVAL_SPCR1_RRST_NOTRESET;
+	SPCR2_1 |= REGVAL_SPCR2_XRST_NOTRESET;
+#endif
+	// Now, if not done yet, unreset and setup the TLV320AIC20K codec
+	if ((IODATA & (1 << 7)) == 0) {
+		volatile uint8_t ctr;
+		IODATA |= (1 << 7);
+		for (ctr=0; ctr < 132; ctr++) {
+			asm (" nop");  /* Wait at least 132 MCLK cycles */
+			asm (" nop");
+			asm (" nop");
+			asm (" nop");
+		}
+	}
 }
 
 /* A full frame of 64 samples has been recorded.  See if space exists for
@@ -373,10 +392,12 @@ interrupt void tic55x_dmac0_isr (void) {
 	tic55x_top_has_been_interrupted = true;
 	if ((available_record += 64) > (BUFSZ - 64)) {
 		DMACCR_0 &= ~REGVAL_DMACCR_EN;
+#ifdef TODO_FS_ONLY_DURING_SOUND_IO
 		SPCR1_1 &= ~REGVAL_SPCR1_RRST_NOTRESET;
 		if ((SPCR2_1 & REGVAL_SPCR2_XRST_NOTRESET) == 0) {
 			SPCR2_1 &= ~ (REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET);
 		}
+#endif
 	}
 	if (available_record >= threshold_record) {
 		top_can_record (available_record);
@@ -391,10 +412,13 @@ interrupt void tic55x_dmac1_isr (void) {
 	uint16_t toplay;
 	tic55x_top_has_been_interrupted = true;
 	if ((available_play -= 64) < 64) {
+#ifdef TODO_FS_ONLY_DURING_SOUND_IO
 		SPCR2_1 &= ~REGVAL_SPCR2_XRST_NOTRESET;
 		if ((SPCR1_1 & REGVAL_SPCR1_RRST_NOTRESET) == 0) {
 			SPCR2_1 &= ~ (REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET);
 		}
+#endif
+		DXR1_1 = DXR1_1;	// Flag down XEMPTY
 		DMACCR_1 &= ~REGVAL_DMACCR_EN;
 	}
 	toplay = BUFSZ - available_play;
@@ -410,9 +434,13 @@ void dmahint_record (void) {
 	if (! (DMACCR_0 & REGVAL_DMACCR_EN)) {
 		if (available_record <= (BUFSZ - 64)) {
 			if (!(DMACCR_0 & REGVAL_DMACCR_EN)) {
+				(void) DRR1_1;	// Flag down RFULL
+				(void) DRR1_1;
 				DMACCR_0 |= REGVAL_DMACCR_EN;
+#ifdef TODO_FS_ONLY_DURING_SOUND_IO
 				SPCR1_1 |= REGVAL_SPCR1_RRST_NOTRESET;
 				SPCR2_1 |= REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
+#endif
 			}
 // bottom_printf ("dmahint_record() enabled DMA from %d bytes out of %d\n", (intptr_t) available_record, (intptr_t) BUFSZ);
 		}
@@ -426,7 +454,9 @@ void dmahint_play (void) {
 	if ((available_play >= 64) && ! (DMACCR_1 & REGVAL_DMACCR_EN)) {
 		DMACCR_1 |= REGVAL_DMACCR_EN;
 bottom_printf ("dmahint_play() started playing DMA\n");
+#ifdef TODO_FS_ONLY_DURING_SOUND_IO
 		SPCR2_1 |= REGVAL_SPCR2_XRST_NOTRESET | REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
+#endif
 	}
 //TODO:DEBUG// else bottom_printf ("dmahint_play() did not start playing -- available_play = %d\n", (intptr_t) available_play);
 }
@@ -970,6 +1000,7 @@ void main (void) {
 	SRGR1_1 = REGVAL_SRGR1_FWID_1 | REGVAL_SRGR1_CLKGDIV_4;
 	SRGR2_1 = REGVAL_SRGR2_CLKSM | REGVAL_SRGR2_FSGM | REGVAL_SRGR2_FPER_1535;
 	PCR1 = /*TODO: (1 << REGBIT_PCR_IDLEEN) | */ (1 << REGBIT_PCR_FSXM) | (1 << REGBIT_PCR_FSRM) | (1 << REGBIT_PCR_CLKXM) | (1 << REGBIT_PCR_CLKRM) /* TODO:WRONG? | (1 << REGBIT_PCR_CLKXP) | (1 << REGBIT_PCR_CLKRP) */;
+	SPCR1_1 |= REGVAL_SPCR1_CLKSTP_NODELAY;
 	//
 	// Setup I2C for communication with the TLV320AIC20K codec
 	// Prescale SYSCLK2 down from 61.44 MHz to 10.24 MHz so it falls
@@ -1037,7 +1068,7 @@ void main (void) {
 		bt200_level_active [idx] = false;
 	}
 	IODIR  |= (1 << 7) | (1 << 1);
-	IODATA |= (1 << 7) | (1 << 1);
+	IODATA |=            (1 << 1);
 	asm (" bclr xf");  // Switch off MESSAGE LED
 { uint16_t ctr = 250; while (ctr > 0) { ctr--; } }	
 	bottom_critical_region_begin (); // _disable_interrupts ();

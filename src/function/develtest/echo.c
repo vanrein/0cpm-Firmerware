@@ -55,9 +55,9 @@ timing_t top_timer_expiration (timing_t timeout) {
 
 void top_hook_update (bool offhook) {
         if (offhook) {
-		bottom_soundchannel_device (0, SOUNDDEV_HANDSET);
+		bottom_soundchannel_device (PHONE_CHANNEL_TELEPHONY, PHONE_SOUNDDEV_HANDSET);
 	} else {
-		bottom_soundchannel_device (0, SOUNDDEV_SPEAKER);
+		bottom_soundchannel_device (PHONE_CHANNEL_TELEPHONY, PHONE_SOUNDDEV_SPEAKER);
 	}
 }
 
@@ -78,7 +78,25 @@ void top_network_can_recv (void) {
 }
 
 void top_button_press (buttonclass_t bcl, buttoncode_t cde) {
-	/* Keep the linker happy */
+	if (bcl != BUTCLS_FIXED_FUNCTION) {
+		return;
+	}
+	switch (cde) {
+#ifdef HAVE_BUTTON_UP
+	case HAVE_BUTTON_UP:
+		bottom_soundchannel_setvolume (PHONE_CHANNEL_TELEPHONY,
+			bottom_soundchannel_getvolume (PHONE_CHANNEL_TELEPHONY) + 1);
+		break;
+#endif
+#ifdef HAVE_BUTTON_DOWN
+	case HAVE_BUTTON_DOWN:
+		bottom_soundchannel_setvolume (PHONE_CHANNEL_TELEPHONY,
+			bottom_soundchannel_getvolume (PHONE_CHANNEL_TELEPHONY) - 1);
+		break;
+#endif
+	default:
+		break;
+	}
 }
 
 void top_button_release (void) {
@@ -98,8 +116,15 @@ void top_can_record (uint16_t samples) {
 }
 
 
-// #define top_main_delay_1sec top_main
-#define top_main_sine_1khz  top_main
+#define top_main_delay_1sec top_main
+// #define top_main_sine_1khz  top_main
+
+
+#ifdef CONFIG_FUNCTION_NETCONSOLE
+uint8_t netinput [1000];
+uint16_t netinputlen;
+void nethandler_llconly (uint8_t *pkt, uint16_t pktlen);
+#endif
 
 
 /******** TOP_MAIN FOR A 1 KHZ SINE WAVE OUTPUT ********/
@@ -109,18 +134,54 @@ uint8_t sinewave [8] = {
 };
 
 void top_main_sine_1khz (void) {
+	uint16_t oldirqs = 0;
+extern volatile uint16_t available_play;
 	top_hook_update (bottom_phone_is_offhook ());
 	bottom_codec_play_samplerate (0, 8000);
 	bottom_codec_record_samplerate (0, 8000); // Both MUST be called for now
+	bottom_soundchannel_setvolume (PHONE_CHANNEL_TELEPHONY, 127);
 	bottom_show_fixed_msg (APP_LEVEL_ZERO, FIXMSG_RINGING); // TODO: Not really necessary
+	bottom_printf ("Playing 1 kHz tone to speaker or handset\n");
 	tobeplayed = 64;
 	while (true) {
-		if (tobeplayed > 8) {
+		uint16_t newplayed = tobeplayed;
+		uint16_t oldplayed = newplayed;
+		if (oldirqs != plyirqs) {
+			bottom_printf ("New playing IRQs detected\n");
+			oldirqs = plyirqs;
+		}
+		while (newplayed >= 8) {
 			bottom_codec_play (0, CODEC_L8, sinewave, 8, 8);
-			bottom_critical_region_begin ();
-			tobeplayed -= 8;
+			newplayed -= 8;
 			bottom_critical_region_end ();
 		}
+#if 0
+		if (oldplayed != newplayed) {
+			bottom_printf ("available_play := %d\n", (intptr_t) available_play);
+			bottom_printf ("Playbuffer reduced from %d to %d\n", (intptr_t) oldplayed, (intptr_t) newplayed);
+		}
+#endif
+
+#ifdef CONFIG_FUNCTION_NETCONSOLE
+		trysend ();
+bottom_led_set (LED_IDX_BACKLIGHT, 1);
+		netinputlen = sizeof (netinput);
+		if (bottom_network_recv (netinput, &netinputlen)) {
+			nethandler_llconly (netinput, netinputlen);
+			{ uint32_t ctr = 10000; while (ctr--) ; }
+bottom_led_set (LED_IDX_BACKLIGHT, 0);
+		}
+		trysend ();
+#endif
+
+#if defined NEED_KBD_SCANNER_BETWEEN_KEYS || defined NEED_KBD_SCANNER_DURING_KEYPRESS
+		bottom_keyboard_scan ();
+#endif
+
+#if defined NEED_HOOK_SCANNER_WHEN_ONHOOK || defined NEED_HOOK_SCANNER_WHEN_OFFHOOK
+		bottom_hook_scan ();
+#endif
+
 	}
 }
 
@@ -136,29 +197,24 @@ uint16_t sampled = 0;
 /* 1 second at 8000 samples per second, plus 25% extra */
 uint8_t samples [10000];
 
-#ifdef CONFIG_FUNCTION_NETCONSOLE
-uint8_t netinput [1000];
-uint16_t netinputlen;
-#endif
-
 void top_main_delay_1sec (void) {
 	uint16_t prevsampled = 0;
 	uint16_t prevrecirqs = 0;
 	uint16_t prevplyirqs = 0;
+uint16_t oldspcr1 = 0xffff;
 uint16_t loop = 0;
-	void nethandler_llconly (uint8_t *pkt, uint16_t pktlen);
 	bottom_critical_region_end ();
 	top_hook_update (bottom_phone_is_offhook ());
-	bottom_codec_play_samplerate (0, 8000);
-	bottom_codec_record_samplerate (0, 8000);
-	bottom_soundchannel_setvolume (0, 127);
+	bottom_codec_play_samplerate (PHONE_CHANNEL_TELEPHONY, 8000);
+	bottom_codec_record_samplerate (PHONE_CHANNEL_TELEPHONY, 8000);
+	bottom_soundchannel_setvolume (PHONE_CHANNEL_TELEPHONY, 127);
 	bottom_show_fixed_msg (APP_LEVEL_ZERO, FIXMSG_READY); // TODO: Not really necessary
 	bottom_printf ("Running the development function \"echo\" (Test sound)\n");
 	while (true) {
-#ifndef TODO_DONT_PRINT_I2C_REGISTERS_AFTER_SETTING_THEM
+#if 0
 if (loop++ == 0) {
 uint8_t reg, subreg;
-uint8_t chan = 0;
+uint8_t chan = PHONE_CHANNEL_TELEPHONY;
 for (reg = 1; reg <= 6; reg++) {
 uint8_t val0, val1, val2, val3;
 for (subreg = 0; subreg <=3 ; subreg++) {
@@ -183,6 +239,7 @@ bottom_printf ("TLV_%d = %02x, %02x, %02x, %02x\n", (intptr_t) reg, (intptr_t) v
 			prevplyirqs = plyirqs;
 		}
 #endif
+{uint16_t xor = oldspcr1 ^ SPCR1_1; if (xor) { oldspcr1 ^= xor; bottom_printf ("SPCR1_1 := 0x%04x\n", oldspcr1); } }
 		if (sampled != prevsampled) {
 			bottom_printf ("Buffered %d samples\n", (intptr_t) sampled);
 			prevsampled = sampled;
@@ -241,6 +298,12 @@ bottom_led_set (LED_IDX_BACKLIGHT, 1);
 bottom_led_set (LED_IDX_BACKLIGHT, 0);
 		}
 		trysend ();
+#endif
+#if defined NEED_KBD_SCANNER_BETWEEN_KEYS || defined NEED_KBD_SCANNER_DURING_KEYPRESS
+		bottom_keyboard_scan ();
+#endif
+#if defined NEED_HOOK_SCANNER_WHEN_ONHOOK || defined NEED_HOOK_SCANNER_WHEN_OFFHOOK
+		bottom_hook_scan ();
 #endif
 	}
 }

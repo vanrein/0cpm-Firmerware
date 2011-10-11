@@ -91,6 +91,9 @@ inline void ksz_memset16 (uint16_t ksz, uint8_t *mem) {
 extern volatile uint32_t flash_16 [];
 asm ("_flash_16 .set 0x200000");
 
+/* Override the SPEAKER as the HEADSET sound device */
+#define PHONE_SOUNDDEV_SPEAKER SOUNDDEV_HEADSET
+
 #endif /* CONFIG_TARGET_GRANDSTREAM_BT20x || CONFIG_TARGET_GRANDSTREAM_BT10x */
 
 #if defined CONFIG_TARGET_GRANDSTREAM_BT20x

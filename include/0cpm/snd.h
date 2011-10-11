@@ -76,4 +76,37 @@ int16_t bottom_codec_record (uint8_t chan, codec_t codec, uint8_t *coded_samples
 void bottom_codec_play_skip (codec_t codec, uint16_t samples);
 
 
+/* Definitions for sound channels and devices.
+ * These can be overridden by setting them in device-dependent includes.
+ */
+
+#ifndef PHONE_CHANNEL_TELEPHONY
+#define PHONE_CHANNEL_TELEPHONY 0
+#endif
+
+#ifndef PHONE_CHANNEL_SOUNDCARD
+#define PHONE_CHANNEL_SOUNDCARD 0
+#endif
+
+#ifndef PHONE_SOUNDDEV_NONE
+#define PHONE_SOUNDDEV_NONE SOUNDDEV_NONE
+#endif
+
+#ifndef PHONE_SOUNDDEV_HANDSET
+#define PHONE_SOUNDDEV_HANDSET SOUNDDEV_HANDSET
+#endif
+
+#ifndef PHONE_SOUNDDEV_HEADSET
+#define PHONE_SOUNDDEV_HEADSET SOUNDDEV_HEADSET
+#endif
+
+#ifndef PHONE_SOUNDDEV_SPEAKER
+#define PHONE_SOUNDDEV_SPEAKER SOUNDDEV_SPEAKER
+#endif
+
+#ifndef PHONE_SOUNDDEV_LINE
+#define PHONE_SOUNDDEV_LINE SOUNDDEV_LINE
+#endif
+
+
 #endif
