@@ -35,15 +35,29 @@
 #define INTERPOLL_WAIT_MS 5
 
 
-uint8_t regshift [7] = { 0,    8,    8,    6,    8,    6,    7    };
-uint8_t regsubs  [7] = { 0,    1,    1,    4,    1,    4,    2    };
+uint8_t regshift [7] = { 0,    8,    8,    6,    7,    6,    7    };
+uint8_t regsubs  [7] = { 0,    1,    1,    4,    2,    4,    2    };
 
 
 int main (int argc, char *argv []) {
 
-	if (argc != 2) {
-		fprintf (stderr, "Usage: %s /dev/i2c-N\n", argv [0]);
+	int minslave = 0x40;
+	int maxslave = 0x4f;
+
+	if ((argc < 2) || (argc > 3)) {
+		fprintf (stderr, "Usage: %s /dev/i2c-N [slave-address]\n", argv [0]);
 		exit (1);
+	}
+
+	if (argc >= 3) {
+		int base = 10;
+		char *intstr = argv [2];
+		long intval = strtol (intstr, &intstr, 0);
+		if ((*intstr) || (intval < 0x00) || (intval > 0x7f)) {
+			fprintf (stderr, "Slave address %s is out of range\n", argv [2]);
+			exit (1);
+		}
+		minslave = maxslave = intval;
 	}
 
 	int bus = open (argv [1], O_RDWR);
@@ -54,13 +68,13 @@ int main (int argc, char *argv []) {
 	ioctl (bus, I2C_TIMEOUT, 1);
 	ioctl (bus, I2C_RETRIES, 2);
 
-	int chan;
-	for (chan = 0; chan <= 15; chan++) {
-		if (ioctl (bus, I2C_SLAVE, 0x40 | chan) == -1) {
-			perror ("Failed to set channel as address");
+	int slave;
+	for (slave = minslave; slave <= maxslave; slave++) {
+		if (ioctl (bus, I2C_SLAVE, slave) == -1) {
+			perror ("Failed to set slave address");
 			exit (1);
 		}
-		printf ("Channel %d registers:", chan);
+		printf ("Channel %d registers (slave 0x%02x):", slave & 0x0f, slave);
 		int reg;
 		for (reg = 1; reg <= 6; reg++) {
 			uint8_t buf [6];
@@ -70,17 +84,17 @@ int main (int argc, char *argv []) {
 buf [0] =  0x01;
 				if (write (bus, buf, 1) != 1) {		// Set register number to 1
 					perror ("Failed to setup register address");
-					goto nextchan; // exit (1);
+					goto nextslave; // exit (1);
 				}
 				usleep (INTERPOLL_WAIT_MS * 1000);
 				if (read (bus, buf + 1, 6) != 6) {		// Read current register value
 					perror ("Failed to read register data");
-					goto nextchan; exit (1);
+					goto nextslave; exit (1);
 				}
 				printf (" %d%c=%02x", reg, "ABCD" [(buf [reg] >> regshift [reg])], buf [reg]);
 			}
 		}
-nextchan:
+nextslave:
 		printf ("\n");
 	}
 

@@ -275,7 +275,9 @@ void tlv320aic2x_setup_sound (void) {
 		tlv320aic2x_setreg (chan, 3, 0x40 | 0x20);	/* Setup 8 kHz filter, no mute */
 		/* Register 3C resets ok to 0x80 | (chip_id << 2) */
 		/* Register 3D resets ok to 0xc0: no LCD DAC */
-		/* Skip MNP setup, but samplerate-setup per phone may override */
+		/* TODO: Skip MNP setup, but samplerate-setup per phone may override */
+tlv320aic2x_setreg (chan, 4, 0x00 | ((6 & 0x0f) << 3) | (2 & 0x07));	// N:=6, P:=2
+tlv320aic2x_setreg (chan, 4, 0x80 | (16 & 0x7f));			// M:=16
 		tlv320aic2x_setreg (chan, 5, 0x00 | 0x12);	/* ADC gain 27 dB -- ok? */
 		bottom_soundchannel_setvolume (chan, 15);	/* DAC gain -24 dB initially */
 		tlv320aic2x_setreg (chan, 5, 0x80 | 0x00);	/* No sidetones */

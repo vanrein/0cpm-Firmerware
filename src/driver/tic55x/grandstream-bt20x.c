@@ -261,7 +261,8 @@ int16_t codec_decode (codec_t codec, uint8_t *in, uint16_t inlen, uint16_t *out,
 		register uint8_t inval = *in++;
 		switch (codec) {
 		case CODEC_L8:
-			*out++ = (inval ^ 0x80) << 8;
+			//TODO// *out++ = (inval ^ 0x80) << 8;
+*out++ = 16384 + 1 + (outlen & 0x01)? 0: 32768;
 			break;
 		case CODEC_L16:
 			*out++ = inval;
@@ -356,6 +357,7 @@ int16_t codec_encode (codec_t codec, uint16_t *in, uint16_t inlen, uint8_t *out,
 
 /* Set a frequency divisor for the intended sample rate */
 void tlv320aic2x_set_samplerate (uint32_t samplerate) {
+int chan = 0;
 #ifndef TODO_FS_ONLY_DURING_SOUND_IO
 	SPCR2_1 &= ~ ( REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET );
 #endif
@@ -366,6 +368,8 @@ void tlv320aic2x_set_samplerate (uint32_t samplerate) {
 		samplerate = 1;
 	}
 	SRGR2_1 = REGVAL_SRGR2_CLKSM | REGVAL_SRGR2_FSGM | (samplerate - 1);
+//TODO// tlv320aic2x_setreg (chan, 4, 0x00 | ((6 & 0x0f) << 3) | (2 & 0x07));	// N:=6, P:=2
+//TODO// tlv320aic2x_setreg (chan, 4, 0x80 | (16 & 0x7f));			// M:=16
 #ifndef TODO_FS_ONLY_DURING_SOUND_IO
 	SPCR2_1 |= REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
 	SPCR1_1 |= REGVAL_SPCR1_RRST_NOTRESET;
@@ -391,6 +395,8 @@ interrupt void tic55x_dmac0_isr (void) {
 	uint16_t irq = DMACSR_0;	// Note causes and clear
 	tic55x_top_has_been_interrupted = true;
 	if ((available_record += 64) > (BUFSZ - 64)) {
+		SPCR2_1 &= ~REGVAL_SPCR2_XRST_NOTRESET;
+		SPCR2_1 |=  REGVAL_SPCR2_XRST_NOTRESET;
 		DMACCR_0 &= ~REGVAL_DMACCR_EN;
 #ifdef TODO_FS_ONLY_DURING_SOUND_IO
 		SPCR1_1 &= ~REGVAL_SPCR1_RRST_NOTRESET;
@@ -418,7 +424,6 @@ interrupt void tic55x_dmac1_isr (void) {
 			SPCR2_1 &= ~ (REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET);
 		}
 #endif
-		DXR1_1 = DXR1_1;	// Flag down XEMPTY
 		DMACCR_1 &= ~REGVAL_DMACCR_EN;
 	}
 	toplay = BUFSZ - available_play;
@@ -452,6 +457,7 @@ void dmahint_record (void) {
  */
 void dmahint_play (void) {
 	if ((available_play >= 64) && ! (DMACCR_1 & REGVAL_DMACCR_EN)) {
+		DXR1_1 = DXR1_1;	// Flag down XEMPTY
 		DMACCR_1 |= REGVAL_DMACCR_EN;
 bottom_printf ("dmahint_play() started playing DMA\n");
 #ifdef TODO_FS_ONLY_DURING_SOUND_IO
@@ -999,8 +1005,12 @@ void main (void) {
 	SPCR2_1 = 0x0000;	// Disable/reset sample rate generator
 	SRGR1_1 = REGVAL_SRGR1_FWID_1 | REGVAL_SRGR1_CLKGDIV_4;
 	SRGR2_1 = REGVAL_SRGR2_CLKSM | REGVAL_SRGR2_FSGM | REGVAL_SRGR2_FPER_1535;
-	PCR1 = /*TODO: (1 << REGBIT_PCR_IDLEEN) | */ (1 << REGBIT_PCR_FSXM) | (1 << REGBIT_PCR_FSRM) | (1 << REGBIT_PCR_CLKXM) | (1 << REGBIT_PCR_CLKRM) /* TODO:WRONG? | (1 << REGBIT_PCR_CLKXP) | (1 << REGBIT_PCR_CLKRP) */;
-	SPCR1_1 |= REGVAL_SPCR1_CLKSTP_NODELAY;
+	PCR1 = /*TODO: (1 << REGBIT_PCR_IDLEEN) | */ (1 << REGBIT_PCR_FSXM) /* | (1 << REGBIT_PCR_FSRM) */ | (1 << REGBIT_PCR_CLKXM) /* | (1 << REGBIT_PCR_CLKRM) */ /* receive on falling, xmit on rising edge -- | (1 << REGBIT_PCR_CLKXP) | (1 << REGBIT_PCR_CLKRP) */;
+	RCR1_1 = (0 << 8) | (2 << 5);	// Read  1 frame of 16 bits per FS
+	XCR1_1 = (0 << 8) | (2 << 5);	// Write 1 frame of 16 bits per FS
+	RCR2_1 = 0x0001;		// Read  with 1 clockcycle delay
+	XCR2_1 = 0x0001;		// Write with 1 clockcycle delay
+	//TODO:NOT-SPI-BUT-CONTINUOUS-CLOCK// SPCR1_1 |= REGVAL_SPCR1_CLKSTP_NODELAY;
 	//
 	// Setup I2C for communication with the TLV320AIC20K codec
 	// Prescale SYSCLK2 down from 61.44 MHz to 10.24 MHz so it falls

@@ -35,24 +35,24 @@
 #define INTERPOLL_WAIT_MS 5
 
 
-const char *  regname [13] = { "1", "2", "3A", "3B", "3C", "3D", "4", "5A", "5B", "5C", "5D", "6A", "6B" };
-const uint8_t regmask [13] = { 0x00, 0x00, 0xc0, 0xc0, 0xc0, 0xc0, 0x00, 0xc0, 0xc0, 0xc0, 0xc0, 0x80, 0x80 };
-const uint8_t regseln [13] = { 0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0x00, 0x00, 0x40, 0x80, 0xc0, 0x00, 0x80 };
+const char *  regname [14] = { "1", "2", "3A", "3B", "3C", "3D", "4A", "4B", "5A", "5B", "5C", "5D", "6A", "6B" };
+const uint8_t regmask [14] = { 0x00, 0x00, 0xc0, 0xc0, 0xc0, 0xc0, 0x80, 0x80, 0xc0, 0xc0, 0xc0, 0xc0, 0x80, 0x80 };
+const uint8_t regseln [14] = { 0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0x00, 0x80, 0x00, 0x40, 0x80, 0xc0, 0x00, 0x80 };
 
-const uint8_t  regidx0 [8] = { 0, 1, 2, 6, 7,  11 };
-const uint8_t  regidx1 [8] = { 0, 1, 3, 6, 8,  12 };
-const uint8_t  regidx2 [8] = { 0, 1, 4, 6, 9,  11 };
-const uint8_t  regidx3 [8] = { 0, 1, 5, 6, 10, 12 };
+const uint8_t  regidx0 [8] = { 0, 1, 2, 6, 8,  12 };
+const uint8_t  regidx1 [8] = { 0, 1, 3, 7, 9,  13 };
+const uint8_t  regidx2 [8] = { 0, 1, 4, 6, 10, 12 };
+const uint8_t  regidx3 [8] = { 0, 1, 5, 7, 11, 13 };
 
 const uint8_t *regidxs [4] = { regidx0, regidx1, regidx2, regidx3 };
 
 int main (int argc, char *argv []) {
 	int i;
-	uint8_t regs [13];
+	uint8_t regs [14];
 	uint8_t slave;
 
-	if (argc != 16) {
-		fprintf (stderr, "Usage: %s /dev/i2c-N SLAVEADDR 1 2 3A 3B 3C 3D 4 5A 5B 5C 5D 6A 6B\n"
+	if (argc != 17) {
+		fprintf (stderr, "Usage: %s /dev/i2c-N SLAVEADDR 1 2 3A 3B 3C 3D 4A 4B 5A 5B 5C 5D 6A 6B\n"
 			"\tThe slave address is usually 0x40, 0x41, ... 0x4f\n"
 			"\tNumbers may be prefixed with 0 for octal, or 0x for hex\n",
 			"\tNote: All subregister indexes are assumed to be zero\n",
@@ -60,7 +60,7 @@ int main (int argc, char *argv []) {
 		exit (1);
 	}
 
-	for (i=0; i < 14; i++) {
+	for (i=0; i < 15; i++) {
 		char *strval = argv [2+i];
 		long intval;
 		int base = 10;

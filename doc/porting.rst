@@ -97,6 +97,7 @@ on hand:
 * glass scraper with a handle
 * soldering iron and related tools
 * wires, jumpers, access to all sorts of electronics parts
+* a thin, sharp and stiff sewing needle
 * Linux PC (Windows might work as a sub-optimal substitute)
 * useful if available: oscilloscope, logic analyser
 
@@ -134,9 +135,9 @@ In fixating on the pin, you can easily apply too much force, causing
 the pin to split apart and cover a bit more area.  With the small sizes
 of surface mount technology, this may lead to a short-circuit with
 the neighbouring pins!  Most circuitry will even survive such a harsh
-treatment, and you can resolve it by taking a needle (not a sewing pin,
-as those will bend) and scratching carefully between the pins that got
-connected.  A strong sign of such unwanted connectivity is if the
+treatment, and you can resolve it by taking a **sewing needle** (not a
+pin, as those will bend) and scratching carefully between the pins that
+got connected.  A strong sign of such unwanted connectivity is if the
 original firmware starts to behave strangely and it appears as though
 you destroyed a piece of its hardware.  Still, it will take quite a bit
 of your intuition and ingenuity to determine the error spot, but on the

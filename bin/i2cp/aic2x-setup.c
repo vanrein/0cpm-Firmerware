@@ -44,9 +44,9 @@
 #define INTERPOLL_WAIT_MS 5
 
 
-const char *  regname [13] = { "1", "2", "3A", "3B", "3C", "3D", "4", "5A", "5B", "5C", "5D", "6A", "6B" };
-const uint8_t regmask [13] = { 0x00, 0x00, 0xc0, 0xc0, 0xc0, 0xc0, 0x00, 0xc0, 0xc0, 0xc0, 0xc0, 0x80, 0x80 };
-const uint8_t regseln [13] = { 0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0x00, 0x00, 0x40, 0x80, 0xc0, 0x00, 0x80 };
+const char *  regname [14] = { "1", "2", "3A", "3B", "3C", "3D", "4A", "4B", "5A", "5B", "5C", "5D", "6A", "6B" };
+const uint8_t regmask [14] = { 0x00, 0x00, 0xc0, 0xc0, 0xc0, 0xc0, 0x80, 0x80, 0xc0, 0xc0, 0xc0, 0xc0, 0x80, 0x80 };
+const uint8_t regseln [14] = { 0x00, 0x00, 0x00, 0x40, 0x80, 0xc0, 0x00, 0x80, 0x00, 0x40, 0x80, 0xc0, 0x00, 0x80 };
 
 uint8_t argval (char *strval) {
 	long intval;
@@ -74,7 +74,7 @@ int main (int argc, char *argv []) {
 	uint8_t slave;
 
 	if (argc < 4) {
-		fprintf (stderr, "Usage: %s /dev/i2c-N SLAVEADDR REGISTER=VALUE\n"
+		fprintf (stderr, "Usage: %s /dev/i2c-N SLAVEADDR REGISTER=VALUE...\n"
 			"\tThe slave address is usually 0x40, 0x41, ... 0x4f\n"
 			"\tThe register may be a subregister, the value is a number\n"
 			"\tNumbers may be prefixed with 0 for octal, or 0x for hex\n"

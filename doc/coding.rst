@@ -151,6 +151,13 @@ is interesting; if the ``textptr_t`` is removed, nobody will miss it
 because the actual string is not stored explicitly.  A null string
 would contain a NULL pointer reference to the first character.
 
+This approach will make it straightforwardly possible to embed a
+string inside other structures, or possibly even allocate it on
+the stack for the duration of an operation.  The scoping of stacks
+very often coincides with the scope during which a string or other
+piece of data is needed.  Not having to clean up a ``textptr_t``
+makes it eminently suitable for such implicit lifetime management.
+
 A few macros/functions exist to make life easier while working with
 these simple strings.  They are defined in include file ``<0cpm/text.h>``
 to do the following:
@@ -179,5 +186,8 @@ not half bad, but double bad).  At times, this will mean writing a lot of
 code and testing it all at once.  Still, its structure will help you to
 find the problem spot more easily.
 
-Just don't forget to increment your counters...
+Just don't forget to increment your loop counters...  although always somewhat
+embarrassing, it is very common to forget it, and be faced with a total freeze,
+because the 0cpm Firmerware has a single thread of control.  And it is not
+always easy to find the place where this happens.
 

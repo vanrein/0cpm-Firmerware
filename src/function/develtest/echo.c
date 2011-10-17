@@ -116,8 +116,8 @@ void top_can_record (uint16_t samples) {
 }
 
 
-#define top_main_delay_1sec top_main
-// #define top_main_sine_1khz  top_main
+#define top_main_sine_1khz  top_main
+// #define top_main_delay_1sec top_main
 
 
 #ifdef CONFIG_FUNCTION_NETCONSOLE
@@ -129,14 +129,21 @@ void nethandler_llconly (uint8_t *pkt, uint16_t pktlen);
 
 /******** TOP_MAIN FOR A 1 KHZ SINE WAVE OUTPUT ********/
 
-uint8_t sinewave [8] = {
+uint8_t sinewaveL8 [8] = {
 	0x00, 0x5a, 0x7f, 0x5a, 0x00, 0xa5, 0x80, 0xa5
+};
+
+uint16_t sinewaveL16 [8] = {
+	// 0x0000, 0x5a82, 0x7fff, 0x5a82, 0x0000, 0xa57e, 0x8001, 0xa57e
+	4096+0x0000, 4096+0x05a8, 4096+0x07ff, 4096+0x05a8, 4096+0x0000, 4096+0xfa57, 4096+0xf801, 409+0xfa57
 };
 
 void top_main_sine_1khz (void) {
 	uint16_t oldirqs = 0;
 extern volatile uint16_t available_play;
+uint8_t l16ctr = 1;
 	top_hook_update (bottom_phone_is_offhook ());
+	bottom_critical_region_end ();
 	bottom_codec_play_samplerate (0, 8000);
 	bottom_codec_record_samplerate (0, 8000); // Both MUST be called for now
 	bottom_soundchannel_setvolume (PHONE_CHANNEL_TELEPHONY, 127);
@@ -150,11 +157,14 @@ extern volatile uint16_t available_play;
 			bottom_printf ("New playing IRQs detected\n");
 			oldirqs = plyirqs;
 		}
+#if 1
+if (SPCR2_1 & REGVAL_SPCR2_XRDY) { DXR1_1 = sinewaveL16 [l16ctr++]; if (l16ctr == 8) { l16ctr = 0; } }
+#else
 		while (newplayed >= 8) {
-			bottom_codec_play (0, CODEC_L8, sinewave, 8, 8);
+			bottom_codec_play (0, CODEC_L8, sinewaveL8, 8, 8);
 			newplayed -= 8;
-			bottom_critical_region_end ();
 		}
+#endif
 #if 0
 		if (oldplayed != newplayed) {
 			bottom_printf ("available_play := %d\n", (intptr_t) available_play);
@@ -163,14 +173,17 @@ extern volatile uint16_t available_play;
 #endif
 
 #ifdef CONFIG_FUNCTION_NETCONSOLE
+		// { uint32_t ctr = 10000; while (ctr--) ; }
 		trysend ();
+		// { uint32_t ctr = 10000; while (ctr--) ; }
 bottom_led_set (LED_IDX_BACKLIGHT, 1);
 		netinputlen = sizeof (netinput);
 		if (bottom_network_recv (netinput, &netinputlen)) {
 			nethandler_llconly (netinput, netinputlen);
-			{ uint32_t ctr = 10000; while (ctr--) ; }
 bottom_led_set (LED_IDX_BACKLIGHT, 0);
+			{ uint32_t ctr = 10000; while (ctr--) ; }
 		}
+bottom_led_set (LED_IDX_BACKLIGHT, 0);
 		trysend ();
 #endif
 
@@ -212,22 +225,6 @@ uint16_t loop = 0;
 	bottom_printf ("Running the development function \"echo\" (Test sound)\n");
 	while (true) {
 #if 0
-if (loop++ == 0) {
-uint8_t reg, subreg;
-uint8_t chan = PHONE_CHANNEL_TELEPHONY;
-for (reg = 1; reg <= 6; reg++) {
-uint8_t val0, val1, val2, val3;
-for (subreg = 0; subreg <=3 ; subreg++) {
-val0 = tlv320aic2x_getreg (chan, reg);
-val1 = tlv320aic2x_getreg (chan, reg);
-val2 = tlv320aic2x_getreg (chan, reg);
-val3 = tlv320aic2x_getreg (chan, reg);
-}
-bottom_printf ("TLV_%d = %02x, %02x, %02x, %02x\n", (intptr_t) reg, (intptr_t) val0, (intptr_t) val1, (intptr_t) val2, (intptr_t) val3);
-}
-}
-#endif
-#if 0
 		if (recirqs != prevrecirqs) {
 			bottom_printf ("Record IRQs #%d, ", (intptr_t) recirqs);
 			bottom_printf ("available %d\n", (intptr_t) toberecorded);
@@ -239,7 +236,7 @@ bottom_printf ("TLV_%d = %02x, %02x, %02x, %02x\n", (intptr_t) reg, (intptr_t) v
 			prevplyirqs = plyirqs;
 		}
 #endif
-{uint16_t xor = oldspcr1 ^ SPCR1_1; if (xor) { oldspcr1 ^= xor; bottom_printf ("SPCR1_1 := 0x%04x\n", oldspcr1); } }
+{ uint16_t xor = oldspcr1 ^ SPCR1_1; if (xor) { oldspcr1 ^= xor; bottom_printf ("SPCR1_1 := 0x%04x\n", (intptr_t) oldspcr1); } }
 		if (sampled != prevsampled) {
 			bottom_printf ("Buffered %d samples\n", (intptr_t) sampled);
 			prevsampled = sampled;
@@ -286,6 +283,7 @@ bottom_led_set (LED_IDX_SPEAKERPHONE, 1);
 bottom_led_set (LED_IDX_HANDSET, 0);
 			}
 		}
+
 #ifdef CONFIG_FUNCTION_NETCONSOLE
 		// { uint32_t ctr = 10000; while (ctr--) ; }
 		trysend ();
@@ -294,14 +292,17 @@ bottom_led_set (LED_IDX_BACKLIGHT, 1);
 		netinputlen = sizeof (netinput);
 		if (bottom_network_recv (netinput, &netinputlen)) {
 			nethandler_llconly (netinput, netinputlen);
-			{ uint32_t ctr = 10000; while (ctr--) ; }
 bottom_led_set (LED_IDX_BACKLIGHT, 0);
+			{ uint32_t ctr = 10000; while (ctr--) ; }
 		}
+bottom_led_set (LED_IDX_BACKLIGHT, 0);
 		trysend ();
 #endif
+
 #if defined NEED_KBD_SCANNER_BETWEEN_KEYS || defined NEED_KBD_SCANNER_DURING_KEYPRESS
 		bottom_keyboard_scan ();
 #endif
+
 #if defined NEED_HOOK_SCANNER_WHEN_ONHOOK || defined NEED_HOOK_SCANNER_WHEN_OFFHOOK
 		bottom_hook_scan ();
 #endif
