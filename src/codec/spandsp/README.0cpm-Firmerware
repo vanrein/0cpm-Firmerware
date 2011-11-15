@@ -1,0 +1,43 @@
+spandsp codec description
+=========================
+
+This directory holds files from the spandsp library, a software-encded version of codecs and
+other voice/modem protocols.  Many thanks to Steve Underwood and his Speech Team at CMU; all
+that works about these codecs is undoubtly their work and all that fails is probably badly
+integrated into the 0cpm Firmerware.
+
+Specifically worth mentioning is the team's effort to collect a useful set of protocols that
+are unencumbered by patents or other methods to constipate progress.  This is exactly the
+sort of thing needed in the 0cpm Firmerware, if not for the fact that the firmware must
+remain open, then at least for the reason that most phone manufacturers seem to make the
+same choice.  If you want to retract your software from daily use, be sure to patent it!
+
+
+License compatibility
+---------------------
+
+The spandsp software is released under LGPL v2.1 which is compatible with the GPL v3 used
+for the 0cpm Firmerware, according to this table:
+
+http://www.gnu.org/licenses/gpl-faq.html#AllCompatibility
+
+In line with this table, the complete 0cpm Firmerware is shipped under GPL v3.
+
+
+Changes to files
+----------------
+
+We've edited several files to make them fit better with the embedded architecture of the
+0cpm Firmerware.  This means no support (or need) for dynamic allocation of structures
+and, where possible, target-specific implementations of heavy-duty mathematics.
+
+
+Original file versions
+----------------------
+
+Documentation		spandsp-0.0.6pre18
+g711.c / g711.h		spandsp-0.0.6pre18
+g722.c / g722.h		spandsp-0.0.6pre18
+g726.c / g726.h		spandsp-0.0.6pre18
+
+

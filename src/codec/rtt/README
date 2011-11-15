@@ -1,0 +1,75 @@
+Realtime Text support
+=====================
+
+This is an implementation of RFC 4103, "RTP Payload for Text Conversation".  Note
+that 2 errata exist to this specification.  The 0cpm Firmerware implements both
+the text/t.140 and the text/red MIME-types.  It is currently limited to ASCII
+transmissions plus a few special control characters.
+
+Realtime Text or RTT is an RTP profile that exchanges text as soon as it is typed.
+Aside from being a great asset for people with speach or hearing impairments, it is
+also a good way to automatically attend to users.  Think of menus shown on your
+display, instead of slowly read out by an IVR.  Or both.  You'll steer your way
+through annnoying menus at a much faster pace!
+
+This implementation was made specifically for the 0cpm Firmerware.  It exhibits a
+call rtt_send_keys () that buffers a few keystrokes for a limited amount of
+time, and ships them off at the specified intervals.  The other way around, a call
+to rtt_recv_keys () is made to display one or more new keystrokes.  The
+error detection/correction incorporated into RTT is implemented in this module,
+so the application can assume a fairly reliable keypress exchange interface.
+
+To the user, RTT will show itself as an application named "text".  It will popup
+as soon as RTT is sent to the phone, in response to it being offered as part of
+the SDP negotiation.  If the remote side supports reception of RTT, then this
+application will also be enabled to the user, who may then pull it up manually.
+The end user will hardly notice that RTT is being used; to him, it will simply
+be useful to have a texting facility in parallel to speech, and a bit special
+that the interaction is live.  The automated popup when RTT is received by the
+phone calls for the user's attention at just the right moments.
+
+
+Try it on a desktop
+-------------------
+
+The RTT functions described here can be tested separately on a desktop system.
+This simplifies development and may also be a starting point for cool games,
+adventures and general inetd wrapping schemes for communication with an
+automated attended of various kinds.  In doing so, please remember that the
+software resides under GPLv3, like the rest of the 0cpm Firmerware.
+
+To build it, use the specially supplied Makefile and the wrapper functions in
+desktop.c -- but please note that this was made for testing purposes, and not
+for portability.  Your best chances are on Linux.
+
+To build, run::
+
+	make -f Makefile.desktop
+
+To test, run a command like this on each side::
+
+	./rtt_desktop_test /dev/tty3 2001:db8:123::45 1212 2001:db8:99::6 1313
+
+The parameters are:
+
+* ``/dev/tty3`` is the terminal to which output should be sent.  The terminal
+  on which this is run will become the input terminal.  Using different
+  terminals for input and output avoids cluttered output.
+
+* ``2001:db8:123::45`` and ``1212`` are the local address and port to bind to.
+
+* ``2001:db8:99::6`` and ``1313`` are the remote address and port to connect to.
+
+If you wanted to use IPv4 you would prefix the address with ``::`` and get
+away with it -- but you might have trouble routing through NAT.  The tester
+opens a hole in customary local firewalls, including NAT, but the translation
+of the address may make it impossible to bootstrap the connection.  It is time
+that we came to the realisation that peer-to-peer communication, of which this
+clearly is an example, requires the use of IPv6 to do it well.  If you need
+a quick IPv6 tunnel, you can use the 6bed4 mechanism, described on
+http://devel.0cpm.org/6bed4/
+
+
+Have fun!
+
+Rick van Rein

@@ -1,0 +1,26 @@
+Codec selection for 0cpm Firmerware
+===================================
+
+The codecs in this tree have been defined with a number of goals in mind:
+
+* No patent-encumbered codecs: patents constipate progress
+* Support for encryption through ZRTP
+* Support for various applications in common use:
+
+  - G.711 for direct exchanges with ISDN
+  - G.726 for direct exchanges with DECT
+  - G.722 for direct exchanges with wideband VoIP and CAT-iq
+  - Speex for its wide range and excellent quality/bitrate ratio
+
+* Enhancement of facilities:
+
+  - RTT helps with speech and hearing impairments; and can speedup IVRs for the rest of us
+  - Ogg/RTP can play radio stations from multicast sources
+  - L16 can play PCM and replace computer sound devices
+
+
+Codecs that are large are made optional:
+
+* Ogg decoding (Internet radio support) could be done by the multicasting node
+* Speex encoder/decoder which consumes about 100 kB of code size
+
