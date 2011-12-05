@@ -407,7 +407,7 @@ tlv320aic2x_setreg (chan, 3, 0x31);	// Channel offline
 // #ifdef TODO_OPTIMISE_PLL_AWAY
 	if (m % 8 == 0) {
 		// Save PLL energy without compromising accuracy
-		p = 8;		// Factor 2 -> 8 so multiplied by 8
+		p = 8;		// Factor 2 -> 8 so multiplied by 4
 		m >>= 2;	// Divide by 4
 	}
 // #endif
@@ -511,7 +511,6 @@ interrupt void tic55x_dmac1_isr (void) {
  * it may be possible to restart DMA channel 1 if it was disabled.
  */
 void dmahint_record (void) {
-return; //TODO// TMP-DISABLE DMAHINTS
 	if (! (DMACCR_0 & REGVAL_DMACCR_EN)) {
 		if (available_record <= (BUFSZ - 64)) {
 			if (!(DMACCR_0 & REGVAL_DMACCR_EN)) {
@@ -532,7 +531,6 @@ return; //TODO// TMP-DISABLE DMAHINTS
  * be possible to restart DMA channel 0 if it was disabled.
  */
 void dmahint_play (void) {
-return; //TODO// TMP-DISABLE DMAHINTS
 	if ((available_play >= 64) && ! (DMACCR_1 & REGVAL_DMACCR_EN)) {
 		DXR1_1 = DXR1_1;	// Flag down XEMPTY
 		DMACCR_1 |= REGVAL_DMACCR_EN;
@@ -1076,6 +1074,14 @@ EGCR2 = 0x0005;	//ECLKOUT2-DIV-2//
 	// CE3_SC1 = ...;   // (defaults)
 	// CE3_SC2 = ...;   // (defaults)
 	//
+	// Setup output ports; reset TLV chip; reset message levels
+{ uint32_t ctr = 10000; while (ctr-- > 0) ; }
+	IODIR  |= (1 << 7) | (1 << 1);
+	IODATA  =            (1 << 1);	// Updated below small delay
+	{ uint32_t ctr; for (ctr=0; ctr < 7 * (600 / 12); ctr++) /* Wait 7x MCLK */ ; }
+	IODATA |= (1 << 7) | (1 << 1);  // See above small delay
+	{ uint32_t ctr; for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ; }
+	//
 	// Setup McBSP1 for linking to TLV320AIC20K
 	// Generate a CLKG at 12.288 MHz, and FS at 8 kHz
 	// following the procedure of spru592e section 3.5
@@ -1085,7 +1091,7 @@ EGCR2 = 0x0005;	//ECLKOUT2-DIV-2//
 	SPCR2_1 = 0x0000;	// Disable/reset sample rate generator
 	SRGR1_1 = REGVAL_SRGR1_FWID_1 | REGVAL_SRGR1_CLKGDIV_4;
 	SRGR2_1 = REGVAL_SRGR2_CLKSM | REGVAL_SRGR2_FSGM | REGVAL_SRGR2_FPER_1535;
-	//COPIED_BELOW// PCR1 = /*TODO: (1 << REGBIT_PCR_IDLEEN) | */ (1 << REGBIT_PCR_FSXM) /* | (1 << REGBIT_PCR_FSRM) */ | (1 << REGBIT_PCR_CLKXM) /* | (1 << REGBIT_PCR_CLKRM) */ /* receive on falling, xmit on rising edge -- | (1 << REGBIT_PCR_CLKXP) | (1 << REGBIT_PCR_CLKRP) */ ;
+	//COPIED_BELOW// PCR1 = /*TODO: (1 << REGBIT_PCR_IDLEEN) | */ (1 << REGBIT_PCR_FSXM) /* | (1 << REGBIT_PCR_FSRM) */ | (1 << REGBIT_PCR_CLKXM) /* | (1 << REGBIT_PCR_CLKRM) */ | (1 << REGBIT_PCR_CLKXP) | (1 << REGBIT_PCR_CLKRP);
 	PCR1 = (1 << REGBIT_PCR_FSXM) | (1 << REGBIT_PCR_CLKXM);
 { uint32_t ctr = 10000; while (ctr-- > 0) ; }
 // SPCR2_1 |= REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
@@ -1159,12 +1165,6 @@ EGCR2 = 0x0005;	//ECLKOUT2-DIV-2//
 	//
 	// Further initiation follows
 	//
-	IODIR  |= (1 << 7) | (1 << 1);
-	IODATA  =            (1 << 1);	// Updated below small delay
-	for (idx = 0; idx < APP_LEVEL_COUNT; idx++) {
-		bt200_level_active [idx] = false;
-	}
-	IODATA |= (1 << 7) | (1 << 1);  // See above small delay
 	asm (" bclr xf");  // Switch off MESSAGE LED
 { uint16_t ctr = 250; while (ctr > 0) { ctr--; } }	
 	bottom_critical_region_begin (); // _disable_interrupts ();
@@ -1182,6 +1182,9 @@ EGCR2 = 0x0005;	//ECLKOUT2-DIV-2//
 	IER1 |= (1 << REGBIT_IER1_DMAC0); // 0x0004;
 	PCR0 = (1 << REGBIT_PCR_XIOEN) | (1 << REGBIT_PCR_RIOEN);
 
+	for (idx = 0; idx < APP_LEVEL_COUNT; idx++) {
+		bt200_level_active [idx] = false;
+	}
 #if 0
 {uint8_t idx, dig, bar;
 idx=0; dig=0; bar=0;

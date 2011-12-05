@@ -277,8 +277,8 @@ for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
 for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
 for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ; }
 #endif
-#if 1
-	tlv320aic2x_setup_chip ();
+#if 0
+	// tlv320aic2x_setup_chip ();
 #else
 	tlv320aic2x_set_samplerate (8000);
 #endif
