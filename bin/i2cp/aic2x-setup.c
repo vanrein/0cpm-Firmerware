@@ -70,7 +70,6 @@ uint8_t argval (char *strval) {
 
 int main (int argc, char *argv []) {
 	int i;
-	uint8_t regs [13];
 	uint8_t slave;
 
 	if (argc < 4) {
@@ -121,7 +120,7 @@ int main (int argc, char *argv []) {
 		uint8_t intval = argval (strval + reglen + 1);
 		int j;
 		bool found = false;
-		for (j=0; j < 13; j++) {
+		for (j=0; j < 14; j++) {
 			if (reglen != strlen (regname [j])) {
 				continue;
 			}

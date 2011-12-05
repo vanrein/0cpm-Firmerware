@@ -119,3 +119,4 @@ void ksz8842_setup_network (void);
  * Retrieve the ISR register and handle each interrupt reason.
  */
 void ksz8842_interrupt_handler (void);
+

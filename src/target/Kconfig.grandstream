@@ -1,4 +1,10 @@
 # Grandstream phone models
+#
+# When adding a new model, please include it also in the Kconfig.platform
+# listing for automatic selection of the SoC type.  That is the kind of
+# thing that other users can feel rather uncertain about.  Supposedly,
+# not everyone opens devices before starting to use them ;-)
+#
 
 choice
 	prompt "2. Grandstream phone models"
@@ -19,20 +25,66 @@ config TARGET_GRANDSTREAM_BT10x
 
 config TARGET_GRANDSTREAM_BT20x
 	bool "Budgetone 200, 201"
-	select PLATFORM_TIC54x
+	select PLATFORM_TIC55x
 	help
 	  Budgetone is the entry-level speaker phone from Grandstream.
 	  The older models were numbered 10x, the newer ones are 20x.
 	  These newer models have one or two 100 Mbps ethernet jacks.
 
+	  Note that the models with KSZ8842 network chips are supported,
+	  but older models with RTL8019 currently are not.
+
 	  They look like simple phones, with no line selection facilities
 	  beyond a simple flash button.  They do however have buttons for
 	  conferences and call transfer and hold.
 
-config TARGET_GRANDSTREAM_GXP20xx
-	bool "GXP 2000, 2010, 2020"
+config TARGET_GRANDSTREAM_GXP1200
+	bool "Grandstream GXP 1200"
 	depends on UNIMPLEMENTED
 	select PLATFORM_TIC55x
+	select TARGET_GRANDSTREAM_GXP
+	help
+	  These platforms are very similar to Budgetone 200 devices.
+	  The differences are different wiring and an undocumented
+	  graphical LCD.  The displays offer superior interfacing
+	  compared to the Budgetone's 7-segment displays, so expect
+	  some forthcoming work in this area.
+
+config TARGET_GRANDSTREAM_GXP2020
+	bool "Grandstream GXP 2020"
+	depends on UNIMPLEMENTED
+	select PLATFORM_TIC55x
+	select TARGET_GRANDSTREAM_GXP
+	help
+	  Note that the models with KSZ8842 network chips are supported,
+	  but older models with RTL8019 currently are not.  This is at
+	  least a concern for (some) GXP2020 models.
+
+config TARGET_GRANDSTREAM_GXP_OTHER
+	bool "Grandstream GXP series"
+	help
+	  The GXP series from Grandstream is very consistent in its
+	  architecture.  If you are not afraid of a bit of probing
+	  with an ohm-meter and minor editing of this code, then you
+	  are probably capable of adding your favourite GXP phone to
+	  this software.  And of course we will gladly integrate your
+	  changes, so you don't have to keep your own code forked.
+
+config TARGET_GRANDSTREAM_GXV
+	bool "Grandstream GXV series (video phones)"
+	select PLATFORM_TIC55X
+	help
+	  These platforms are more advancaed than Grandstream's GXP
+	  platforms, and include various new hardware components that
+	  are not currently supported:
+
+	   * TIC6x DSP processor
+	   * colour display
+	   * camera
+	   * touch screen (on some models)
+
+	  Support for these models is not planned at this time.
 
 endchoice
+
 

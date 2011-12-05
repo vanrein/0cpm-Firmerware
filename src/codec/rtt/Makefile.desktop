@@ -1,8 +1,8 @@
 TARGET=rtt_desktop_test
 OBJS=recvkeys.o sendkeys.o desktop.o
 
-# CFLAGS=-m32
-CFLAGS=-m64
+CFLAGS=-m32 -L.
+# CFLAGS=-m64
 
 # CFLAGS+=-ggdb3
 
@@ -17,7 +17,7 @@ anew: clean all
 	gcc $(CFLAGS) -I/usr/include -I../../../include -c -o $@ $<
 
 $(TARGET): $(OBJS)
-	gcc $(CFLAGS) -o $@ $(OBJS)
+	gcc $(CFLAGS) -o $@ $(OBJS) -lncurses
 
 tags:
 	ctags *.c

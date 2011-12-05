@@ -27,3 +27,6 @@ typedef long int int32_t;
 
 typedef uint32_t intptr_t;
 
+typedef  int32_t  intmax_t;
+typedef uint32_t uintmax_t;
+

@@ -401,9 +401,9 @@ extern "C"
        the accuracy issues related to changing the rounding scheme are of little concern
        to us. */
 
-    #if !defined(__sgi)  &&  !defined(__sunos)  &&  !defined(__solaris)  &&  !defined(__sun)
-        #warning "No usable lrint() and lrintf() functions available."
-        #warning "Replacing these functions with a simple C cast."
+    #if !defined(__sgi)  &&  !defined(__sunos)  &&  !defined(__solaris)  &&  !defined(__sun)  &&  !defined(CONFIG_PLATFORM_TIC55x)
+	#warning "No usable lrint() and lrintf() functions available."
+	#warning "Replacing these functions with a simple C cast."
     #endif
 
     static __inline__ long int lrint(double x)

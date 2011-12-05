@@ -7,7 +7,7 @@ that works about these codecs is undoubtly their work and all that fails is prob
 integrated into the 0cpm Firmerware.
 
 Specifically worth mentioning is the team's effort to collect a useful set of protocols that
-are unencumbered by patents or other methods to constipate progress.  This is exactly the
+are unencumbered by patents or other tricks that constipate progress.  This is exactly the
 sort of thing needed in the 0cpm Firmerware, if not for the fact that the firmware must
 remain open, then at least for the reason that most phone manufacturers seem to make the
 same choice.  If you want to retract your software from daily use, be sure to patent it!
@@ -21,7 +21,12 @@ for the 0cpm Firmerware, according to this table:
 
 http://www.gnu.org/licenses/gpl-faq.html#AllCompatibility
 
-In line with this table, the complete 0cpm Firmerware is shipped under GPL v3.
+In line with this table, the complete 0cpm Firmerware, including parts taken from
+spandsp, is shipped under GPL v3.
+
+Aside from this legal verification, we've also read up on the intentions of Steve and his
+team; they seem to approve of applications like the 0cpm Firmerware because it evolves
+the use of open software in the World.
 
 
 Changes to files
@@ -30,6 +35,23 @@ Changes to files
 We've edited several files to make them fit better with the embedded architecture of the
 0cpm Firmerware.  This means no support (or need) for dynamic allocation of structures
 and, where possible, target-specific implementations of heavy-duty mathematics.
+
+
+Parts selected
+--------------
+
+The spandsp code implements a lot of codecs, not just the ones we need for telephony.
+So we've made a selection of those codecs that we could use in the 0cpm Firmerware:
+
+* G.711 for direct exchanges with ISDN
+* G.726 for direct exchanges with DECT
+* G.722 for direct exchanges with CAT-iq and wideband VoIP
+
+We have not included GSM-FR, for a number of reasons:
+
+* It's patent-free status is not completely clear
+* The quality of this early GSM standard is not very good
+* Newer GSM standards are incompatible, it'd become a confusing mess
 
 
 Original file versions

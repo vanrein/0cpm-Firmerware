@@ -55,6 +55,11 @@ typedef unsigned char uint8_t;
 #include <0cpm/netfun.h>
 
 
+#ifndef CONFIG_CODEC_RTT
+#warning "Overriding deselection of Realtime Text codec -- see help in configuration menus"
+#endif
+
+
 /* The missing character code 0xfffd, encoded in UTF-8 */
 uint8_t rtt_missing_text [] = { 0xef, 0xbf, 0xbd };
 
@@ -96,7 +101,7 @@ static void rtt_skipheader (uint8_t **msg, uint16_t *len, uint16_t *newseqptr, u
 
 void rtp_paytype_text_t140 (uint8_t *msg, uint16_t len) {
 	uint16_t newseq;
-	void rtt_recv_keys (uint8_t *text, uint16_t len);
+	//TODO:WAKEUP-TEXTSHOW-PROCESS// void rtt_recv_keys (uint8_t *text, uint16_t len);
 	rtt_skipheader (&msg, &len, &newseq, NULL);
 	switch ((int16_t) (newseq - rtt_seqnr)) {
 	case -2:
@@ -106,11 +111,11 @@ void rtp_paytype_text_t140 (uint8_t *msg, uint16_t len) {
 		return;
 	default:
 		/* Packets out of sync, report missing text */
-		rtt_recv_keys (rtt_missing_text, sizeof (rtt_missing_text));
+		//TODO:WAKEUP-TEXTSHOW-PROCESS// rtt_recv_keys (rtt_missing_text, sizeof (rtt_missing_text));
 		// ...continue into handling the one extension...
 	case 1:
 		/* Packets properly ordered */
-		rtt_recv_keys (msg, len);
+		//TODO:WAKEUP-TEXTSHOW-PROCESS// rtt_recv_keys (msg, len);
 		rtt_seqnr = newseq;
 	}
 }
@@ -119,13 +124,13 @@ void rtp_paytype_text_t140 (uint8_t *msg, uint16_t len) {
 void rtp_paytype_text_red (uint8_t *msg, uint16_t len) {
 	uint16_t newseq;
 	uint16_t gencount, skipcount, skipbytes;
-	void rtt_recv_keys (uint8_t *text, uint16_t len);
+	//TODO:WAKEUP-TEXTSHOW-PROCESS// void rtt_recv_keys (uint8_t *text, uint16_t len);
 	rtt_skipheader (&msg, &len, &newseq, &gencount);
 	//
 	// Skip the redundant parts that were processed before
 	if (gencount < (newseq - rtt_seqnr)) {
 		/* Packets are missing -- report and use what is supplied */
-		rtt_recv_keys (rtt_missing_text, sizeof (rtt_missing_text));
+		//TODO:WAKEUP-TEXTSHOW-PROCESS// rtt_recv_keys (rtt_missing_text, sizeof (rtt_missing_text));
 		skipcount = 0;
 	} else {
 		/* No missing packets -- skip 0 or more redundant generations */
@@ -154,7 +159,7 @@ void rtp_paytype_text_red (uint8_t *msg, uint16_t len) {
 	//
 	// Copy the redundant parts that are new
 	if (((int16_t) len) > 0) {
-		rtt_recv_keys (msg, len);
+		//TODO:WAKEUP-TEXTSHOW-PROCESS// rtt_recv_keys (msg, len);
 	}
 }
 

@@ -34,6 +34,8 @@
 #include <string.h>
 #include <assert.h>
 
+#include <spandsp/0cpm.h>
+
 #include "spandsp/telephony.h"
 #include "spandsp/bit_operations.h"
 #include "spandsp/g711.h"

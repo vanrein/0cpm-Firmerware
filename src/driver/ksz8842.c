@@ -46,6 +46,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define BOTTOM
+
 #include <config.h>
 #include <bottom/ksz8842.h>
 

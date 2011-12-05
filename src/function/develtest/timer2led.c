@@ -41,6 +41,15 @@ void top_hook_update (bool offhook) {
 	/* Keep the linker happy */ ;
 }
 
+void irqtimer_start   (irqtimer_t *tmr, timing_t delay, irq_handler_t hdl, priority_t prio) {
+}
+
+void irqtimer_restart (irqtimer_t *tmr, timing_t intval) {
+}
+
+void irqtimer_stop    (irqtimer_t *tmr) {
+}
+
 void top_button_press (buttonclass_t bcl, buttoncode_t cde) {
 	/* Keep the linker happy */ ;
 }

@@ -25,6 +25,9 @@
 #include <0cpm/app.h>
 
 
+/** \ingroup kernel */
+
+
 /* Applications are the parties that scream for resources.
  * They may wish or demand resources.  If they ask for it at
  * the same strength, then the application with the highest

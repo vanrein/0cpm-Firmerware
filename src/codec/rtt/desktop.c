@@ -48,11 +48,14 @@ typedef uint32_t nint32_t;
 #include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/timeb.h>
+
+#include <ncurses.h>
 
 
 extern uint8_t rtt_paytp_red;
@@ -68,6 +71,9 @@ irqtimer_t *rtos_timer;
 irq_handler_t timer_hdl;
 
 int sox;
+
+
+WINDOW *top, *bot;
 
 
 struct termios stdin_oldstate;
@@ -98,10 +104,24 @@ void netcore_send_buffer (intptr_t *mem, uint8_t *wbuf) {
 
 /* RTT received key presses -- process them by printing on the output tty */
 void rtt_recv_keys (uint8_t *text, uint16_t len) {
-	ssize_t shown = write (1, text, len);
-	if (shown != (ssize_t) len) {
-		fprintf (stderr, "\nWarning: Only %d out of %d characters shown\n", (int) shown, (int) len);
+	// ssize_t shown = write (1, text, len);
+	ssize_t shown = len;
+	while (len-- > 0) {
+		if (*text == 127) {
+			*text = 0x08;
+		} else if (*text == '\r') {
+			*text = '\n';
+		}
+		if (wprintw (top, "%c", *text++) != ERR) {
+			shown--;
+		}
 	}
+#if 0
+	if (shown != (ssize_t) len) {
+		wprintw (top, "\nWarning: Only %d out of %d characters shown\n", (int) shown, (int) len);
+	}
+#endif
+	wrefresh (top);
 }
 
 
@@ -162,6 +182,13 @@ void stdin_reset(void) { /* set it to normal! */
 	tcsetattr(0, TCSAFLUSH, &stdin_oldstate);
 }
 
+/* Return the screen to normal mode */
+void screen_reset (void) {
+	if (bot) delwin (bot);
+	if (top) delwin (top);
+	endwin ();
+}
+
 /* Code based on online demonstration code */
 void stdin_raw(void) {       /* RAW! mode */
 	struct termios  stdin_newstate;
@@ -185,6 +212,9 @@ void stdin_raw(void) {       /* RAW! mode */
                        ouput flow control off;
  		       retain CR-toNL off */
 
+	stdin_newstate.c_iflag |= ICRNL;
+		    /* Translate CR to newline on input */
+
 	stdin_newstate.c_lflag |= ISIG;
 		    /* recognise and process specials like ^C */
 
@@ -197,7 +227,7 @@ void stdin_raw(void) {       /* RAW! mode */
 	// stdin_newstate.c_oflag &= ~(OPOST);
                     /* output processing off */
 
-	// stdin_newstate.c_oflag |= ONLCR;
+	stdin_newstate.c_oflag |= ONLCR;
 		    /* map newline to CR-LF on output  */
 
 	stdin_newstate.c_cc[VMIN] = 1;  /* 1 byte at a time */
@@ -220,9 +250,9 @@ int main (int argc, char *argv []) {
 	struct sockaddr_in6 local, remot;
 	//
 	// Test arguments
-	if (argc != 6) {
-		fprintf (stderr, "Usage: %s /dev/ttyN myAddr myPort remoteAddr remotePort\n"
-				"   Where /dev/ttyN is an output terminal, and addresses are IPv6.\n"
+	if (argc != 5) {
+		fprintf (stderr, "Usage: %s myAddr myPort remoteAddr remotePort\n"
+				"   Where is an output terminal, and addresses are IPv6 (as RTP would deliver).\n"
 				"   This is not a fancy interface, but rather demonstrates the protocol.\n",
 			argv [0]);
 		exit (1);
@@ -239,21 +269,21 @@ int main (int argc, char *argv []) {
 	bzero (&remot, sizeof (remot));
 	local.sin6_family = AF_INET6;
 	remot.sin6_family = AF_INET6;
-	if (inet_pton (AF_INET6, argv [2], &local.sin6_addr) != 1) {
+	if (inet_pton (AF_INET6, argv [1], &local.sin6_addr) != 1) {
 		fprintf (stderr, "Failed to parse local IPv6 address\n");
 		exit (1);
 	}
-	if (inet_pton (AF_INET6, argv [4], &remot.sin6_addr) != 1) {
+	if (inet_pton (AF_INET6, argv [3], &remot.sin6_addr) != 1) {
 		fprintf (stderr, "Failed to parse remote IPv6 address\n");
 		exit (1);
 	}
-	port = atoi (argv [3]);
+	port = atoi (argv [2]);
 	if ((port <= 0) || (port > 65535)) {
 		fprintf (stderr, "Invalid local port\n");
 		exit (1);
 	}
 	local.sin6_port = htons (port);
-	port = atoi (argv [5]);
+	port = atoi (argv [4]);
 	if ((port <= 0) || (port > 65535)) {
 		fprintf (stderr, "Invalid remote port\n");
 		exit (1);
@@ -278,21 +308,24 @@ int main (int argc, char *argv []) {
 	// An empty UDP message will open any local firewalls for return traffic
 	open_local_firewalls ();
 	//
-	// Replace stdout with provided terminal handle
-	fdo = open (argv [1], O_RDWR);
-	if (fdo == -1) {
-		fprintf (stderr, "Failed to write output to %s\n", argv [1]);
-		exit (1);
-	}
-	close (1);
-	if (dup2 (fdo, 1) == -1) {
-		perror ("Failed to redirect output");
-		exit (1);
-	}
-	close (fdo);
-	//
 	// Change input to raw mode (and have it returned to normal upon exit)
 	stdin_raw ();
+	//
+	// Split the screen, using ncurses
+	top = NULL;
+	bot = NULL;
+	initscr ();
+	atexit (screen_reset);
+	mvhline (LINES/2, 0, ACS_HLINE, COLS);
+	refresh ();
+	top = newwin (LINES/2, COLS, 0, 0);
+	bot = newwin (LINES - LINES/2 - 1, COLS, LINES/2 + 1, 0);
+	wprintw (top, "Remote:\n");
+	wprintw (bot, "Your input:\n");
+	wrefresh (top);
+	wrefresh (bot);
+	scrollok (bot, true);
+	scrollok (top, true);
 	//
 	// Main loop -- wait for input from stdin or the UDP port, and relay it
 	while (true) {
@@ -322,7 +355,17 @@ int main (int argc, char *argv []) {
 		if (FD_ISSET (0, &ears)) {
 			/* If no input awaits sending, pickup new data */
 			if (inlen == 0) {
+				uint16_t inecho = 0;
 				inlen = read (0, input, sizeof (input));
+				while (inecho < inlen) {
+					if (input [inecho] == 127) {
+						input [inecho] = 0x08;
+					} else if (input [inecho] == '\r') {
+						input [inecho] = '\n';
+					}
+					wprintw (bot, "%c", input [inecho++]);
+				}
+				wrefresh (bot);
 				inofs = 0;
 				if (inlen == -1) {
 					perror ("Error reading from stdin");
@@ -340,8 +383,13 @@ int main (int argc, char *argv []) {
 			uint8_t rtpbuf [2048];
 			size_t rtplen = recv (sox, rtpbuf, sizeof (rtpbuf), 0);
 			if (rtplen == -1) {
-				perror ("Failed to receive realtime text");
-				//TODO:WAIT4PEER// exit (1);
+				if (errno != ECONNREFUSED) {
+					perror ("Failed to receive realtime text");
+					exit (1);
+				} else {
+					wprintw (top, "** NOT CONNECTED TO REMOTE PARTY **\n");
+					wrefresh (top);
+				}
 			}
 			if (rtplen < 12) {
 				continue;

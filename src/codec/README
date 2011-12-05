@@ -18,9 +18,15 @@ The codecs in this tree have been defined with a number of goals in mind:
   - Ogg/RTP can play radio stations from multicast sources
   - L16 can play PCM and replace computer sound devices
 
+Codecs that are large or contraversial are optional:
 
-Codecs that are large are made optional:
+* Ogg decoding is computationally heavy, and could be done by a central node
+* Speex encoder/decoder consumes about 100 kB of code size
+* L16 as it might not be to everyone's taste to have an open sound player next to them
 
-* Ogg decoding (Internet radio support) could be done by the multicasting node
-* Speex encoder/decoder which consumes about 100 kB of code size
-
+Note that RTT is hardly contraversial -- it is about 1 kB of code, and can add great
+benefit to all users -- not just the deaf or speech impaired.  Making it available
+by default not only creates a World were handicaps cause less isolation, but it also
+sends a strong signal to PBX developers to start texting their IVR menus so we can
+get on wading through lists of options.  The only case where RTT is not to be built
+into the 0cpm Firmerware is actually when there is no display to use.

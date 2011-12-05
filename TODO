@@ -47,3 +47,9 @@ look at:
 
 * test RTP sound playback.  The retrocast tools can help with that:
   basicast /etc/hosts 2001:980:420a:1:020b:82ff:fe19:a0f4 32768
+
+* RTT handling:
+   - consider replacing the call to rtt_recv_keys() with a textapp wakeup
+
+* Transcoding: Now supported in spandsp (for G.711) -- this can go.
+

@@ -46,6 +46,8 @@
 #endif
 #include "floating_fudge.h"
 
+#include <spandsp/0cpm.h>
+
 #include "spandsp/telephony.h"
 #include "spandsp/fast_convert.h"
 #include "spandsp/saturated.h"

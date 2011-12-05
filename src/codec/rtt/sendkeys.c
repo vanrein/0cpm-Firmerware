@@ -53,6 +53,11 @@
 #include <0cpm/netfun.h>
 
 
+#ifndef CONFIG_CODEC_RTT
+#warning "Overriding deselection of Realtime Text codec -- see help in configuration menus"
+#endif
+
+
 
 /* The number of historic versions kept for resending */
 #ifndef RTT_GENERATIONS

@@ -21,3 +21,4 @@
 
 typedef unsigned int size_t;
 
+#define RAND_MAX 65535

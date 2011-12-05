@@ -18,13 +18,17 @@
  */
 
 
+#ifndef HEADER_BOTTOM_DEVEL
+#define HEADER_BOTTOM_DEVEL
+
 // TODO: The following nethandlers have not been implemented yet
 #include <stdlib.h>
-inline uint8_t *net_rtp (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_rtcp (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_resp_error (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_resp_dyn (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_resp_std (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_query_error (uint8_t *pkt, intptr_t *mem) { return NULL; }
-inline uint8_t *net_mdns_query_ok (uint8_t *pkt, intptr_t *mem) { return NULL; }
+static inline uint8_t *net_rtp (uint8_t *pkt, intptr_t *mem) { return NULL; }
+static inline uint8_t *net_rtcp (uint8_t *pkt, intptr_t *mem) { return NULL; }
+static inline uint8_t *net_mdns_resp_error (uint8_t *pkt, intptr_t *mem) { return NULL; }
+static inline uint8_t *net_mdns_resp_dyn (uint8_t *pkt, intptr_t *mem) { return NULL; }
+static inline uint8_t *net_mdns_resp_std (uint8_t *pkt, intptr_t *mem) { return NULL; }
+static inline uint8_t *net_mdns_query_error (uint8_t *pkt, intptr_t *mem) { return NULL; }
+static inline uint8_t *net_mdns_query_ok (uint8_t *pkt, intptr_t *mem) { return NULL; }
 
+#endif

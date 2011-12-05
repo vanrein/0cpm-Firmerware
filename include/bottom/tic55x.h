@@ -54,8 +54,39 @@ typedef uint32_t timing_t;
 #define bzero(p,n) memset((p),0,(n))
 
 
-/* Following definitions are only available if BOTTOM is defined */
+/* A number of object allocation qualifiers.  As defined
+ * in SPRU281F, these basically redirect large portions of
+ * data to their own segments.  This solves the linker
+ * message "section XYZ spans page boundary: not allowed
+ * before CPU revision 3.0" by limiting each to 64k max.
+ * The format is DATA_SECTION(_symbol, "sectionname") and
+ * a section named .sectionname must then be defined in
+ * source file src/driver/tic55x/linker.cmd
+ * Also see this webpage explaining the need for this:
+ * http://www.dsprelated.com/groups/c55x/show/2049.php
+ */
+#pragma DATA_SECTION(codes0, ".const_codebook_codec2");
+#pragma DATA_SECTION(codes1, ".const_codebook_codec2");
+#pragma DATA_SECTION(codes2, ".const_codebook_codec2");
+#pragma DATA_SECTION(codes3, ".const_codebook_codec2");
+#pragma DATA_SECTION(codes4, ".const_codebook_codec2");
+#pragma DATA_SECTION(codes5, ".const_codebook_codec2");
+#pragma DATA_SECTION(codes6, ".const_codebook_codec2");
+#pragma DATA_SECTION(codes7, ".const_codebook_codec2");
+#pragma DATA_SECTION(codes8, ".const_codebook_codec2");
+#pragma DATA_SECTION(codes9, ".const_codebook_codec2");
 
+
+/* A number of code object allocations, that aim to place
+ * high-speed code into on-board static RAM, as this is a
+ * much faster resource than all the other forms of memory.
+ * See SPRU281F and this webpage:
+ * http://www.dsprelated.com/groups/c55x/show/2049.php
+ */
+#pragma CODE_SECTION(netinput, ".text_fast");
+
+
+/* Following definitions are only available if BOTTOM is defined */
 
 #ifdef BOTTOM
 

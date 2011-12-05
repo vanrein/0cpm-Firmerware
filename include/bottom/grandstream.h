@@ -22,7 +22,7 @@
 #define HEADER_GRANDSTREAM
 
 /* Settings for Budgetone devices */
-#if defined CONFIG_TARGET_GRANDSTREAM_BT20x || defined CONFIG_TARGET_GRANDSTREAM_BT10x
+#if defined (CONFIG_TARGET_GRANDSTREAM_BT20x) || defined (CONFIG_TARGET_GRANDSTREAM_BT10x)
 
 #define HAVE_LED_MESSAGE 1
 #define HAVE_LED_BACKLIGHT 1
@@ -49,6 +49,10 @@
 #define NEED_HOOK_SCANNER_WHEN_OFFHOOK 1
 #define NEED_KBD_SCANNER_BETWEEN_KEYS 1
 #define NEED_KBD_SCANNER_DURING_KEYPRESS 1
+
+
+#ifdef BOTTOM
+
 
 #pragma FAR(kbdisp)
 extern volatile uint8_t kbdisp;
@@ -109,3 +113,4 @@ void bottom_flash_get_mac (uint8_t mac [6]);
 
 #endif
 
+#endif

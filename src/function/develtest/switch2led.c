@@ -39,6 +39,15 @@ timing_t top_timer_expiration (timing_t timeout) {
 	return timeout;
 }
 
+void irqtimer_start   (irqtimer_t *tmr, timing_t delay, irq_handler_t hdl, priority_t prio) {
+}
+
+void irqtimer_restart (irqtimer_t *tmr, timing_t intval) {
+}
+
+void irqtimer_stop    (irqtimer_t *tmr) {
+}
+
 void top_hook_update (bool offhook) {
 	/* Keep the linker happy */ ;
 }

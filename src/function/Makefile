@@ -19,12 +19,15 @@
 
 # Function-dependent construction of top-objs list
 
-objs-top-$(CONFIG_FUNCTION_NETCONSOLE) += src/net/llconly.o src/function/netconsole.o
+objs-top-$(CONFIG_FUNCTION_NETCONSOLE) += src/function/netconsole.o
+objs-top-$(CONFIG_MAINFUNCTION_NETCONSOLE) += src/net/llconly.o
+objs-top-$(CONFIG_MAINFUNCTION_DEVEL_NETWORK) += src/net/llconly.o
+objs-top-$(CONFIG_MAINFUNCTION_DEVEL_SOUND) += src/net/llconly.o
 
 #
 # Actual targets and their constituent object files
 #
-objs-top-$(CONFIG_MAINFUNCTION_SIP_PHONE) += src/function/sip6phone/topmain.o bin/top-kernel.o bin/top-net.o bin/top-phone.o
+objs-top-$(CONFIG_MAINFUNCTION_SIP_PHONE) += src/function/sip6phone/topmain.o bin/top-kernel.o bin/top-net.o bin/top-phone.o bin/top-codec.o
 
 # objs-top-$(CONFIG_MAINFUNCTION_BOOTLOADER) += src/function/bootload.o bin/top-kernel.o bin/top-simplenet.o function
 

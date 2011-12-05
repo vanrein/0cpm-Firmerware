@@ -1,0 +1,4 @@
+#!/bin/sh
+
+echo 'Please run "make menuconfig" for interactive configuration (as with Linux, BusyBox, ...)'
+

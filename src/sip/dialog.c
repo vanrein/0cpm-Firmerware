@@ -264,13 +264,13 @@ bool sipdia_invite (dialog_t *dia, textptr_t *branch) {
 	msg = (char *) netsend_udp6 (wbuf.data, mem);
 	//
 	// StartLine: INVITE to_uri SIP/2.0
-{textptr_t to_uri = { "sip:2020*880@welcome.0cpm.nl:5060", 33 };	//FIXED//
+{textptr_t to_uri = { "sip:7425*880@welcome.0cpm.nl:5060", 33 };	//FIXED//
 	msg = sipgen_request (msg, &invite_m, &to_uri, branch);
 }
 	//
 	// Further headers
 	msg = sipgen_from (msg, dia);
-{textptr_t callee = { "2020*880", 8 };	//FIXED//
+{textptr_t callee = { "7425*880", 8 };	//FIXED//
 	msg = sipgen_to (msg, &callee, dia);
 }
 msg = sipgen_contact (msg, dia);	//TODO// Only needed for SIPproxy64?
@@ -323,13 +323,13 @@ bool sipdia_cancel (dialog_t *dia, textptr_t *branch) {
 	msg = (char *) netsend_udp6 (wbuf.data, mem);
 	//
 	// StartLine: CANCEL to_uri SIP/2.0
-{textptr_t to_uri = { "sip:2020*880@welcome.0cpm.nl:5060", 33 };	//FIXED//
+{textptr_t to_uri = { "sip:7425*880@welcome.0cpm.nl:5060", 33 };	//FIXED//
 	msg = sipgen_request (msg, &cancel_m, &to_uri, branch);
 }
 	//
 	// Further headers 
 	msg = sipgen_from (msg, dia);
-{textptr_t callee = { "2020*880", 8 };	//FIXED//
+{textptr_t callee = { "7425*880", 8 };	//FIXED//
 	msg = sipgen_to (msg, &callee, dia);
 }
 msg = sipgen_contact (msg, dia);	//TODO// Only needed for SIPproxy64?
@@ -386,13 +386,13 @@ bool sipdia_bye (dialog_t *dia, textptr_t *branch) {
 	mem [MEM_UDP6_SRC_PORT] = 5060;
 	msg = (char *) netsend_udp6 (wbuf.data, mem);
 	// StartLine: BYE to_uri SIP/2.0
-{textptr_t to_uri = { "sip:2020*880@welcome.0cpm.nl:5060", 33 };	//FIXED//
+{textptr_t to_uri = { "sip:7425*880@welcome.0cpm.nl:5060", 33 };	//FIXED//
 	msg = sipgen_request (msg, &bye_m, &to_uri, branch);
 }
 	//
 	// Further headers 
 	msg = sipgen_from (msg, dia);
-{textptr_t callee = { "2020*880", 8 };	//FIXED//
+{textptr_t callee = { "7425*880", 8 };	//FIXED//
 	msg = sipgen_to (msg, &callee, dia);
 }
 msg = sipgen_contact (msg, dia);	//TODO// Only needed for SIPproxy64?
@@ -449,13 +449,13 @@ bottom_printf ("Constructing ACK\n");
 	msg = (char *) netsend_udp6 (wbuf.data, mem);
 	//
 	// StartLine: ACK to_uri SIP/2.0
-{textptr_t to_uri = { "sip:2020*880@welcome.0cpm.nl", 28 };	//FIXED//
+{textptr_t to_uri = { "sip:7425*880@welcome.0cpm.nl", 28 };	//FIXED//
 	msg = sipgen_request (msg, &ack_m, &to_uri, branch);
 }
 	//
 	// Further headers
 	msg = sipgen_from (msg, dia);
-{textptr_t callee = { "2020*880", 8 };	//FIXED//
+{textptr_t callee = { "7425*880", 8 };	//FIXED//
 	msg = sipgen_to (msg, &callee, dia);
 }
 	msg = sipgen_cseq (msg, &ack_m, dia->cseqnr);

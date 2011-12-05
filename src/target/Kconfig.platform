@@ -7,13 +7,15 @@ config PLATFORM_LOCAL
 	bool "Local POSIX system"
 	depends on TARGET_POSIX
 
+# Include all manufacturers / models in the "depends on" clause, connected with ||
 config PLATFORM_TIC54x
 	bool "tic54x"
 	depends on TARGET_GRANDSTREAM_BT10x
 
+# Include all manufacturers / models in the "depends on" clause, connected with ||
 config PLATFORM_TIC55x
 	bool "tic55x (READ HELP)"
-	depends on TARGET_GRANDSTREAM_BT20x || TARGET_GRANDSTREAM_GXP20xx
+	depends on TARGET_GRANDSTREAM_BT20x || TARGET_GRANDSTREAM_GXP1200 || TARGET_GRANDSTREAM_GXP2020
 	help
 	  **Please be careful**
 	  The TIC55x platform is not supported by gcc or lvmm compilers.
@@ -24,6 +26,7 @@ config PLATFORM_TIC55x
 	  the incompatibility problem between TI's toolchain license and
 	  the open source license of the 0cpm firmerware.
 
+# Include all manufacturers in the "depends on" clause, connected with ||
 config PLATFORM_BLACKFIN
 	bool "Analog Devices' Blackfin"
 	depends on TARGET_IMAGINARY

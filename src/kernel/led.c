@@ -29,7 +29,15 @@
 #include <0cpm/led.h>
 
 
-/* Refer to the top handler state storage structures for LED information.
+/** \ingroup kernel
+ * LED handling in the kernel takes care of the visualisation
+ * of state on the LEDs of a phone.  These may either show a
+ * constant colour or flash between two colours.
+ */
+
+
+/** The state of a LED; its current and alternate colour, and flashing.
+ * Refer to the top handler state storage structures for LED information.
  * The size of the array is LED_IDX_COUNT as derived above.  The embedded
  * timer is used to make the LED flash in its own pace.  The timer is
  * started from the main program, and the corresponding interrupt is
@@ -42,10 +50,11 @@ struct led_state {
         led_flashtime_t led_flashtime;
 };
 
+/** A static structure holding all LED state. */
 static struct led_state leds [LED_IDX_COUNT];
 
 
-/* LED interrupts will change the state of a LED.
+/** LED interrupts will change the state of a LED.
  */
 static bool led_irq (irq_t *irq) {
 	struct led_state *this = (struct led_state *) irq;
@@ -58,7 +67,7 @@ static bool led_irq (irq_t *irq) {
 
 
 
-/* Set the state of a LED.  If the current colour matches the initial colour of a
+/** Set the state of a LED.  If the current colour matches the initial colour of a
  * flashing LED, that a flash operation is immediately performed.
  */
 void led_set (led_idx_t ledidx, led_colour_t col, led_flashtime_t ft) {
@@ -79,13 +88,13 @@ void led_set (led_idx_t ledidx, led_colour_t col, led_flashtime_t ft) {
 }
 
 
-/* Get the colour currently shown on the LED.
+/** Get the colour currently shown on the LED.
  */
 led_colour_t led_getcolour (led_idx_t ledidx) {
 	return LED_FLASHING_CURRENT (leds [ledidx].led_colour);
 }
 
-/* Get the flashing time for a given LED.
+/** Get the flashing time for a given LED.
  */
 led_flashtime_t led_getflashtime (led_idx_t ledidx) {
 	return leds [ledidx].led_flashtime;

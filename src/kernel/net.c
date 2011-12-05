@@ -38,16 +38,24 @@
 #include <0cpm/cons.h>
 
 
+/** \ingroup kernel */
+
+
 /* TODO: Current return function from netinput
  */
 typedef void *retfn (uint8_t *pout, intptr_t *mem);
 
 
-/* The can_recv and can_send flags store whether
- * the network is in a state to permit either of
- * these operations on the network interface.
+/** The can_send flag stores whether
+ * the network is in a state to permit sending
+ * on the network interface.
  */
 static bool can_send = false;
+
+/** The can_recv flag stores whether
+ * the network is in a state to permit receiving
+ * over the network interface.
+ */
 static bool can_recv = false;
 
 
@@ -66,7 +74,7 @@ static irq_t send_irq = { network_send_handler, NULL, CPU_PRIO_UNKNOWN };
 
 
 
-/* This upcall is used to report that the network
+/** This upcall is used to report that the network
  * has new data available.  The bottom half will
  * call this for the first packet to arrive after
  * having failed an attempt to read input.
@@ -82,7 +90,7 @@ void top_network_can_recv (void) {
 	}
 }
 
-/* This upcall is used to report that the network
+/** This upcall is used to report that the network
  * is certain to accept a full-size network packet.
  * It is called by the bottom half after having
  * failed an attempt to send output.
@@ -97,7 +105,7 @@ void top_network_can_send (void) {
 }
 
 
-/* This upcall is made to report that the network
+/** This upcall is made to report that the network
  * has gone offline.  This may be detected at the
  * hardware level, as a result of unplugging the
  * cable and/or loosing sync.
@@ -110,7 +118,7 @@ void top_network_offline (void) {
 }
 
 
-/* This upcall is made to report that the network
+/** This upcall is made to report that the network
  * has come online.  This is also called when the
  * network card has been initialised properly.
  */
@@ -174,7 +182,7 @@ if (irq)
 }
 
 
-/* As the processor now has time for it, process
+/** As the processor now has time for it, process
  * the sending of network packets.
  */
 static void network_send_handler (irq_t *irq) {

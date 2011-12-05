@@ -66,6 +66,8 @@
 #endif
 #include "floating_fudge.h"
 
+#include <spandsp/0cpm.h>
+
 #include "spandsp/telephony.h"
 #include "spandsp/dc_restore.h"
 #include "spandsp/bitstream.h"

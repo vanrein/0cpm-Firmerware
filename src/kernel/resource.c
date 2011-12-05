@@ -25,6 +25,9 @@
 #include <0cpm/resource.h>
 
 
+/** \ingroup kernel */
+
+
 /* Refresh a resource, meaning if it has any output aspects, ask it to
  * refresh that output.  This is used if re-ordering resources may have
  * caused another party to be assigned control over the resource.

@@ -30,18 +30,41 @@
 #include <0cpm/cons.h>
 
 
-/* Round-robin queues with interrupts and closures, ordered by priority.
+/** \defgroup kernel
+ * The kernel is the basic housekeeping unit of the 0cpm Firmerware.
+ * It constitutes a main loop that switches between short tasks,
+ * and makes bottom functions such as timers, interrupts and the
+ * network interface generally available.
+ */
+
+/** \ingroup kernel
+ * The CPU part of the kernel focusses the attention of the phone.
+ * Tasks are placed in round-robin lists, at different priority
+ * levels, and are scheduled in a co-operative multitasking manner.
+ * There is no pre-emption, which results in childishly simple
+ * programming that has no need for locks -- not even for getting
+ * into a deadlocked state!
+ */
+
+
+/** Round-robin queue with interrupts, ordered by priority.
  * To be fair, the elements pointed at have already been completed
  * and are awaiting roll-over or removal.
  * TODO: Make the array contents volatile
  */
 irq_t     *irqs     [CPU_PRIO_COUNT] = { NULL, NULL, NULL, NULL };
+
+/** Round-robin queue with closures, ordered by priority.
+ * To be fair, the elements pointed at have already been completed
+ * and are awaiting roll-over or removal.
+ * TODO: Make the array contents volatile
+ */
 closure_t *closures [CPU_PRIO_COUNT] = { NULL, NULL, NULL, NULL };
 #if CPU_PRIO_COUNT != 4
 //TODO// #  error "Update the number of NULL value initialisations above"
 #endif
 
-/* The current priority is an optimisation; it tells what the highest
+/** The current priority is an optimisation; it tells what the highest
  * active priority is, so as to avoid too much searching.  The priority
  * starts at the low value CPU_PRIO_ZERO at which nothing runs; as soon
  * as anything is scheduled, the value is increased to signal work is to
@@ -50,7 +73,7 @@ closure_t *closures [CPU_PRIO_COUNT] = { NULL, NULL, NULL, NULL };
 volatile priority_t cur_prio = CPU_PRIO_ZERO;
 
 
-/* Add an IRQ to the round-robin task queue to be scheduled.
+/** Add an IRQ to the round-robin task queue to be scheduled.
  * This routine must always be called with interrupts inactive;
  * either as part of an interrupt routine, or when called in the
  * course of the main program, from within a critical region.
@@ -72,7 +95,7 @@ void irq_fire (irq_t *irq) {
 }
 
 
-/* Hop jobs until there is nothing left to do.  This is actually the main
+/** Hop jobs until there is nothing left to do.  This is actually the main
  * procedure for the scheduler.  If it ends, then all the work has been
  * enqueued somewhere, and is awaiting a response.  In other words, it
  * is then time to sleep.  This assumes that no task or IRQ will ever

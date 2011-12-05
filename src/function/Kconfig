@@ -10,11 +10,13 @@ source "src/function/Kconfig.devel"
 
 config MAINFUNCTION_SIP_PHONE
 	bool "SIP phone over IPv6"
+	select CODEC_G711 if !CODEC_CODEC2
+	select CODEC_RTT
+	select CODEC_ZRTP
 	help
 	  This is the customary primary function for the 0cpm firmerware.
           It implements SIP phone functionality over IPv6.  Included are
 	  facilities to obtain IPv6 connectivity on all networks.
-
 
 config MAINFUNCTION_SIP_DOORBELL
 	bool "SIP doorbell over IPv6"
@@ -95,7 +97,8 @@ config FUNCTION_SOUND_PLAYER
 	  PulseAudio in your software, see http://www.pulseaudio.org/
 
 config FUNCTION_RADIO
-	bool "Internet radio"
+	bool "Internet radio (multicast reception)"
+	depends on UNIMPLEMENTED
 	default y
 	help
 	  Enable Internet Radio functions.  This makes the phone pickup
@@ -128,79 +131,9 @@ config FUNCTION_RADIO_CHANNELS
 	  fixed.  You can specify a high enough upper limit to be
 	  on the safe side.
 
-config FUNCTION_RADIO_L16
-	bool "Internet radio with RTP/L16"
-	default y
-	depends on FUNCTION_RADIO
-	help
-	  Support 16-bit linear audio coding over RTP.  This is a
-	  standard audio/video codec intended for uncompressed
-	  exchange of audio.  This is a lightweight version of an
-	  Internet Radio, that should work well enough on any
-	  speaker phone.  To feed the stream, you will probably
-	  need a decoder near your multicast router.  You could
-	  setup a gstreamer pipeline for this.
-
-	  TODO - not implemented yet.
-	  
-config FUNCTION_RADIO_VORBIS
-	bool "Internet radio with RTP/Vorbis (read help)"
-	default n
-	depends on FUNCTION_RADIO
-	help
-	  Support Vorbis over RTP (not Vorbis in the file format Ogg)
-	  as a radio codec.  Any such streams announced through SAP
-	  will be offered to the phone user, who can select a favourite
-	  station and tune into others as they please.
-
-	  Your mileage may vary -- not all phones are powerful enough
-	  to decode Vorbis, and in fact some Vorbis streams could be
-	  too complex to decode live.  Furthermore, this codec may
-	  occupy more program memory than available on your phone.
-	  You can safely try it, and enjoy it if/when it works.
-
-	  TODO - not implemented yet.
-
-config FUNCTION_RADIO_MP3
-	bool "Internet radio with RTP/MP3 (READ HELP)"
-	default n
-	depends on FUNCTION_RADIO
-	help
-	  This toggle does not include MP3 support, it is a placeholder
-	  to explain why it is NOT SUPPORTED.
-
-	  MP3 is a tightly controlled codec, with patent license costs
-	  for every single device.  It is problematic to combine patents
-	  and expenses with an open source solution.  Although we would
-	  have liked to support MP3, you should probably resolve matters
-	  near your multicast router.  More info on MP3 licensing costs
-	  can be found on http://mp3licensing.com/royalty/hardware.html
-
-	  What you can do is setup a gstreamer pipeline that decodes MP3
-	  and re-encodes as RTP/L16, and multicasts that over IPv6.  Note
-	  that an MP3 plugin for gstreamer is kindly provided by Fluendo,
-	  on http://www.fluendo.com/shop/product/fluendo-mp3-decoder/
-
-config FUNCTION_RADIO_AAC
-	bool "Internet radio with RTP/AAC (READ HELP)"
-	default n
-	depends on FUNCTION_RADIO
-	help
-	  This toggle does not include AAC support, it is a placeholder
-	  to explain why it is NOT SUPPORTED.
-
-	  AAC is a controlled codec, although not as badly as MP3.  To
-	  avoid breaking the licenses for the codec, they may only be
-	  distributed as source code, which seems too restrictive to be
-	  worth the effort of adding it.  (Somewhat open for discussion.)
-
-	  What you can do is setup a gstreamer pipeline that decodes AAC
-	  and re-encodes as RTP/L16, and multicasts that over IPv6.  Note
-	  that a plugin for gstreamer is made available in the "bad"
-	  plugins collection for gstreamer, in a module named faad.
-
 config FUNCTION_NETCONSOLE
 	bool "LAN-based console"
+	depends on !MAINFUNCTION_DEVEL_GPIO && !MAINFUNCTION_DEVEL_TIMER && !MAINFUNCTION_DEVEL_KEYBOARD
 	default y if DEVEL=n
 	help
 	  Direct console traffic for the main application to the network.
@@ -221,6 +154,7 @@ config FUNCTION_NETCONSOLE
 
 config FUNCTION_FIRMWARE_UPGRADES
 	bool "Support firmware upgrades"
+	depends on !MAINFUNCTION_DEVEL_GPIO && !MAINFUNCTION_DEVEL_TIMER && !MAINFUNCTION_DEVEL_KEYBOARD && !MAINFUNCTION_DEVEL_SOUND
 	default y if MAINFUNCTION_BOOTLOADER=y
 	help
 	  It is possible, though not strictly required, to support
@@ -251,5 +185,7 @@ config FUNCTION_FIRMWARE_UPGRADES_BOOTLOADER
 	  tightly controlled firewall to avoid this from being abused.
 
 	  TODO: a polling TFTP client may in fact be better?
+
+source "src/codec/Kconfig"
 
 endmenu

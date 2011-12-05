@@ -369,8 +369,8 @@ netin_LLC1_sel:
 			return (intptr_t) netllc_tftp;
 		}
 		break;
-#endif // NETCONSOLE
-#ifdef CONFIG_FUNCTION_FIRMWARE_UPGRADES
+#endif // FIRMWARE_UPGRADES
+#ifdef CONFIG_FUNCTION_NETCONSOLE
 	case 0x7f:
 		if (mem [MEM_LLC_DSAP] == 20) {
 			return (intptr_t) netllc_console_sabme;
@@ -386,7 +386,7 @@ netin_LLC1_sel:
 			return (intptr_t) netllc_console_frmr;
 		}
 		break;
-#endif // FIRMWARE_UPGRADES
+#endif // NETCONSOLE
 	default:
 		break;
 	}
@@ -401,8 +401,8 @@ netin_LLC2_sel:
 		return (intptr_t) netllc_console_receiverfeedback;
 	}
 	return (intptr_t) NULL;
-}
 #endif // NETCONSOLE
 
 #endif // NETCONSOLE || FIRMWARE_UPGRADES
 
+}

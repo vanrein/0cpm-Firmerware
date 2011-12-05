@@ -1,5 +1,14 @@
 /* Grandstream BT20x driver as an extension to the tic55x driver
  *
+ * Ideally, all this would be is wiring to the generic functions of
+ * chips connected to the DSP.  And of course a lot of register setup
+ * code.  In practice, it is not as sharply divided, sometimes for
+ * reasons of efficiency, sometimes for other reasons.  The ideal is
+ * the best judgement however, and any debate on where code should go
+ * should be based on this ideal plus the realism that too much
+ * indirection will slow down a program that is going to deal with
+ * static hardware anyway.
+ *
  * This file is part of 0cpm Firmerware.
  *
  * 0cpm Firmerware is Copyright (c)2011 Rick van Rein, OpenFortress.
@@ -355,12 +364,78 @@ int16_t codec_encode (codec_t codec, uint16_t *in, uint16_t inlen, uint8_t *out,
 	return outlen - inlen;
 }
 
+/* If the chip has not been brought up yet, do it now */
+void tlv320aic2x_setup_chip (void) {
+	// Now, if not done yet, unreset and setup the TLV320AIC20K codec
+	if ((IODATA & (1 << 7)) == 0) {
+		volatile uint16_t ctr;
+		for (ctr=0; ctr < 7 * (600 / 12); ctr++) /* Wait 7x MCLK */ ;
+for (ctr=0; ctr < 7 * (600 / 12); ctr++) /* Wait 7x MCLK */ ;
+for (ctr=0; ctr < 7 * (600 / 12); ctr++) /* Wait 7x MCLK */ ;
+for (ctr=0; ctr < 7 * (600 / 12); ctr++) /* Wait 7x MCLK */ ;
+for (ctr=0; ctr < 7 * (600 / 12); ctr++) /* Wait 7x MCLK */ ;
+		IODATA |= (1 << 7);
+		for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
+for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
+for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
+for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
+for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
+	}
+}
+
+static int TODO_setratectr = 0;
+
 /* Set a frequency divisor for the intended sample rate */
+//TODO// Not all this code is properly split between generic TLV and specific BT200
 void tlv320aic2x_set_samplerate (uint32_t samplerate) {
+	uint16_t m, n, p;
 int chan = 0;
-#ifndef TODO_FS_ONLY_DURING_SOUND_IO
+	SPCR2_1 |= REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
+{ uint32_t ctr = 100; while (ctr-- > 0) ; }
+	SPCR1_1 |= REGVAL_SPCR1_RRST_NOTRESET;
+	SPCR2_1 |= REGVAL_SPCR2_XRST_NOTRESET;
+{ uint32_t ctr = 10000; while (ctr-- > 0) ; }
+	DXR1_1 = DXR1_1;	// Flag down XEMPTY
+tlv320aic2x_setreg (chan, 3, 0x31);	// Channel offline
+{ uint32_t ctr = 1000; while (ctr-- > 0) ; }
+	(void) DRR1_1;		// Flag down RFULL
+	(void) DRR1_1;
+	// Determine the dividors m, n and p
+	n = 1;
+	p = 2;
+	m = ( 30720000 / 16 ) / ( n * p * samplerate );
+// #ifdef TODO_OPTIMISE_PLL_AWAY
+	if (m % 8 == 0) {
+		// Save PLL energy without compromising accuracy
+		p = 8;		// Factor 2 -> 8 so multiplied by 8
+		m >>= 2;	// Divide by 4
+	}
+// #endif
+	while (m > 128) {
+		m >>= 1;
+		n <<= 1;
+	}
+{ uint8_t ip4 [4]; ip4 [0] = m; ip4 [1] = n; ip4 [2] = p; ip4 [3] = ++TODO_setratectr; bottom_show_ip4 (APP_LEVEL_CONNECTING, ip4); }
+bottom_printf ("TLV320AIC20K setting: M=%d, N=%d, P=%d\n", (intptr_t) m, (intptr_t) n, (intptr_t) p);
+	m &= 0x7f;
+	n &= 0x0f;	// Ignore range problems?
+	p &= 0x07;
+	// With the codec up and running, configure the sample rate
+	tlv320aic2x_setreg (chan, 4, 0x00 | (n << 3) | p);
+	tlv320aic2x_setreg (chan, 4, 0x80 | m);
+{ uint32_t ctr = 1000; while (ctr-- > 0) ; }
+// #ifndef TODO_FS_ONLY_DURING_SOUND_IO
+	// SPCR2_1 |= REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
+	// SPCR1_1 |= REGVAL_SPCR1_RRST_NOTRESET;
+	// SPCR2_1 |= REGVAL_SPCR2_XRST_NOTRESET;
+	SPCR1_1 &= ~REGVAL_SPCR1_RRST_NOTRESET;
+	SPCR2_1 &= ~REGVAL_SPCR2_XRST_NOTRESET;
+{ uint32_t ctr = 10000; while (ctr-- > 0) ; }
 	SPCR2_1 &= ~ ( REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET );
-#endif
+{ uint32_t ctr = 10000; while (ctr-- > 0) ; }
+	// SPCR2_1 &= ~ ( REGVAL_SPCR2_FRST_NOTRESET );
+{ uint32_t ctr = 10000; while (ctr-- > 0) ; }
+// #endif
 	samplerate = 12288000 / samplerate;
 	if (samplerate >= 4096) {
 		samplerate = 4096;
@@ -368,24 +443,24 @@ int chan = 0;
 		samplerate = 1;
 	}
 	SRGR2_1 = REGVAL_SRGR2_CLKSM | REGVAL_SRGR2_FSGM | (samplerate - 1);
-//TODO// tlv320aic2x_setreg (chan, 4, 0x00 | ((6 & 0x0f) << 3) | (2 & 0x07));	// N:=6, P:=2
-//TODO// tlv320aic2x_setreg (chan, 4, 0x80 | (16 & 0x7f));			// M:=16
-#ifndef TODO_FS_ONLY_DURING_SOUND_IO
-	SPCR2_1 |= REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
+// #ifndef TODO_FS_ONLY_DURING_SOUND_IO
+	// SPCR2_1 |= REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
+	SPCR2_1 |= REGVAL_SPCR2_GRST_NOTRESET;
+tlv320aic2x_setreg (chan, 3, 0x01);	// Channel online
+{ uint32_t ctr = 1000; while (ctr-- > 0) ; }
+	// tlv320aic2x_setreg (chan, 4, 0x00 | (n << 3) | p);
+	// tlv320aic2x_setreg (chan, 4, 0x80 | m);
+// { uint32_t ctr = 10000; while (ctr-- > 0) ; }
 	SPCR1_1 |= REGVAL_SPCR1_RRST_NOTRESET;
 	SPCR2_1 |= REGVAL_SPCR2_XRST_NOTRESET;
-#endif
-	// Now, if not done yet, unreset and setup the TLV320AIC20K codec
-	if ((IODATA & (1 << 7)) == 0) {
-		volatile uint8_t ctr;
-		IODATA |= (1 << 7);
-		for (ctr=0; ctr < 132; ctr++) {
-			asm (" nop");  /* Wait at least 132 MCLK cycles */
-			asm (" nop");
-			asm (" nop");
-			asm (" nop");
-		}
-	}
+{ uint32_t ctr = 1000; while (ctr-- > 0) ; }
+	SPCR2_1 |= REGVAL_SPCR2_FRST_NOTRESET;
+{ uint32_t ctr = 10000; while (ctr-- > 0) ; }
+	DXR1_1 = DXR1_1;	// Flag down XEMPTY
+	(void) DRR1_1;	// Flag down RFULL
+	(void) DRR1_1;
+{ uint32_t ctr = 10000; while (ctr-- > 0) ; }
+// #endif
 }
 
 /* A full frame of 64 samples has been recorded.  See if space exists for
@@ -398,12 +473,12 @@ interrupt void tic55x_dmac0_isr (void) {
 		SPCR2_1 &= ~REGVAL_SPCR2_XRST_NOTRESET;
 		SPCR2_1 |=  REGVAL_SPCR2_XRST_NOTRESET;
 		DMACCR_0 &= ~REGVAL_DMACCR_EN;
-#ifdef TODO_FS_ONLY_DURING_SOUND_IO
-		SPCR1_1 &= ~REGVAL_SPCR1_RRST_NOTRESET;
-		if ((SPCR2_1 & REGVAL_SPCR2_XRST_NOTRESET) == 0) {
-			SPCR2_1 &= ~ (REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET);
-		}
-#endif
+// #ifdef TODO_FS_ONLY_DURING_SOUND_IO
+		// SPCR1_1 &= ~REGVAL_SPCR1_RRST_NOTRESET;
+		// if ((SPCR2_1 & REGVAL_SPCR2_XRST_NOTRESET) == 0) {
+			// SPCR2_1 &= ~ (REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET);
+		// }
+// #endif
 	}
 	if (available_record >= threshold_record) {
 		top_can_record (available_record);
@@ -418,12 +493,12 @@ interrupt void tic55x_dmac1_isr (void) {
 	uint16_t toplay;
 	tic55x_top_has_been_interrupted = true;
 	if ((available_play -= 64) < 64) {
-#ifdef TODO_FS_ONLY_DURING_SOUND_IO
-		SPCR2_1 &= ~REGVAL_SPCR2_XRST_NOTRESET;
-		if ((SPCR1_1 & REGVAL_SPCR1_RRST_NOTRESET) == 0) {
-			SPCR2_1 &= ~ (REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET);
-		}
-#endif
+// #ifdef TODO_FS_ONLY_DURING_SOUND_IO
+		// SPCR2_1 &= ~REGVAL_SPCR2_XRST_NOTRESET;
+		// if ((SPCR1_1 & REGVAL_SPCR1_RRST_NOTRESET) == 0) {
+			// SPCR2_1 &= ~ (REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET);
+		// }
+// #endif
 		DMACCR_1 &= ~REGVAL_DMACCR_EN;
 	}
 	toplay = BUFSZ - available_play;
@@ -436,16 +511,17 @@ interrupt void tic55x_dmac1_isr (void) {
  * it may be possible to restart DMA channel 1 if it was disabled.
  */
 void dmahint_record (void) {
+return; //TODO// TMP-DISABLE DMAHINTS
 	if (! (DMACCR_0 & REGVAL_DMACCR_EN)) {
 		if (available_record <= (BUFSZ - 64)) {
 			if (!(DMACCR_0 & REGVAL_DMACCR_EN)) {
 				(void) DRR1_1;	// Flag down RFULL
 				(void) DRR1_1;
 				DMACCR_0 |= REGVAL_DMACCR_EN;
-#ifdef TODO_FS_ONLY_DURING_SOUND_IO
-				SPCR1_1 |= REGVAL_SPCR1_RRST_NOTRESET;
-				SPCR2_1 |= REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
-#endif
+// #ifdef TODO_FS_ONLY_DURING_SOUND_IO
+				// SPCR1_1 |= REGVAL_SPCR1_RRST_NOTRESET;
+				// SPCR2_1 |= REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
+// #endif
 			}
 // bottom_printf ("dmahint_record() enabled DMA from %d bytes out of %d\n", (intptr_t) available_record, (intptr_t) BUFSZ);
 		}
@@ -456,13 +532,14 @@ void dmahint_record (void) {
  * be possible to restart DMA channel 0 if it was disabled.
  */
 void dmahint_play (void) {
+return; //TODO// TMP-DISABLE DMAHINTS
 	if ((available_play >= 64) && ! (DMACCR_1 & REGVAL_DMACCR_EN)) {
 		DXR1_1 = DXR1_1;	// Flag down XEMPTY
 		DMACCR_1 |= REGVAL_DMACCR_EN;
 bottom_printf ("dmahint_play() started playing DMA\n");
-#ifdef TODO_FS_ONLY_DURING_SOUND_IO
-		SPCR2_1 |= REGVAL_SPCR2_XRST_NOTRESET | REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
-#endif
+// #ifdef TODO_FS_ONLY_DURING_SOUND_IO
+		// SPCR2_1 |= REGVAL_SPCR2_XRST_NOTRESET | REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
+// #endif
 	}
 //TODO:DEBUG// else bottom_printf ("dmahint_play() did not start playing -- available_play = %d\n", (intptr_t) available_play);
 }
@@ -939,7 +1016,8 @@ void main (void) {
 	PLLCSR |= REGVAL_PLLCSR_PLLEN;
 	PLLDIV1 = REGVAL_PLLDIVx_DxEN | REGVAL_PLLDIVx_PLLDIVx_2;
 	PLLDIV2 = REGVAL_PLLDIVx_DxEN | REGVAL_PLLDIVx_PLLDIVx_4;
-	//TODO// PLLDIV3 = REGVAL_PLLDIVx_DxEN | REGVAL_PLLDIVx_PLLDIVx_4;
+	PLLDIV3 = REGVAL_PLLDIVx_DxEN | REGVAL_PLLDIVx_PLLDIVx_4;
+	//TODO// PLLDIV3 = REGVAL_PLLDIVx_DxEN | REGVAL_PLLDIVx_PLLDIVx_2;
 	//TODO// PLLCSR |= REGVAL_PLLCSR_PLLEN;
 	// Now we have:
 	//	CPU clock is 245.76 MHz
@@ -949,7 +1027,9 @@ void main (void) {
 	// EMIF settings, see SPRU621F, section 2.12 on "EMIF Registers"
 	//
 	EGCR1 = 0xff7f;
-	EGCR2 = 0x0009;
+	// EGCR2 = 0x0009; // ECLKOUT2-DIV-4
+// EGCR2 = 0x0001;	//ECLKOUT2-DIV-1//
+EGCR2 = 0x0005;	//ECLKOUT2-DIV-2//
 	// EGCR1 = ...;   // (defaults)
 	// EGCR2 = ...;   // (defaults)
 	// CESCR1 = ...;   // (defaults)
@@ -1005,7 +1085,10 @@ void main (void) {
 	SPCR2_1 = 0x0000;	// Disable/reset sample rate generator
 	SRGR1_1 = REGVAL_SRGR1_FWID_1 | REGVAL_SRGR1_CLKGDIV_4;
 	SRGR2_1 = REGVAL_SRGR2_CLKSM | REGVAL_SRGR2_FSGM | REGVAL_SRGR2_FPER_1535;
-	PCR1 = /*TODO: (1 << REGBIT_PCR_IDLEEN) | */ (1 << REGBIT_PCR_FSXM) /* | (1 << REGBIT_PCR_FSRM) */ | (1 << REGBIT_PCR_CLKXM) /* | (1 << REGBIT_PCR_CLKRM) */ /* receive on falling, xmit on rising edge -- | (1 << REGBIT_PCR_CLKXP) | (1 << REGBIT_PCR_CLKRP) */;
+	//COPIED_BELOW// PCR1 = /*TODO: (1 << REGBIT_PCR_IDLEEN) | */ (1 << REGBIT_PCR_FSXM) /* | (1 << REGBIT_PCR_FSRM) */ | (1 << REGBIT_PCR_CLKXM) /* | (1 << REGBIT_PCR_CLKRM) */ /* receive on falling, xmit on rising edge -- | (1 << REGBIT_PCR_CLKXP) | (1 << REGBIT_PCR_CLKRP) */ ;
+	PCR1 = (1 << REGBIT_PCR_FSXM) | (1 << REGBIT_PCR_CLKXM);
+{ uint32_t ctr = 10000; while (ctr-- > 0) ; }
+// SPCR2_1 |= REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
 	RCR1_1 = (0 << 8) | (2 << 5);	// Read  1 frame of 16 bits per FS
 	XCR1_1 = (0 << 8) | (2 << 5);	// Write 1 frame of 16 bits per FS
 	RCR2_1 = 0x0001;		// Read  with 1 clockcycle delay
@@ -1034,7 +1117,7 @@ void main (void) {
 	// The total buffer is 1600 samples of 16 bits long.  Each time a
 	// frame send finishes, an interrupt checks if there is another
 	// frame of 64 samples ready to go; if not, it will disable the
-	// DMA channel.  Hint routines service to restart DMA after that.
+	// DMA channel.  Hint routines serve to restart DMA after that.
 	// Conversely, the DMA interrupt handlers can make top-calls to
 	// indicate that data is ready for reading or that space is
 	// available for writing.
@@ -1043,6 +1126,7 @@ void main (void) {
 	//
 	DMAGCR = REGVAL_DMAGCR_FREE;
 	DMAGTCR = 0x00;		// No timeout support
+#ifdef TODO_DMA_CONFIGUREREN_BIJ_OPSTART
 	DMACCR_0 = REGVAL_DMACCR_SRCAMODE_CONST | REGVAL_DMACCR_DSTAMODE_POSTINC | REGVAL_DMACCR_PRIO | REGVAL_DMACCR_SYNC_MCBSP1_REV | REGVAL_DMACCR_REPEAT | REGVAL_DMACCR_AUTOINIT;
 	DMACCR_1 = REGVAL_DMACCR_SRCAMODE_POSTINC | REGVAL_DMACCR_DSTAMODE_CONST | REGVAL_DMACCR_PRIO | REGVAL_DMACCR_SYNC_MCBSP1_TEV | REGVAL_DMACCR_REPEAT | REGVAL_DMACCR_AUTOINIT;
 	DMACICR_0 = REGVAL_DMACICR_FRAMEIE;
@@ -1070,15 +1154,17 @@ void main (void) {
 	DMACFN_0 = 1;
 	DMACFN_1 = 1;
 #endif
+#endif
 	/* TODO? */
 	//
 	// Further initiation follows
 	//
+	IODIR  |= (1 << 7) | (1 << 1);
+	IODATA  =            (1 << 1);	// Updated below small delay
 	for (idx = 0; idx < APP_LEVEL_COUNT; idx++) {
 		bt200_level_active [idx] = false;
 	}
-	IODIR  |= (1 << 7) | (1 << 1);
-	IODATA |=            (1 << 1);
+	IODATA |= (1 << 7) | (1 << 1);  // See above small delay
 	asm (" bclr xf");  // Switch off MESSAGE LED
 { uint16_t ctr = 250; while (ctr > 0) { ctr--; } }	
 	bottom_critical_region_begin (); // _disable_interrupts ();
@@ -1086,6 +1172,7 @@ void main (void) {
 	tic55x_setup_timers ();
 	tic55x_setup_interrupts ();
 	ht162x_setup_lcd ();
+	// tlv320aic2x_set_samplerate (8000);
 	tlv320aic2x_setup_sound ();
 	ksz8842_setup_network ();
 	// Enable INT0..INT3

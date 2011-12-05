@@ -32,8 +32,11 @@
 #include <0cpm/cons.h>
 
 
-
-/* Timers are deferred actions.  Some of those actions may be of a
+/** \ingroup kernel
+ * The timer function of the kernel helps to (re)schedule tasks
+ * that have been inactive for a while.
+ *
+ * Timers are deferred actions.  Some of those actions may be of a
  * repetitive nature (at fixed intervals) and others may be oneshots.
  *
  * The actions triggered after the specified time has passed are
@@ -72,7 +75,7 @@
  */
 
 
-/* The queue for waiting timer events.  There is no queue for ready
+/** The queue for waiting timer events.  There is no queue for ready
  * timer events; those are sent to general IRQ queues.
  */
 static irqtimer_t *irqtimer_wait_queue = NULL;
@@ -81,7 +84,7 @@ static bool irqtimer_interrupt_blocked = true;
 static bool irqtimer_interrupt_occurred = false;
 
 
-/* Process a timer interrupt.
+/** Process a timer interrupt.
  */
 timing_t top_timer_expiration (timing_t exptime) {
 	if (irqtimer_interrupt_blocked) {
@@ -101,7 +104,7 @@ timing_t top_timer_expiration (timing_t exptime) {
 }
 
 
-/* Enable or disable a timer interrupt.  This does not actually
+/** Enable or disable a timer interrupt.  This does not actually
  * stop the hardware interrupt from occurring, but it does stop
  * the queue from being observed or modified in the interrupt
  * handler routine.  This facility is useful to allow modifying
@@ -128,7 +131,7 @@ static void irqtimer_enable (void) {
 }
 
 
-/* Enqueue an initialised timer structure to the timer wait queue.
+/** Enqueue an initialised timer structure to the timer wait queue.
  */
 static void irqtimer_enqueue (irqtimer_t *tmr) {
 	irqtimer_t **here;
@@ -145,7 +148,7 @@ static void irqtimer_enqueue (irqtimer_t *tmr) {
 	irqtimer_enable ();
 }
 
-/* Setup a new timer by enqueueing its structure in the timer list.
+/** Setup a new timer by enqueueing its structure in the timer list.
  */
 void irqtimer_start (irqtimer_t *tmr, timing_t delay, irq_handler_t hdl, priority_t prio) {
 	tmr->tmr_irq.irq_next = NULL;
@@ -161,7 +164,7 @@ void irqtimer_start (irqtimer_t *tmr, timing_t delay, irq_handler_t hdl, priorit
 }
 
 
-/* Continue a repeating timer by adding the interval delay to the
+/** Continue a repeating timer by adding the interval delay to the
  * last expiry time.  If more than the timer interval has passed
  * since the last timer expiration, the timer will fire immediately.
  */
@@ -171,7 +174,7 @@ void irqtimer_restart (irqtimer_t *tmr, timing_t intval) {
 }
 
 
-/* Prematurely remove a timer from the timer queue.  If it is not
+/** Prematurely remove a timer from the timer queue.  If it is not
  * there, ignore that fact silently.  Note that there may still
  * be interrupts that were caused by the timer that is now being
  * stopped.  That may actually revive an interval timer.  TODO...

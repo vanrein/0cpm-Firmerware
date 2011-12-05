@@ -47,9 +47,9 @@
  * and so on instead of manipulating values with htons, ntohs and so on.
  */
 
-typedef struct { uint8_t b0             } nint8_t;
-typedef struct { uint8_t b0, b1         } nint16_t;
-typedef struct { uint8_t b0, b1, b2, b3 } nint32_t;
+typedef struct { uint8_t b0;             } nint8_t ;
+typedef struct { uint8_t b0, b1;         } nint16_t;
+typedef struct { uint8_t b0, b1, b2, b3; } nint32_t;
 
 #ifndef netget8
 #define netget8(a) ((uint8_t) (a).b0)

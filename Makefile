@@ -50,6 +50,7 @@ include src/kernel/Makefile
 include src/net/Makefile
 include src/sip/Makefile
 include src/phone/Makefile
+include src/codec/Makefile
 
 include src/target/Makefile
 include src/function/Makefile
@@ -74,6 +75,7 @@ configincludes: include/config.h
 -include $(objs-top-kernel-y:.o=.d)
 -include $(objs-top-net-y:.o=.d)
 -include $(objs-top-phone-y:.o=.d)
+-include $(objs-top-codec-y:.o=.d)
 -include $(objs-top-bottom-y:.o=.d)
 
 #
@@ -96,8 +98,11 @@ bin/top-net.o: $(objs-top-net-y)
 bin/top-phone.o: $(objs-top-phone-y)
 	PATH=$(BINPATH) $(LD) $(LDFLAGS) -r -o $@ $(objs-top-phone-y)
 
-# bin/top.o: bin/top-kernel.o bin/top-net.o bin/top-phone.o
-#	$(LD) $(LDFLAGS) -r -o $@ bin/top-kernel.o bin/top-net.o bin/top-phone.o
+bin/top-codec.o: $(objs-top-codec-y)
+	PATH=$(BINPATH) $(LD) $(LDFLAGS) -r -o $@ $(objs-top-codec-y)
+
+# bin/top.o: bin/top-kernel.o bin/top-net.o bin/top-phone.o bin/top-codec.o
+#	$(LD) $(LDFLAGS) -r -o $@ bin/top-kernel.o bin/top-net.o bin/top-phone.o bin/top-codec.o
 bin/top.o: $(objs-top-y)
 	PATH=$(BINPATH) $(LD) $(LDFLAGS) -r -o $@ $(objs-top-y)
 
@@ -110,12 +115,20 @@ bin/bottom.o: $(objs-bottom-y)
 tags: src/net/6bed4.c
 	ctags $(objs-top-kernel-y:.o=.c) $(objs-top-net-y:.o=.c) $(objs-top-phone-y:.o=.c) $(objs-bottom-y:.o=.c) include/0cpm/*.h include/config.h
 
+#
+# Create API documentation with doxygen
+#
+.PHONY += apidoc
+apidoc:
+	doxygen doc/doxygen.conf
+
 .PHONY += clean
 clean:
 	rm -f $(objs-top-y) $(objs-top-n) $(objs-top-)
 	rm -f $(objs-top-kernel-y) $(objs-top-kernel-n) $(objs-top-kernel-)
 	rm -f $(objs-top-net-y) $(objs-top-net-n) $(objs-top-net-)
 	rm -f $(objs-top-phone-y) $(objs-top-phone-n) $(objs-top-phone-)
+	rm -f $(objs-top-codec-y) $(objs-top-codec-n) $(objs-top-codec-)
 	# rm -f $(objs-top-net-y)
 	# rm -f $(objs-top-phone-y)
 	rm -f $(objs-bottom-y) $(objs-bottom-n) $(objs-bottom-)
@@ -144,6 +157,10 @@ size:
 	@echo '*** Top half phone sizes:'
 	@echo
 	@size $(objs-top-phone-y) || true
+	@echo
+	@echo '*** Top half codec sizes:'
+	@echo
+	@size $(objs-top-codec-y) || true
 	@echo
 	@echo '*** Bottom half sizes:'
 	@echo

@@ -114,6 +114,8 @@ static uint16_t nextread_record  = 0;
 void bottom_soundchannel_device (uint8_t chan, sounddev_t dev) {
 	if (dev != SOUNDDEV_NONE) {
 		tlv320aic2x_setreg (chan, 3, 0x00 | 0x01); /* power up */
+		tlv320aic2x_setreg (chan, 6, 0x00 | 0x00); /* no input or in=out */
+		tlv320aic2x_setreg (chan, 6, 0x80 | 0x00); /* no output */
 	}
 	switch (dev) {
 	case SOUNDDEV_NONE:
@@ -125,7 +127,7 @@ void bottom_soundchannel_device (uint8_t chan, sounddev_t dev) {
 		tlv320aic2x_setreg (chan, 3, 0x00 | 0x31); /* power down */
 		break;
 	case SOUNDDEV_HANDSET:
-		tlv320aic2x_setreg (chan, 6, 0x00 | 0x22);
+		tlv320aic2x_setreg (chan, 6, 0x00 | 0x02);
 		tlv320aic2x_setreg (chan, 6, 0x80 | 0x02);
 		break;
 	case SOUNDDEV_HEADSET:
@@ -180,6 +182,7 @@ void bottom_soundchannel_setvolume (uint8_t chan, uint8_t vol) {
 
 int16_t codec_decode (codec_t codec, uint8_t *in, uint16_t inlen, uint16_t *out, uint16_t outlen);
 int16_t codec_encode (codec_t codec, uint16_t *in, uint16_t inlen, uint8_t *out, uint16_t outlen);
+void tlv320aic2x_setup_chip (void);
 void tlv320aic2x_set_samplerate (uint32_t samplerate);
 
 
@@ -265,7 +268,20 @@ void bottom_codec_play_skip (codec_t codec, uint16_t samples) {
  */
 void tlv320aic2x_setup_sound (void) {
 	uint8_t chan;
+#if 0
+	tlv320aic2x_setreg (0, 3, 0x08);			/* Software reset */
+{ uint32_t ctr;
+	for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
+for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
+for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
+for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
+for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ; }
+#endif
+#if 1
+	tlv320aic2x_setup_chip ();
+#else
 	tlv320aic2x_set_samplerate (8000);
+#endif
 	// Setup the various registers in the TLV320AIC2x
 	for (chan = 0; chan < 2; chan++) {
 		tlv320aic2x_setreg (chan, 1,        0x49);	/* Continuous 16-bit, 2.35V bias */
@@ -276,8 +292,8 @@ void tlv320aic2x_setup_sound (void) {
 		/* Register 3C resets ok to 0x80 | (chip_id << 2) */
 		/* Register 3D resets ok to 0xc0: no LCD DAC */
 		/* TODO: Skip MNP setup, but samplerate-setup per phone may override */
-tlv320aic2x_setreg (chan, 4, 0x00 | ((6 & 0x0f) << 3) | (2 & 0x07));	// N:=6, P:=2
-tlv320aic2x_setreg (chan, 4, 0x80 | (16 & 0x7f));			// M:=16
+// tlv320aic2x_setreg (chan, 4, 0x00 | ((6 & 0x0f) << 3) | (2 & 0x07));	// N:=6, P:=2
+// tlv320aic2x_setreg (chan, 4, 0x80 | (16 & 0x7f));			// M:=16
 		tlv320aic2x_setreg (chan, 5, 0x00 | 0x12);	/* ADC gain 27 dB -- ok? */
 		bottom_soundchannel_setvolume (chan, 15);	/* DAC gain -24 dB initially */
 		tlv320aic2x_setreg (chan, 5, 0x80 | 0x00);	/* No sidetones */
