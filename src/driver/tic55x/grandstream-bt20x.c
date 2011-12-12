@@ -264,7 +264,7 @@ extern volatile uint16_t threshold_record;
 
 /* Copy encoded samples to plain samples */
 //TODO// Better to switch once and then loop in a separate routine which may even be .asm -- but that could require a codec-specific state storage structure
-int16_t codec_decode (codec_t codec, uint8_t *in, uint16_t inlen, uint16_t *out, uint16_t outlen) {
+int16_t codec_decode (codec_t codec, uint8_t *in, uint16_t inlen, int16_t *out, uint16_t outlen) {
 	while ((inlen > 0) && (outlen > 0)) {
 		register uint16_t outval;
 		register uint8_t inval = *in++;
@@ -309,8 +309,8 @@ int16_t codec_decode (codec_t codec, uint8_t *in, uint16_t inlen, uint16_t *out,
 
 /* Copy plain samples to encoded samples */
 //TODO// Better to switch once and then loop in a separate routine which may even be .asm -- but that could require a codec-specific state storage structure
-int16_t codec_encode (codec_t codec, uint16_t *in, uint16_t inlen, uint8_t *out, uint16_t outlen) {
-bottom_printf ("Have %d, %d, %d at %04x\n", (intptr_t) in [0], (intptr_t) in [1], (intptr_t) in [2], (intptr_t) in);
+int16_t codec_encode (codec_t codec, int16_t *in, uint16_t inlen, uint8_t *out, uint16_t outlen) {
+bottom_printf ("Have %d, %d, %d at %04x\n", (intptr_t) in [0] & 0x0000ffff, (intptr_t) in [1] & 0x0000ffff, (intptr_t) in [2] & 0x0000ffff, (intptr_t) in);
 	while ((inlen > 0) && (outlen > 0)) {
 		register uint16_t inval = *in++;
 		bool signbit;

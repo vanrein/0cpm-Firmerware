@@ -87,8 +87,8 @@ static uint8_t volume [2];
 
 #define BUFSZ (64*25)
 
-volatile uint16_t samplebuf_play   [BUFSZ];
-volatile uint16_t samplebuf_record [BUFSZ];
+volatile int16_t samplebuf_play   [BUFSZ];
+volatile int16_t samplebuf_record [BUFSZ];
 
 volatile uint16_t available_play   = 0;
 volatile uint16_t available_record = 0;
@@ -180,8 +180,8 @@ void bottom_soundchannel_setvolume (uint8_t chan, uint8_t vol) {
 /******** Calls to play or record through a codec ********/
 
 
-int16_t codec_decode (codec_t codec, uint8_t *in, uint16_t inlen, uint16_t *out, uint16_t outlen);
-int16_t codec_encode (codec_t codec, uint16_t *in, uint16_t inlen, uint8_t *out, uint16_t outlen);
+int16_t codec_decode (codec_t codec, uint8_t *in, uint16_t inlen, int16_t *out, uint16_t outlen);
+int16_t codec_encode (codec_t codec, int16_t *in, uint16_t inlen, uint8_t *out, uint16_t outlen);
 void tlv320aic2x_set_samplerate (uint8_t chan, uint32_t samplerate);
 
 
@@ -207,7 +207,7 @@ int16_t bottom_codec_play   (uint8_t chan, codec_t codec, uint8_t *coded_samples
 	//TODO// Guard against buffer wraparound
 	retval = codec_decode (codec,
 				coded_samples, coded_bytes,
-				(uint16_t *) (samplebuf_play + nextwrite_play), samples);
+				(int16_t *) (samplebuf_play + nextwrite_play), samples);
 	nextwrite_play += samples;
 	available_play += samples;
 	if (retval < 0) {
@@ -229,7 +229,7 @@ int16_t bottom_codec_record (uint8_t chan, codec_t codec, uint8_t *coded_samples
 		samples = ar;
 	}
 	retval = codec_encode (codec,
-				(uint16_t *) (samplebuf_record + nextread_record), samples,
+				(int16_t *) (samplebuf_record + nextread_record), samples,
 				coded_samples, coded_bytes);
 	nextread_record += samples;
 	available_record -= samples;
