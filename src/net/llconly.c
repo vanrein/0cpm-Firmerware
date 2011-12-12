@@ -18,7 +18,8 @@
  */
 
 
-/* This mini network stack is designed for very simple targets,
+/**
+ * This mini network stack is designed for very simple targets,
  * such as network testing or a bootloader.  It only supports
  * IEEE 802.2, that is, LLC.  And it even does a fairly modest
  * job at that.
@@ -28,6 +29,11 @@
  * higher purpose in mind.  It is not designed to integrate with
  * a more complete network stack like the phone application's.
  * Hence the name llconly.c!
+ *
+ * Use this minimal network stack where you have no other way of
+ * extracting logs, or exchanging bootloadables.  There is an
+ * alternative LLC implementation in the "real" phone firmware,
+ * which is much better because it can rely on resend timers.
  *
  * From: Rick van Rein <rick@openfortress.nl>
  */

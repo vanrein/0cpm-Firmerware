@@ -116,8 +116,8 @@ void top_can_record (uint16_t samples) {
 }
 
 
-#define top_main_sine_1khz  top_main
-// #define top_main_delay_1sec top_main
+// #define top_main_sine_1khz  top_main
+#define top_main_delay_1sec top_main
 
 
 #ifdef CONFIG_FUNCTION_NETCONSOLE
@@ -144,6 +144,7 @@ uint16_t sinewaveL16 [8] = {
 void top_main_sine_1khz (void) {
 	uint16_t oldirqs = 0;
 extern volatile uint16_t available_play;
+extern volatile uint16_t available_record;
 uint8_t l16ctr = 1;
 	top_hook_update (bottom_phone_is_offhook ());
 	bottom_critical_region_end ();
@@ -157,10 +158,10 @@ uint8_t l16ctr = 1;
 		uint16_t newplayed = tobeplayed;
 		uint16_t oldplayed = newplayed;
 		if (oldirqs != plyirqs) {
-			bottom_printf ("New playing IRQs detected\n");
+			bottom_printf ("New playing IRQs detected; available_play=%d, available_record=%d\n", (intptr_t) available_play, (intptr_t) available_record);
 			oldirqs = plyirqs;
 		}
-#if 1
+#if 0
 if (SPCR2_1 & REGVAL_SPCR2_XRDY) { DXR1_1 = sinewaveL16 [l16ctr++]; if (l16ctr == 8) { l16ctr = 0; } }
 { uint16_t _ = DRR1_1; }
 #else
@@ -169,10 +170,10 @@ if (SPCR2_1 & REGVAL_SPCR2_XRDY) { DXR1_1 = sinewaveL16 [l16ctr++]; if (l16ctr =
 			newplayed -= 8;
 		}
 #endif
-#if 0
+#if 1
 		if (oldplayed != newplayed) {
 			bottom_printf ("available_play := %d\n", (intptr_t) available_play);
-			bottom_printf ("Playbuffer reduced from %d to %d\n", (intptr_t) oldplayed, (intptr_t) newplayed);
+			// bottom_printf ("Playbuffer reduced from %d to %d\n", (intptr_t) oldplayed, (intptr_t) newplayed);
 		}
 #endif
 
@@ -222,10 +223,11 @@ uint16_t oldspcr1 = 0xffff;
 uint16_t loop = 0;
 	bottom_critical_region_end ();
 	top_hook_update (bottom_phone_is_offhook ());
-	bottom_codec_play_samplerate (PHONE_CHANNEL_TELEPHONY, 8000);
-	bottom_codec_record_samplerate (PHONE_CHANNEL_TELEPHONY, 8000);
+	memset (samples, 0 + 128, sizeof (samples));
+	bottom_codec_play_samplerate (PHONE_CHANNEL_TELEPHONY, 1000);
+	bottom_codec_record_samplerate (PHONE_CHANNEL_TELEPHONY, 1000);
 	bottom_soundchannel_setvolume (PHONE_CHANNEL_TELEPHONY, 127);
-	bottom_show_fixed_msg (APP_LEVEL_ZERO, FIXMSG_READY); // TODO: Not really necessary
+	bottom_show_fixed_msg (APP_LEVEL_ZERO, FIXMSG_READY);
 	bottom_printf ("Running the development function \"echo\" (Test sound)\n");
 	while (true) {
 #if 0
@@ -255,17 +257,19 @@ bottom_led_set (LED_IDX_HANDSET, 1);
 				rec = 10000 - recpos;
 			}
 			if (rec > 0) {
-				bottom_printf ("Recording %d extends buffer from %d to %d\n", (intptr_t) rec, (intptr_t) sampled, (intptr_t) (rec+sampled));
+				// bottom_printf ("Recording %d at %d extends buffer from %d to %d\n", (intptr_t) rec, (intptr_t) recpos, (intptr_t) sampled, (intptr_t) (rec+sampled));
+				// bottom_printf ("Recording %d at %d\n", (intptr_t) rec, (intptr_t) recpos);
 				// Codec implies that #samples and #bytes are the same
-				rec -= abs (bottom_codec_record (0, CODEC_G711A, samples + recpos, rec, rec));
+				rec -= abs (bottom_codec_record (0, CODEC_L8, samples + recpos, rec, rec));
+				bottom_printf ("Got 0x%02x, 0x%02x, 0x%02x, ...\n", (intptr_t) samples [recpos], (intptr_t) samples [recpos+1], (intptr_t) samples [recpos+2]);
 				sampled += rec;
 				recpos += rec;
 				if (recpos >= 10000) {
-					recpos = 0;
+					recpos -= 10000;
 				}
 				bottom_critical_region_begin ();
 				//TODO:SPYING-ON-NEXT-LINE// toberecorded -= rec;
-				{ extern uint16_t available_record; toberecorded = available_record; }
+				{ extern volatile uint16_t available_record; toberecorded = available_record; }
 				bottom_critical_region_end ();
 			}
 bottom_led_set (LED_IDX_SPEAKERPHONE, 0);
@@ -277,12 +281,13 @@ bottom_led_set (LED_IDX_SPEAKERPHONE, 1);
 				ply = 10000 - playpos;
 			}
 			if (ply > 0) {
-				bottom_printf ("Playback of %d samples reduces buffer from %d to %d\n", (intptr_t) ply, (intptr_t) sampled, (intptr_t) (sampled - ply));
-				ply -= abs (bottom_codec_play (0, CODEC_G711A, samples + playpos, ply, ply));
+				// bottom_printf ("Playback of %d samples at %d reduces buffer from %d to %d\n", (intptr_t) ply, (intptr_t) playpos, (intptr_t) sampled, (intptr_t) (sampled - ply));
+				// bottom_printf ("Playback of %d samples at %d\n", (intptr_t) ply, (intptr_t) playpos);
+				ply -= abs (bottom_codec_play (0, CODEC_L8, samples + playpos, ply, ply));
 				sampled -= ply;
 				playpos += ply;
 				if (playpos >= 10000) {
-					playpos = 0;
+					playpos -= 10000;
 				}
 bottom_led_set (LED_IDX_HANDSET, 0);
 			}

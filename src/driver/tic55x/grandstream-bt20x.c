@@ -270,8 +270,8 @@ int16_t codec_decode (codec_t codec, uint8_t *in, uint16_t inlen, uint16_t *out,
 		register uint8_t inval = *in++;
 		switch (codec) {
 		case CODEC_L8:
-			//TODO// *out++ = (inval ^ 0x80) << 8;
-*out++ = 16384 + 1 + (outlen & 0x01)? 0: 32768;
+			*out++ = (inval ^ 0x80) << 8;
+//DOH!// *out++ = 16384 + 1 + (outlen & 0x01)? 0: 32768;
 			break;
 		case CODEC_L16:
 			*out++ = inval;
@@ -310,6 +310,7 @@ int16_t codec_decode (codec_t codec, uint8_t *in, uint16_t inlen, uint16_t *out,
 /* Copy plain samples to encoded samples */
 //TODO// Better to switch once and then loop in a separate routine which may even be .asm -- but that could require a codec-specific state storage structure
 int16_t codec_encode (codec_t codec, uint16_t *in, uint16_t inlen, uint8_t *out, uint16_t outlen) {
+bottom_printf ("Have %d, %d, %d at %04x\n", (intptr_t) in [0], (intptr_t) in [1], (intptr_t) in [2], (intptr_t) in);
 	while ((inlen > 0) && (outlen > 0)) {
 		register uint16_t inval = *in++;
 		bool signbit;
@@ -357,39 +358,18 @@ int16_t codec_encode (codec_t codec, uint16_t *in, uint16_t inlen, uint8_t *out,
 			*out++ = 0x00;
 			break;
 		}
-		*out++ = *in++ >> 8;
 		inlen--;
 		outlen--;
 	}
 	return outlen - inlen;
 }
 
-/* If the chip has not been brought up yet, do it now */
-void tlv320aic2x_setup_chip (void) {
-	// Now, if not done yet, unreset and setup the TLV320AIC20K codec
-	if ((IODATA & (1 << 7)) == 0) {
-		volatile uint16_t ctr;
-		for (ctr=0; ctr < 7 * (600 / 12); ctr++) /* Wait 7x MCLK */ ;
-for (ctr=0; ctr < 7 * (600 / 12); ctr++) /* Wait 7x MCLK */ ;
-for (ctr=0; ctr < 7 * (600 / 12); ctr++) /* Wait 7x MCLK */ ;
-for (ctr=0; ctr < 7 * (600 / 12); ctr++) /* Wait 7x MCLK */ ;
-for (ctr=0; ctr < 7 * (600 / 12); ctr++) /* Wait 7x MCLK */ ;
-		IODATA |= (1 << 7);
-		for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
-for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
-for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
-for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
-for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
-	}
-}
-
 static int TODO_setratectr = 0;
 
 /* Set a frequency divisor for the intended sample rate */
 //TODO// Not all this code is properly split between generic TLV and specific BT200
-void tlv320aic2x_set_samplerate (uint32_t samplerate) {
+void tlv320aic2x_set_samplerate (uint8_t chan, uint32_t samplerate) {
 	uint16_t m, n, p;
-int chan = 0;
 	SPCR2_1 |= REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
 { uint32_t ctr = 100; while (ctr-- > 0) ; }
 	SPCR1_1 |= REGVAL_SPCR1_RRST_NOTRESET;
@@ -404,13 +384,11 @@ tlv320aic2x_setreg (chan, 3, 0x31);	// Channel offline
 	n = 1;
 	p = 2;
 	m = ( 30720000 / 16 ) / ( n * p * samplerate );
-// #ifdef TODO_OPTIMISE_PLL_AWAY
 	if (m % 8 == 0) {
 		// Save PLL energy without compromising accuracy
 		p = 8;		// Factor 2 -> 8 so multiplied by 4
 		m >>= 2;	// Divide by 4
 	}
-// #endif
 	while (m > 128) {
 		m >>= 1;
 		n <<= 1;
@@ -1132,7 +1110,6 @@ EGCR2 = 0x0005;	//ECLKOUT2-DIV-2//
 	//
 	DMAGCR = REGVAL_DMAGCR_FREE;
 	DMAGTCR = 0x00;		// No timeout support
-#ifdef TODO_DMA_CONFIGUREREN_BIJ_OPSTART
 	DMACCR_0 = REGVAL_DMACCR_SRCAMODE_CONST | REGVAL_DMACCR_DSTAMODE_POSTINC | REGVAL_DMACCR_PRIO | REGVAL_DMACCR_SYNC_MCBSP1_REV | REGVAL_DMACCR_REPEAT | REGVAL_DMACCR_AUTOINIT;
 	DMACCR_1 = REGVAL_DMACCR_SRCAMODE_POSTINC | REGVAL_DMACCR_DSTAMODE_CONST | REGVAL_DMACCR_PRIO | REGVAL_DMACCR_SYNC_MCBSP1_TEV | REGVAL_DMACCR_REPEAT | REGVAL_DMACCR_AUTOINIT;
 	DMACICR_0 = REGVAL_DMACICR_FRAMEIE;
@@ -1160,7 +1137,6 @@ EGCR2 = 0x0005;	//ECLKOUT2-DIV-2//
 	DMACFN_0 = 1;
 	DMACFN_1 = 1;
 #endif
-#endif
 	/* TODO? */
 	//
 	// Further initiation follows
@@ -1172,7 +1148,7 @@ EGCR2 = 0x0005;	//ECLKOUT2-DIV-2//
 	tic55x_setup_timers ();
 	tic55x_setup_interrupts ();
 	ht162x_setup_lcd ();
-	// tlv320aic2x_set_samplerate (8000);
+	// tlv320aic2x_set_samplerate (0, 8000);
 	tlv320aic2x_setup_sound ();
 	ksz8842_setup_network ();
 	// Enable INT0..INT3

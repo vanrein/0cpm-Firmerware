@@ -71,7 +71,7 @@
 
 uint8_t tlv320aic2x_getreg (uint8_t channel, uint8_t reg);
 void tlv320aic2x_setreg (uint8_t channel, uint8_t reg, uint8_t val);
-void tlv320aic2x_set_samplerate (uint32_t samplerate);
+void tlv320aic2x_set_samplerate (uint8_t chan, uint32_t samplerate);
 void dmahint_play   (void);
 void dmahint_record (void);
 
@@ -182,8 +182,7 @@ void bottom_soundchannel_setvolume (uint8_t chan, uint8_t vol) {
 
 int16_t codec_decode (codec_t codec, uint8_t *in, uint16_t inlen, uint16_t *out, uint16_t outlen);
 int16_t codec_encode (codec_t codec, uint16_t *in, uint16_t inlen, uint8_t *out, uint16_t outlen);
-void tlv320aic2x_setup_chip (void);
-void tlv320aic2x_set_samplerate (uint32_t samplerate);
+void tlv320aic2x_set_samplerate (uint8_t chan, uint32_t samplerate);
 
 
 void bottom_codec_play_samplerate   (uint8_t chan, uint32_t samplerate) {
@@ -194,7 +193,7 @@ void bottom_codec_play_samplerate   (uint8_t chan, uint32_t samplerate) {
 	 * TODO: Consider disabling over 52000 (which is already excessive)
 	 * TODO: Consider downsampling of rediculously high rates
 	 */
-	tlv320aic2x_set_samplerate (samplerate);
+	tlv320aic2x_set_samplerate (chan, samplerate);
 }
 
 void bottom_codec_record_samplerate (uint8_t chan, uint32_t samplerate) {
@@ -230,13 +229,16 @@ int16_t bottom_codec_record (uint8_t chan, codec_t codec, uint8_t *coded_samples
 		samples = ar;
 	}
 	retval = codec_encode (codec,
-				(uint16_t *) (samplebuf_play + nextread_play), samples,
+				(uint16_t *) (samplebuf_record + nextread_record), samples,
 				coded_samples, coded_bytes);
 	nextread_record += samples;
 	available_record -= samples;
 	if (retval < 0) {
 		nextread_record += retval;
 		available_record -= retval;
+	}
+	if (nextread_record >= BUFSZ) {
+		nextread_record -= BUFSZ;
 	}
 	dmahint_record ();
 	return retval;
@@ -268,20 +270,7 @@ void bottom_codec_play_skip (codec_t codec, uint16_t samples) {
  */
 void tlv320aic2x_setup_sound (void) {
 	uint8_t chan;
-#if 0
-	tlv320aic2x_setreg (0, 3, 0x08);			/* Software reset */
-{ uint32_t ctr;
-	for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
-for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
-for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
-for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ;
-for (ctr=0; ctr < 132 * (600 / 12); ctr++) /* Wait at least 132 MCLK cycles */ ; }
-#endif
-#if 0
-	// tlv320aic2x_setup_chip ();
-#else
-	tlv320aic2x_set_samplerate (8000);
-#endif
+	tlv320aic2x_set_samplerate (0, 8000);			/* Only once per codec */
 	// Setup the various registers in the TLV320AIC2x
 	for (chan = 0; chan < 2; chan++) {
 		tlv320aic2x_setreg (chan, 1,        0x49);	/* Continuous 16-bit, 2.35V bias */

@@ -669,6 +669,12 @@ off-hook to determine the mode.  Other interfaces (headset and line)
 are not tested, as they are not as vital, and will be much simpler
 to debug after one or two sound paths have shown to work.
 
+Please be careful during these tests -- the sound may suddenly jump
+up in volume, and you should not have the headset anywhere near your
+ears if that happens.  Also, avoid elongated high-volume and/or
+high-pitch sounds while working to get sound to behave.  Your
+hearing is a precious instrument!
+
 To build this, you would normally have to write a driver for the
 sound chip or codec.  This is best done through DMA, as that is the
 best way of assuring a constant playing rate for samples.  An
