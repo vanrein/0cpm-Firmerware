@@ -48,13 +48,9 @@ To build, run::
 
 To test, run a command like this on each side::
 
-	./rtt_desktop_test /dev/tty3 2001:db8:123::45 1212 2001:db8:99::6 1313
+	./rtt_desktop_test 2001:db8:123::45 1212 2001:db8:99::6 1313
 
 The parameters are:
-
-* ``/dev/tty3`` is the terminal to which output should be sent.  The terminal
-  on which this is run will become the input terminal.  Using different
-  terminals for input and output avoids cluttered output.
 
 * ``2001:db8:123::45`` and ``1212`` are the local address and port to bind to.
 

@@ -58,6 +58,7 @@ config MAINFUNCTION_DEVEL_SOUND
 	bool "Test sound"
 	depends on DEVEL
 	select FUNCTION_DEVEL_SOUNDIO
+	select CODEC_G711
 	help
 	  This test turns your phone into an echo well.  While off-hook, it will
 	  echo handset voice to the handset with a one-second delay.  If it is

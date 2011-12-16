@@ -53,6 +53,8 @@
 // 101	audio/telephone-event	8000	LOCAL (but commonly used)
 // 110	audio/G726-32		8000	LOCAL
 // 111	audio/AAL2-G726-32	8000	LOCAL
+// 115	audio/L8		var.	LOCAL
+// 116  audio/L16		var.	LOCAL
 // 125  audio/x-codec2		2550	LOCAL
 // 124  audio/x-codec2		2400	LOCAL
 // 123  audio/x-codec2		2000	LOCAL
@@ -61,6 +63,51 @@
 // 126	audio/speex		var.	LOCAL
 // 127	audio/vorbis		var.	LOCAL
 
+
+
+static void null_init (struct codec *hdl, uint32_t samplerate) {
+	;
+}
+
+static void null_finish (struct codec *hdl) {
+	;
+}
+
+
+/********** L8 AND L16 DEFINITIONS **********/
+
+
+#ifdef CONFIG_CODEC_L8_L16
+
+struct codec_fun decoder_l8 = {
+	"audio", "L8", NULL,
+	"L8",
+	null_init, null_finish, l8_decode,
+	8000, 115
+};
+
+struct codec_fun encoder_l8 = {
+	"audio", "L8", NULL,
+	"L8",
+	null_init, null_finish, l8_encode,
+	8000, 115
+};
+
+struct codec_fun decoder_l16 = {
+	"audio", "L16", NULL,
+	"L16",
+	null_init, null_finish, l16_decode,
+	8000, 116
+};
+
+struct codec_fun encoder_l16 = {
+	"audio", "L16", NULL,
+	"L16",
+	null_init, null_finish, l16_encode,
+	8000, 116
+};
+
+#endif
 
 
 /********** G.711 DEFINITIONS **********/

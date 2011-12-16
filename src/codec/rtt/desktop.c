@@ -252,8 +252,10 @@ int main (int argc, char *argv []) {
 	// Test arguments
 	if (argc != 5) {
 		fprintf (stderr, "Usage: %s myAddr myPort remoteAddr remotePort\n"
-				"   Where is an output terminal, and addresses are IPv6 (as RTP would deliver).\n"
-				"   This is not a fancy interface, but rather demonstrates the protocol.\n",
+				"   This is how RTP would setup this connection after SDP exchange over SIP.\n"
+				"   The addresses myAddr and remoteAddr are IPv6 addresses.  You could use\n"
+				"   the IPv4-syntax ::123.45.67.89 but firewall traversal would probably fail.\n"
+				"   Please expect nothing fancy, this is just a protocol demonstration!\n",
 			argv [0]);
 		exit (1);
 	}

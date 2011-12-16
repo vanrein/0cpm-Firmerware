@@ -23,6 +23,7 @@ Codecs that are large or contraversial are optional:
 * Ogg decoding is computationally heavy, and could be done by a central node
 * Speex encoder/decoder consumes about 100 kB of code size
 * L16 as it might not be to everyone's taste to have an open sound player next to them
+* T.38 over UDP is the best FoIP method; it locally integrates with TFTP over LLC1
 
 Note that RTT is hardly contraversial -- it is about 1 kB of code, and can add great
 benefit to all users -- not just the deaf or speech impaired.  Making it available
@@ -30,3 +31,4 @@ by default not only creates a World were handicaps cause less isolation, but it 
 sends a strong signal to PBX developers to start texting their IVR menus so we can
 get on wading through lists of options.  The only case where RTT is not to be built
 into the 0cpm Firmerware is actually when there is no display to use.
+

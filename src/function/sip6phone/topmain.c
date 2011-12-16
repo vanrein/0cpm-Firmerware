@@ -52,11 +52,11 @@ extern enum netcfgstate boot_state;
 static uint8_t nextround = 0x00;	// Local, only for test purposes
 
 
-void top_can_play (uint16_t samples) {
+void top_codec_can_play (uint8_t chan) {
 	/* Keep the linker happy */ ;
 }
 
-void top_can_record (uint16_t samples) {
+void top_codec_can_record (uint8_t chan) {
 	/* Keep the linker happy */ ;
 }
 

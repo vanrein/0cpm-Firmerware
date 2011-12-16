@@ -34,6 +34,11 @@ interact in the manner described below.
         |  Hardware                       |
 	+---------------------------------+
 
+The hardware drivers ideally consists of two kinds of
+module: chip-drivers that work the same in any device,
+and phone-specific functions to handle the interconnect,
+that is, the addressing of the generic chips on the
+concrete printed circuit board.
 
 
 Making changes to this phone firmware
@@ -726,8 +731,8 @@ Sound
 
 **Channels.**
 A phone can have a number of sound channels, and the configuration
-of the platform defines which are available.  The possible channels
-are:
+of the platform defines which are available.  Each of the channels
+usually has a device attacheed; the possible devices are:
 
 * Handset.  This is the only obliged channel for sound I/O.
 * Speaker.  This usually combines with a microphone, although it
@@ -736,19 +741,32 @@ are:
   hide any such choices.
 * Headset.
 
-In all cases, it is a good idea if the bottom half implements echo
-cancellation, because it has more insight in the construction of the
-sound channels than the top half.
+Conceptually, a channel has an input and output aspect.  These are
+handled in same-sized blocks of samples.  An input and output sample
+is imagined to be clocked at the same instant, even if this might in
+practice deviate somewhat; but having such a conceptual model is a
+great advantage to echo cancellation.
+
+So, the normal procedure of playing sound is to run the decoder for
+the playing codec, clock out a block of sound and at the same time
+clock in a block of recorded sound.  The recorded sound has echo
+cancellation applied, and is subsequently fed into the encoder for
+the recording codec.
+
+Echo cancellation and codec algorithms are *principally* run in the
+top-half, but it is recommended to override them (or their most-used
+parts) with machine code written specifically for the target platform;
+overrides exist to support that.  TODO:WHICH?HOW?
 
 The top half can make the following downcall to instruct the bottom
 half about the current sound channel to use.  This implies dropping
 any channel currently in use::
 
 	void bottom_soundchannel_device (uint8_t chan, sounddev_t dev);
-	bottom_soundchannel_device (0, SOUNDDEV_NONE);
-	bottom_soundchannel_device (0, SOUNDDEV_HANDSET);
-	bottom_soundchannel_device (0, SOUNDDEV_SPEAKER);
-	bottom_soundchannel_device (0, SOUNDDEV_HEADSET);
+	bottom_soundchannel_device (PHONE_CHANNEL_TELEPHONY, SOUNDDEV_NONE);
+	bottom_soundchannel_device (PHONE_CHANNEL_TELEPHONY, SOUNDDEV_HANDSET);
+	bottom_soundchannel_device (PHONE_CHANNEL_TELEPHONY, SOUNDDEV_SPEAKER);
+	bottom_soundchannel_device (PHONE_CHANNEL_TELEPHONY, SOUNDDEV_HEADSET);
 
 The first argument represents the sound channel index.  It is
 currently assumed that one such channel exists, but future versions
@@ -758,9 +776,6 @@ may well pave the way for additional functions for the hardware.
 
 Naturally, the bottom half will never be asked to support a sound
 channel that it has not made available in the phone's configuration.
-
-Note that handling any buttons for speakerphone access and such are
-usually done by the top half.
 
 **Volume.**
 Every sound channel has its own volume setting.  This value may
@@ -808,7 +823,14 @@ what a cruel joke, as it usually very hard to get all these
 factors into the operating frequency of a general purpose device,
 and so there is going to be some delay from time to time.
 
-The best approach is probably to set a slightly lower frequency
+It is highly recommended to pay attention to the direction of
+rounding the divisor(s) for the sample frequency; in case no
+exact divisor exists, it may be harmful to round one way or the
+other, depending on the hardware architecture.  The bottom half
+is the place where such knowledge resides, and should be isolated
+from the top half.
+
+For example, the best approach may be to set a slightly lower frequency
 and use counters to detect when a single sample should be
 tossed out of the mix.  If 44000 Hz is achievable, this would
 mean that 1 out of every 441 samples would have to be dropped.
@@ -820,113 +842,200 @@ concealed in the bottom layer which is aware of the hardware
 involved.
 
 The result is that every possible sample rate may be set, but
-that choosing common ones is still a good idea.  The calls to
-set the sample rate for playback or recording of sound are::
+that choosing common ones is still a good idea.  To generalise
+this a bit, the bottom half exports two functions that help to
+determine if a samplerate would be merely acceptable, or if it
+would actually be preferred.  All preferred sample rates are
+always acceptable::
 
-	void bottom_codec_play_samplerate   (uint8_t chan, uint32_t samplerate);
-	void bottom_codec_record_samplerate (uint8_t chan, uint32_t samplerate);
+	bool bottom_soundchannel_acceptable_samplerate (uint8_t chan, uint32_t samplerate);
+	bool bottom_soundchannel_preferred_samplerate  (uint8_t chan, uint32_t samplerate);
 
-It is not safe in general to assume that playing and recording
-can be done at different sample rates, so always call both
-these functions with the same values -- we just want to
-keep the option open to separate the sample rates on platforms
-that support, perhaps in a future version of the firmware.
+The bottom must be configured so that at least the commonly used
+sample rate of 8000 Hz is preferred; and inasfar as they are
+acceptable, the additional sample rates of 16000 Hz and 32000 Hz
+should also be preferred -- but that is not a must, as additional
+parameters such as coding efficiency may influence such choices.
 
-The list of codecs that are offered from bottom to top half
-suggests samplerates that are known to work well for those
-codecs.
+During SDP negotiations, the top half can first try to find an
+offer with a preferred sample rate and, failing that, fall back
+to the reduced quality of an acceptable sample rate.  An example
+of this behaviour could be a phone acting as a web radio; it may
+be offered the popular sample rate 44100 Hz that is impossible to
+configure accurately on most phones; this may still be played if
+it is an acceptable sample rate, but if 48000 Hz is also offered
+and setup as a preferred frequency because it can be configured
+accurately, then that stream would be preferred.  That rate is
+much more likely to be preferred on common phone hardware, which
+is usually engineered to support 8000 Hz rates, and a limited
+list of multiples.
+
+Since playback and recording of sound occur in lockstep, there
+is one bottom call to set it for both playback and recording::
+
+	void bottom_soundchannel_set_samplerate (uint8_t chan,
+		uint32_t samplerate, uint8_t blocksize,
+		uint8_t upsample_play, uint8_t downsample_record);
+
+The ``samplerate`` is denominated in Hz, so in samples per seconnd.
+It should only be set to values that are known to be at least
+acceptable to the bottom drivers and hardware.
+The ``blocksize`` indicates how many raw samples should be treated
+as a block; this is likely to be influenced by the codec(s) used.
+The bottom half will usually contain a buffer for playback and
+recording, and its size will be divided by the blocksize parameter
+to determine how many blocks are available in the buffer.  It is
+advised that the ``blocksize`` is a multiple of 40, possibly even
+of 80; the latter represents 10 ms of sound at 8 kHz, so a common
+standard size of block to handle at once in generally used codecs.
+
+In the future, we may choose to support upsampling the play
+and/or downsampling the record side, for instance to support
+playback at 16 kHz and recording at 8 kHz; but at
+present, the values of ``downsample_play`` and ``downsample_record``
+must be set to 1 to avoid using that functionality.  Current
+bottom implementations may simply ignore these values, or require
+that they are 1.
 
 **Codec play/record.**
 For the actual exchange of sound, a mapping from codec format to
 the internal format used for playback (usually 16-bit samples)
 is required.  This is the work of the codec, which principally is
-part of the bottom half because that enables the use of (existing)
-assembly code for the target processor, and possibly even support
-in hardware.
+part of the top half because it is generic application logic;
+however, it is quite possible that a more optimal implementation
+exists, using knowledge only available in the bottom half.  The
+top-half code contains mechanisms to replace the generic code
+from the top half with any such more optimal code.
 
-The internal sound buffer has a concealed size, and top and bottom
-exchange how many samples they would like to put in there.  When
-a given amount of space is available (usually for a particular
-time period), the bottom will inform the top that it can map a
-certain number of samples into the bottom buffer.  This may or
-may not cover a complete network packet.  Upon completion, the
-notified routine returns a suggestion about the number of
-additional samples it suggests for next time.  If the bottom
-does not find the required samples in time, it will try to insert
-sensible samples, effectively delaying the delivery of sound.
-To handle noticeable network dropouts, the top can register
-non-delivery of sound packets with a special function.
+A structure is defined in ``<0cpm/codec.h>`` to contain the inner
+data storage of any codec selected, and to point to the functions
+that initialise, encode/decode, and finalise the codec.  These
+structures are used as a generic API through which to access the
+codec's facilities.  The data storage ensures that the top layer
+can abstract from details such as pointers midway a bitfield.  As
+far as the top level is concerned, encoded bytes are consumed or
+produced in portions of whole bytes, and samples are produced or
+consumed in portions of an entire signed 16-bit integer.
 
-::
+Bytes setup for playback go through the following phases:
 
-	uint16_t top_codec_can_play   (uint8_t chan, uint16_t samples);
-	uint16_t top_codec_can_record (uint8_t chan, uint16_t samples);
+1. They are setup in the playback buffer by a decoder
 
-These functions indicate to the top half that sound packets may
-now be played or recorded, as soon as they are available.  The
-return value suggests the number of samples to allow on the
-next call, but the bottom is not required to follow that
-suggestion.  As a result, the top must always be willing to
-deliver parts of packets.  It does not need to combine packets,
-as it can return the length of a sequel packet as a suggested
-size for next time.
+2. They are surrendered to the playback facility
 
-::
-	int16_t bottom_codec_play   (uint8_t chan,
-				     codec_t codec,
-				     uint8_t *coded_samples, 
-				     uint16_t coded_bytes,
-				     uint16_t samples);
+3. During playback, the same-timed samples are also recorded
 
-	int16_t bottom_codec_record (uint8_t chan,
-				     codec_t codec,
-				     uint8_t *coded_samples,
-				     uint16_t coded_bytes,
-				     uint16_t samples);
+4. The playback buffer and recorded buffer are used for echo suppression
 
-TODO: Why repeat ``codec`` for every piece of data?  It could
-change between packets, but not according to SIP?  Plus, it will
-probably not work on drivers that have lagging-behind effects
-such as DMA currently going on and being setup for later.
+6. The recorded samples are processed by an encoder
 
-These functions request the bottom half to employ a codec for
-mapping encoded bytes (with a given start pointer and maximum
-length) to the given number of samples.  The ``codec`` is a
-code that defines the mapping; the architecture defines a
-mapping from codec names to ``codec_t`` values.  When used as
-an argument to ``bottom_codec_record``, the encoding side of the
-codec will be used; in ``bottom_codec_play``, the codec will be
-used for decoding.
+6. The playback buffer and recording buffer are released
 
-The return value of these functions is as complex as the possible
-outcomes of these functions:
+In practice, there will be a playback process and a recording
+process; the playback buffer claims access to additional blocks
+in the buffer and the recording buffer causes blocks to be freed
+after they have been processed.  Internally, a block may either
+be free for playback/recording, be actively read/written by DMA,
+or may be locked for echo cancellation and recorded-sound
+processing.  The allocation of play and recording buffers happen
+in lockstep.
 
-* return value 0 means that ``coded_bytes`` have been consumed to
-  generate precisely ``samples`` samples.
-* return values <0 mean that ``coded_bytes`` are all used but
-  there are still samples missing; the return value indicates how
-  much to subtract from ``samples`` to get the achieved result.
-  Note that it is assumed that all ``coded_bytes`` are used up
-  at this point.  If that means keeping internal state in the
-  bottom half, then so be it.  (But this is not likely to occur,
-  because it would dramatically complicate packet loss handling.)
-* return values >>0 mean that all ``samples`` samples were
-  generated, but there are still the returned number of bytes
-  left from ``codec_bytes``.
+The encoder and decoder are aware of the blocksize that has been
+claimed for the channel; so they will claim whole blocks, process
+them and release them.  To aid efficiency, there are no access
+mechsnisms for individual samples.  The corresponding downcalls
+to administer claiming and releasing sample blocks are::
 
-::
-	void bottom_codec_play_skip (codec_t codec, uint16_t samples);
+	int16_t *bottom_play_claim (uint8_t chan);
+	int16_t *bottom_echo_claim (uint8_t chan);
+	int16_t *bottom_record_claim (uint8_t chan);
+	void bottom_play_release (uint8_t chan);
+	void bottom_record_release (uint8_t chan);
 
-This instructs the playing half of the codec to skip the given
-number of samples on playback.  This is required when network
-traffic has gone missing.  If this function is not called to
-indicate having detected such out-of-order delivery, the bottom
-half would assume that the network path has incurred a new delay,
-for which it would insert extra samples to fill up and cause the
-phone to playback with the added delay.  The bottom half must be
-clever enough to handle accidental skipping until samples are
-played in the future.  A small delay before a packet is actually
-played may be healthy to avoid future sound glitches.
+The claim routines return a pointer to a block-sized array of
+samples, each as a signed 16-bit integer.  For playback, these
+samples can be written; for echo and record these can be read.
+The difference between the last two is that the echo values
+return the input to echo cancellation, while the recording claim
+returns the microphone input that synchronises with the echo
+data.  Note that the claiming routines return NULL if they have
+nothing to offer; the notification functions below resolve this
+sitiation if it arises.  The release routines report that work on
+the claimed region has ended; note that ``bottom_record_release``
+applies to an optional echo claim as well as to the record claim.
+
+For each channel, it is only possible to claim a single block at
+a time.  The reason for still having support for multiple blocks
+is to permit the hardware drivers to arrange a scheme where some
+buffers are being played, while others are being setup by the
+firmware.
+
+The reason to have separate calls for the playing side and the
+recording side is that they will usually be implemented by
+different processes; the reason for permitting access to the
+echo-source signal is also to simplify separate processes.  It
+also ensures that the echo cancellation software receives
+properly timed material, regardless of any variations in timing
+between the playback and recording processes.
+
+Note that zero is a valid respons from the ``bottom_playback_claim``
+function; it indicates that no more blocks are available.
+Furthermore, since the block sizes 
+
+The bottom half makes upcalls to indicate a positive change or,
+as the bottom implementors see fit, every time a block becomes
+available for claiming.  The upcalls for the two sides of the
+sound channel are::
+
+	void top_codec_can_play   (uint8_t chan);
+	void top_codec_can_record (uint8_t chan);
+
+These routines will normally kick a (possibly waiting) task, or
+perform another action that makes the top-half codec handlers do
+their thing.  These top-half handlers will subsequently try to make
+a claim and do their thing.  The routines will certainly be
+called after a NULL value has been returned from
+``bottom_play_claim`` and ``bottom_record_claim``, respectively.
+
+A trivial example of using these routines would be::
+
+	bool play_welcome = false;
+
+	void top_codec_can_play (uint8_t chan) {
+		play_welcome = true;
+	}
+
+	void top_main (void) {
+		bottom_critical_region_end ();
+		while (___more_to_write___) {
+			int16_t *outbuf;
+			do {
+				play_welcome = false;
+				outbuf = bottom_play_claim (PHONE_CHANNEL_TELEPHONY);
+				if (outbuf != NULL) {
+					___send_samples_to_outbuf___;
+					bottom_play_release (PHONE_CHANNEL_TELEPHONY);
+				}
+			} while (outbuf != NULL);
+			while (!play_welcome) {
+				___awful_example_of_polling___;
+			}
+		}
+	}
+
+Of course, this is not a practical example.  It wastes time polling
+and has only a single main loop.  But it is noteworthy how there is
+no need to block interrupts.  The trick is to reset the flag that is
+set by the ``top_codec_can_play()`` before calling ``bottom_play_claim()``
+and not after; this avoids ever missing the top-call due to race
+conditions between the main program and background sample playback.
+The only thing that can happen is that the flag is set just before
+the block is claimed that can actually be used for playback; this
+is easily detected on the next attempt to claim a block, and should
+be tolerated when this technique is used.  The only reason why the
+flag is reset before *every* call to ``bottom_play_claim()`` is to
+minimise the number of such spurious calls; it is primarily an
+optimisation.
 
 
 Entropy
@@ -964,6 +1073,7 @@ reading, as the service is not truely random, but pseudo-random:
 best-effort suffices for telephony applications.
 
 ::
+
 	void bottom_rndseed (void);
 	void bottom_rnd_pseudo (uint8_t *rnd, uint8_t len);
 	//TBD// void bottom_rnd_strong (uint8_t *rnd, uint8_t len);

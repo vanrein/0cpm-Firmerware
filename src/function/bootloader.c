@@ -212,8 +212,8 @@ void top_network_can_send (void) { ; }
 void top_network_offline (void) { ; }
 void top_network_online (void) { ; }
 void top_timer_expiration (void) { ; }
-void top_can_play (uint16_t samples) { ; }
-void top_can_record (uint16_t samples) { ; }
+void top_codec_can_play (uint8_t chan) { ; }
+void top_codec_can_record (uint8_t chan) { ; }
 
 #endif /* CONFIG_MAINFUNCTION_BOOTLOADER */
 

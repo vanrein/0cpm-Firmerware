@@ -250,118 +250,113 @@ bottom_led_set (LED_IDX_MESSAGE, 0);
 /******** TLV320AIC20K DATA ACCESS OVER MCBSP1 ********/
 
 
-#define BUFSZ (64*25)
+#define BUFSZ (80*24)
 
-extern volatile uint16_t samplebuf_play   [BUFSZ];
-extern volatile uint16_t samplebuf_record [BUFSZ];
+static volatile int16_t samplebuf_play   [BUFSZ];
+static volatile int16_t samplebuf_record [BUFSZ];
 
-extern volatile uint16_t available_play;
-extern volatile uint16_t available_record;
+static uint16_t samplebuf_blocksize = 80;
+static uint16_t samplebuf_wrapindex = BUFSZ;
 
-extern volatile uint16_t threshold_play;
-extern volatile uint16_t threshold_record;
+/* The buffer is a contiguous array of samples, made accessible
+ * to the top layer per block.  Upon setting sample rate and
+ * block size, all pointers start at the beginning of the buffer.
+ * While processing, the pointers advance with one blocksize at
+ * a time; they wrap around if there is not enough space left to
+ * cover a complete block within the bounds of the sample buffer.
+ *
+ * The buffer has three types of areas, each with their own
+ * consumer/producer relationships.  The areas are the same for
+ * the playback and recording buffer.  They are:
+ *  - playable: Can be filled be the codec for playback
+ *  - dmaready: Can be played/recorded through lockstep DMA
+ *  - recordable: Can be processed by the codec in recording
+ * Each of these areas is marked with an index pointer; their
+ * ends +1 are marked by another index pointer, as follows:
+ *
+ *	AREA		START	END+1
+ *	playable	play0	rec0
+ *	dmaready	dma0	play0
+ *	recordable	rec0	dma0
+ *
+ * DMA is possible if the dmaready area is non-empty, so if
+ * dma0 != play0.  When DMA has finished transferring a block,
+ * the dma0 pointer is incremented, and this is checked.
+ *
+ * bottom_record_claim() succeeds if rec0 != dma0, and when
+ * bottom_record_release() is called, rec0 increments.  Note
+ * that bottom_echo_claim() applies the same condition, but
+ * it returns the rec0 offset of the playbuf, instead of the
+ * rec0 offset in the recbuf as is returned by record_claim.
+ *
+ * bottom_play_claim() succeeds if play0 != rec0 *or* if there
+ * is no actual recordable area, that is, rec0 == dma0.  This
+ * means that playback is the first thing to start when a new
+ * set of index pointers is setup with zero values.  When the
+ * bottom_play_release() is called, play0 increments, and the
+ * DMA conditions are evaluated.
+ */
+
+static volatile uint16_t bufofs_play0 = 0;
+static volatile uint16_t bufofs_dma0  = 0;
+static volatile uint16_t bufofs_rec0  = 0;
 
 
-/* Copy encoded samples to plain samples */
-//TODO// Better to switch once and then loop in a separate routine which may even be .asm -- but that could require a codec-specific state storage structure
-int16_t codec_decode (codec_t codec, uint8_t *in, uint16_t inlen, int16_t *out, uint16_t outlen) {
-	while ((inlen > 0) && (outlen > 0)) {
-		register uint16_t outval;
-		register uint8_t inval = *in++;
-		switch (codec) {
-		case CODEC_L8:
-			*out++ = (inval ^ 0x80) << 8;
-//DOH!// *out++ = 16384 + 1 + (outlen & 0x01)? 0: 32768;
-			break;
-		case CODEC_L16:
-			*out++ = inval;
-			break;
-		case CODEC_G711A:
-			outval = (inval & 0x0f);
-			if (inval & 0x70) {
-				outval |= 0x10;
-			}
-			outval <<= ((inval >> 4) & 0x07);
-			if (inval & 0x80) {
-				outval = -outval;
-			}
-			*out++ = outval;
-			break;
-		case CODEC_G711MU:
-			outval = (inval & 0x0f);
-			outval |= 0x10;
-			outval <<= ((inval >> 4) & 0x07);
-			outval -= 32;
-			if (inval & 0x80) {
-				outval = -outval;
-			}
-			*out++ = outval;
-			break;
-		default:
-			*out++ = 0;
-			break;
-		}
-		inlen--;
-		outlen--;
+inline void bottom_bufferdma_progress (uint8_t chan) {
+	bool recordinghint = (bufofs_dma0 == bufofs_rec0);
+	bufofs_dma0 = (bufofs_dma0 + samplebuf_blocksize) % samplebuf_wrapindex;
+	if (bufofs_dma0 == bufofs_play0) {
+		SPCR2_1 &= ~REGVAL_SPCR2_FRST_NOTRESET;		// Stop DMA
 	}
-	return inlen - outlen;
+	if (recordinghint) {
+		top_codec_can_record (chan);
+	}
 }
 
-/* Copy plain samples to encoded samples */
-//TODO// Better to switch once and then loop in a separate routine which may even be .asm -- but that could require a codec-specific state storage structure
-int16_t codec_encode (codec_t codec, int16_t *in, uint16_t inlen, uint8_t *out, uint16_t outlen) {
-bottom_printf ("Have %d, %d, %d at %04x\n", (intptr_t) in [0] & 0x0000ffff, (intptr_t) in [1] & 0x0000ffff, (intptr_t) in [2] & 0x0000ffff, (intptr_t) in);
-	while ((inlen > 0) && (outlen > 0)) {
-		register uint16_t inval = *in++;
-		bool signbit;
-		uint8_t exp;
-		switch (codec) {
-		case CODEC_L8:
-			*out++ = (inval >> 8) ^ 0x80;
-			break;
-		case CODEC_L16:
-			*out++ = inval;
-			break;
-		case CODEC_G711A:
-			// Handle sign bit
-			signbit = inval >> 15;
-			if (signbit) {
-				inval = -inval;
-			}
-			// Find exponent part of sample
-			for (exp = 7; exp >= 0; exp--) {
-				if (inval >= (1 << (8 + exp))) {
-					break;
-				}
-			}
-			// Encode is sign/exp/mant
-			*out++ = 0x55 ^ ( (signbit << 7) | (exp << 4) | ((inval >> (exp + 3)) & 0x0f) );
-			break;
-		case CODEC_G711MU:
-			// Handle sign bit
-			signbit = inval >> 15;
-			if (signbit) {
-				inval = -inval;
-			}
-			// Shift range for uLaw
-			inval += 32;
-			// Find exponent part of sample
-			for (exp = 7; exp >= 0; exp--) {
-				if (inval >= (1 << (8 + exp))) {
-					break;
-				}
-			}
-			// Encode in sign/exp/mant
-			*out++ = 0xff ^ ( (signbit << 7) | (exp << 4) | ((inval >> (exp + 3)) & 0x0f) );
-			break;
-		default:
-			*out++ = 0x00;
-			break;
-		}
-		inlen--;
-		outlen--;
+int16_t *bottom_play_claim (uint8_t chan) {
+	if ((bufofs_play0 != bufofs_rec0) || (bufofs_rec0 == bufofs_dma0)) {
+		return (int16_t *) &samplebuf_play [bufofs_play0];
+	} else {
+		return NULL;
 	}
-	return outlen - inlen;
+}
+
+void bottom_play_release (uint8_t chan) {
+	bool dmahint = (bufofs_play0 == bufofs_dma0);
+	bufofs_play0 = (bufofs_play0 + samplebuf_blocksize) % samplebuf_wrapindex;
+	if (dmahint) {
+		//TODO// Following 5 lines can be done much earlier
+		(void) DRR1_1;	// Flag down RFULL
+		(void) DRR1_1;
+		DMACCR_0 |= REGVAL_DMACCR_EN;
+		DXR1_1 = DXR1_1;	// Flag down XEMPTY
+		DMACCR_1 |= REGVAL_DMACCR_EN;
+		SPCR2_1 |= REGVAL_SPCR2_FRST_NOTRESET;		// Start DMA
+	}
+}
+
+int16_t *bottom_record_claim (uint8_t chan) {
+	if (bufofs_rec0 != bufofs_dma0) {
+		return (int16_t *) &samplebuf_record [bufofs_rec0];
+	} else {
+		return NULL;
+	}
+}
+
+int16_t *bottom_echo_claim (uint8_t chan) {
+	bool playbackhint = (bufofs_rec0 == bufofs_play0);
+	if (bufofs_rec0 != bufofs_dma0) {
+		return (int16_t *) &samplebuf_play [bufofs_rec0];
+	} else {
+		return NULL;
+	}
+	if (playbackhint) {
+		top_codec_can_play (chan);
+	}
+}
+
+void bottom_record_release (uint8_t chan) {
+	bufofs_rec0 = (bufofs_rec0 + samplebuf_blocksize) % samplebuf_wrapindex;
 }
 
 static int TODO_setratectr = 0;
@@ -370,11 +365,13 @@ static int TODO_setratectr = 0;
 //TODO// Not all this code is properly split between generic TLV and specific BT200
 void tlv320aic2x_set_samplerate (uint8_t chan, uint32_t samplerate) {
 	uint16_t m, n, p;
+#if 0
 	SPCR2_1 |= REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
 { uint32_t ctr = 100; while (ctr-- > 0) ; }
 	SPCR1_1 |= REGVAL_SPCR1_RRST_NOTRESET;
 	SPCR2_1 |= REGVAL_SPCR2_XRST_NOTRESET;
 { uint32_t ctr = 10000; while (ctr-- > 0) ; }
+#endif
 	DXR1_1 = DXR1_1;	// Flag down XEMPTY
 tlv320aic2x_setreg (chan, 3, 0x31);	// Channel offline
 { uint32_t ctr = 1000; while (ctr-- > 0) ; }
@@ -384,7 +381,7 @@ tlv320aic2x_setreg (chan, 3, 0x31);	// Channel offline
 	n = 1;
 	p = 2;
 	m = ( 30720000 / 16 ) / ( n * p * samplerate );
-	if (m % 8 == 0) {
+	if (m & 0x03 == 0x00) {
 		// Save PLL energy without compromising accuracy
 		p = 8;		// Factor 2 -> 8 so multiplied by 4
 		m >>= 2;	// Divide by 4
@@ -432,7 +429,7 @@ tlv320aic2x_setreg (chan, 3, 0x01);	// Channel online
 	SPCR1_1 |= REGVAL_SPCR1_RRST_NOTRESET;
 	SPCR2_1 |= REGVAL_SPCR2_XRST_NOTRESET;
 { uint32_t ctr = 1000; while (ctr-- > 0) ; }
-	SPCR2_1 |= REGVAL_SPCR2_FRST_NOTRESET;
+	//NOT_FOR_NEW_STYLE_BUFFERS// SPCR2_1 |= REGVAL_SPCR2_FRST_NOTRESET;
 { uint32_t ctr = 10000; while (ctr-- > 0) ; }
 	DXR1_1 = DXR1_1;	// Flag down XEMPTY
 	(void) DRR1_1;	// Flag down RFULL
@@ -441,10 +438,28 @@ tlv320aic2x_setreg (chan, 3, 0x01);	// Channel online
 // #endif
 }
 
+void bottom_soundchannel_set_samplerate (uint8_t chan, uint32_t samplerate,
+			uint8_t blocksize, uint8_t upsample_play, uint8_t downsample_record) {
+	//
+	// Setup the buffersize of the sample buffers
+	samplebuf_blocksize = blocksize;
+	samplebuf_wrapindex = (BUFSZ / blocksize) * blocksize;
+	//
+	// Setup hardware with the requested sample rate (but no FRST generated)
+	tlv320aic2x_set_samplerate (chan, samplerate);
+	//
+	// Setup buffer index pointers at the start; effectively clearing all
+	bufofs_play0 = 0;
+	bufofs_dma0  = 0;
+	bufofs_rec0  = 0;
+}
+
 /* A full frame of 64 samples has been recorded.  See if space exists for
  * another, otherwise disable DMA until a dmahint_play() restarts it.
+ * TODO: No processing needed for RX_DMA_IRQ, as TX_DMA_IRQ comes later.
  */
 interrupt void tic55x_dmac0_isr (void) {
+#ifdef PREFER_OLD_STUFF
 	uint16_t irq = DMACSR_0;	// Note causes and clear
 	tic55x_top_has_been_interrupted = true;
 	if ((available_record += 64) > (BUFSZ - 64)) {
@@ -459,14 +474,16 @@ interrupt void tic55x_dmac0_isr (void) {
 // #endif
 	}
 	if (available_record >= threshold_record) {
-		top_can_record (available_record);
+		top_codec_can_record (available_record);
 	}
+#endif
 }
 
 /* A full frame of 64 samples has been played.  See if another is availabe,
  * otherwise disable DMA until a dmahint_record() restarts it.
  */
 interrupt void tic55x_dmac1_isr (void) {
+#ifdef PREFER_OLD_STUFF
 	uint16_t irq = DMACSR_1;	// Note causes and clear
 	uint16_t toplay;
 	tic55x_top_has_been_interrupted = true;
@@ -481,10 +498,13 @@ interrupt void tic55x_dmac1_isr (void) {
 	}
 	toplay = BUFSZ - available_play;
 	if (BUFSZ - available_play >= threshold_play) {
-		top_can_play (available_play);
+		top_codec_can_play (available_play);
 	}
+#endif
+	bottom_bufferdma_progress (0);
 }
 
+#ifdef PREFER_OLD_STUFF
 /* Data has been removed from what was recorded.  As a result,
  * it may be possible to restart DMA channel 1 if it was disabled.
  */
@@ -504,7 +524,9 @@ void dmahint_record (void) {
 		}
 	}
 }
+#endif
 
+#ifdef PREFER_OLD_STUFF
 /* New data has been written for playback.  As a result, it may
  * be possible to restart DMA channel 0 if it was disabled.
  */
@@ -519,6 +541,7 @@ bottom_printf ("dmahint_play() started playing DMA\n");
 	}
 //TODO:DEBUG// else bottom_printf ("dmahint_play() did not start playing -- available_play = %d\n", (intptr_t) available_play);
 }
+#endif
 
 
 

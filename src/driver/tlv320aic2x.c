@@ -85,7 +85,9 @@ static uint8_t volume [2];
 
 /* Read and write buffers, with counters of read-ahead */
 
-#define BUFSZ (64*25)
+#ifdef PREFER_OLD_STUFF
+
+#define BUFSZ (80*24)
 
 volatile int16_t samplebuf_play   [BUFSZ];
 volatile int16_t samplebuf_record [BUFSZ];
@@ -102,6 +104,7 @@ static uint16_t nextwrite_record = 0;
 static uint16_t nextread_play    = 0;
 static uint16_t nextread_record  = 0;
 
+#endif
 
 /******** Calls to change sound channels ********/
 
@@ -180,11 +183,14 @@ void bottom_soundchannel_setvolume (uint8_t chan, uint8_t vol) {
 /******** Calls to play or record through a codec ********/
 
 
+#ifdef PREFER_OLD_STUFF
 int16_t codec_decode (codec_t codec, uint8_t *in, uint16_t inlen, int16_t *out, uint16_t outlen);
 int16_t codec_encode (codec_t codec, int16_t *in, uint16_t inlen, uint8_t *out, uint16_t outlen);
 void tlv320aic2x_set_samplerate (uint8_t chan, uint32_t samplerate);
+#endif
 
 
+#ifdef PREFER_OLD_STUFF
 void bottom_codec_play_samplerate   (uint8_t chan, uint32_t samplerate) {
 	/* TODO: Filters only work up to rate 26000 (bandwidth 11700);
 	 * TODO: Consider 2x oversampling and no filter for higher rates?
@@ -195,13 +201,17 @@ void bottom_codec_play_samplerate   (uint8_t chan, uint32_t samplerate) {
 	 */
 	tlv320aic2x_set_samplerate (chan, samplerate);
 }
+#endif
 
+#ifdef PREFER_OLD_STUFF
 void bottom_codec_record_samplerate (uint8_t chan, uint32_t samplerate) {
 	// No setting to make: documentation says to call both with the same values
 	// bottom_codec_play_samplerate (chan, samplerate);
 	dmahint_record ();
 }
+#endif
 
+#ifdef PREFER_OLD_STUFF
 int16_t bottom_codec_play   (uint8_t chan, codec_t codec, uint8_t *coded_samples, uint16_t coded_bytes, uint16_t samples) {
 	int16_t retval;
 	//TODO// Guard against buffer wraparound
@@ -220,31 +230,37 @@ int16_t bottom_codec_play   (uint8_t chan, codec_t codec, uint8_t *coded_samples
 	dmahint_play ();
 	return retval;
 }
+#endif
 
+#ifdef PREFER_OLD_STUFF
 int16_t bottom_codec_record (uint8_t chan, codec_t codec, uint8_t *coded_samples, uint16_t coded_bytes, uint16_t samples) {
-	int16_t retval;
+	int16_t codecreduce = 0;
+	int16_t samplereduce = 0;
 	//TODO// Guard against buffer wraparound
 	uint16_t ar = available_record;
 	if (samples > ar) {
-		samples = ar;
+		samplereduce = ar - samples;   /* Negative value */
+		samples += samplereduce;
 	}
-	retval = codec_encode (codec,
+	codecreduce = codec_encode (codec,
 				(int16_t *) (samplebuf_record + nextread_record), samples,
 				coded_samples, coded_bytes);
 	nextread_record += samples;
 	available_record -= samples;
-	if (retval < 0) {
-		nextread_record += retval;
-		available_record -= retval;
+	if (codecreduce < 0) {
+		nextread_record += codecreduce;
+		available_record -= codecreduce;
 	}
 	if (nextread_record >= BUFSZ) {
 		nextread_record -= BUFSZ;
 	}
 	dmahint_record ();
-	return retval;
+	return (codecreduce + samplereduce);
 	//TODO:ALT-API-TEST// return available_record;
 }
+#endif
 
+#ifdef PREFER_OLD_STUFF
 void bottom_codec_play_skip (codec_t codec, uint16_t samples) {
 	uint16_t ctr;
 	//TODO: Better fill up with previous sample
@@ -261,6 +277,7 @@ void bottom_codec_play_skip (codec_t codec, uint16_t samples) {
 	available_play += samples;
 	dmahint_play ();
 }
+#endif
 
 
 /******** Initialisation of this module ********/
@@ -270,7 +287,7 @@ void bottom_codec_play_skip (codec_t codec, uint16_t samples) {
  */
 void tlv320aic2x_setup_sound (void) {
 	uint8_t chan;
-	tlv320aic2x_set_samplerate (0, 8000);			/* Only once per codec */
+	// tlv320aic2x_set_samplerate (0, 8000);			/* Only once per codec */
 	// Setup the various registers in the TLV320AIC2x
 	for (chan = 0; chan < 2; chan++) {
 		tlv320aic2x_setreg (chan, 1,        0x49);	/* Continuous 16-bit, 2.35V bias */
@@ -285,7 +302,7 @@ void tlv320aic2x_setup_sound (void) {
 // tlv320aic2x_setreg (chan, 4, 0x80 | (16 & 0x7f));			// M:=16
 		tlv320aic2x_setreg (chan, 5, 0x00 | 0x12);	/* ADC gain 27 dB -- ok? */
 		bottom_soundchannel_setvolume (chan, 15);	/* DAC gain -24 dB initially */
-		tlv320aic2x_setreg (chan, 5, 0x80 | 0x00);	/* No sidetones */
+		tlv320aic2x_setreg (chan, 5, 0x80 | 0x3e);	/* Minimal, "lively" sidetone */
 		/* Register 5D resets ok to 0xc0: No speaker gain */
 		tlv320aic2x_setreg (chan, 6, 0x00 | 0x20);	/* Handset feedback, no input */
 		/* Register 6B resets ok to 0x80: No output selected */

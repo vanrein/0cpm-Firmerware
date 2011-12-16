@@ -59,21 +59,24 @@ void bottom_soundchannel_device (uint8_t chan, sounddev_t dev);
 void bottom_soundchannel_setvolume (uint8_t chan, uint8_t vol);
 uint8_t bottom_soundchannel_getvolume (uint8_t chan);
 
+bool bottom_soundchannel_acceptable_samplerate (uint8_t chan, uint32_t samplerate);
+bool bottom_soundchannel_preferred_samplerate  (uint8_t chan, uint32_t samplerate);
+void bottom_soundchannel_set_samplerate (uint8_t chan,
+                uint32_t samplerate, uint8_t blocksize,
+                uint8_t upsample_play, uint8_t downsample_record);
+
 /* Upcalls to indicate that sound can be inserted */
 
-uint16_t top_codec_can_play   (uint8_t chan, uint16_t samples);
-uint16_t top_codec_can_record (uint8_t chan, uint16_t samples);
+void top_codec_can_play   (uint8_t chan);
+void top_codec_can_record (uint8_t chan);
 
-/* Calls to play or record through a codec */
+/* Calls to access the buffer space for playback and recording */
 
-void bottom_codec_play_samplerate   (uint8_t chan, uint32_t samplerate);
-void bottom_codec_record_samplerate (uint8_t chan, uint32_t samplerate);
-
-int16_t bottom_codec_play   (uint8_t chan, codec_t codec, uint8_t *coded_samples, uint16_t coded_bytes, uint16_t samples);
-
-int16_t bottom_codec_record (uint8_t chan, codec_t codec, uint8_t *coded_samples, uint16_t coded_bytes, uint16_t samples);
-
-void bottom_codec_play_skip (codec_t codec, uint16_t samples);
+int16_t *bottom_play_claim (uint8_t chan);
+int16_t *bottom_echo_claim (uint8_t chan);
+int16_t *bottom_record_claim (uint8_t chan);
+void bottom_play_release (uint8_t chan);
+void bottom_record_release (uint8_t chan);
 
 
 /* Definitions for sound channels and devices.

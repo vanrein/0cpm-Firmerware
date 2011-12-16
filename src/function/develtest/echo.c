@@ -32,9 +32,10 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
-//TODO// test inclusion of bottom definitions
+//TODO// test inclusion of bottom and text definitions
 #define BOTTOM
 #include <config.h>
+#include <0cpm/text.h>
 
 #include <0cpm/kbd.h>
 #include <0cpm/app.h>
@@ -104,20 +105,18 @@ void top_button_release (void) {
 }
 
 uint16_t plyirqs = 0;
-void top_can_play (uint16_t samples) {
-	tobeplayed = samples;
+void top_codec_can_play (uint8_t chan) {
 	plyirqs++;
 }
 
 uint16_t recirqs = 0;
-void top_can_record (uint16_t samples) {
-	toberecorded = samples;
+void top_codec_can_record (uint8_t chan) {
 	recirqs++;
 }
 
 
-// #define top_main_sine_1khz  top_main
-#define top_main_delay_1sec top_main
+#define top_main_sine_1khz  top_main
+// #define top_main_delay_1sec top_main
 
 
 #ifdef CONFIG_FUNCTION_NETCONSOLE
@@ -129,16 +128,28 @@ void nethandler_llconly (uint8_t *pkt, uint16_t pktlen);
 
 /******** TOP_MAIN FOR A 1 KHZ SINE WAVE OUTPUT ********/
 
-uint8_t sinewaveL8 [8] = {
-	0x00, 0x5a, 0x7f, 0x5a, 0x00, 0xa5, 0x80, 0xa5
+uint8_t sinewaveL8 [64] = {
+	// 8-bit samples with 0x80 offset
+	0x80, 0xda, 0xff, 0xda, 0x80, 0x25, 0x00, 0x25,
+	0x80, 0xda, 0xff, 0xda, 0x80, 0x25, 0x00, 0x25,
+	0x80, 0xda, 0xff, 0xda, 0x80, 0x25, 0x00, 0x25,
+	0x80, 0xda, 0xff, 0xda, 0x80, 0x25, 0x00, 0x25,
+	0x80, 0xda, 0xff, 0xda, 0x80, 0x25, 0x00, 0x25,
+	0x80, 0xda, 0xff, 0xda, 0x80, 0x25, 0x00, 0x25,
+	0x80, 0xda, 0xff, 0xda, 0x80, 0x25, 0x00, 0x25,
+	0x80, 0xda, 0xff, 0xda, 0x80, 0x25, 0x00, 0x25
 };
 
-uint16_t sinewaveL16 [8] = {
-	// 0x0000, 0x5a82, 0x7fff, 0x5a82, 0x0000, 0xa57e, 0x8001, 0xa57e
-	// 0x0000 + 32768, 0x5a82 + 32768, 0x7fff + 32768, 0x5a82 + 32768, 0x0000 + 32768, 0xa57e - 32768, 0x8001 - 32768, 0xa57e - 32768
-	0x0000, 0x2d41, 0x3fff, 0x2d41, 0x0000, 0xdabf, 0xc000, 0xdabf
-	// 0x0000, 0x002d, 0x0040, 0x002d, 0x0000, 0xffda, 0xffc0, 0xffda
-	// 4096+0x0000, 4096+0x05a8, 4096+0x07ff, 4096+0x05a8, 4096+0x0000, 4096+0xfa57, 4096+0xf801, 4096+0xfa57
+int8_t sinewaveL16 [128] = {
+	// 16-bit signed values, encoded as byte pairs H,L
+	0,0, 45,65, 63,255, 45,65, 0,0, 210,191, 192,1, 210,191,
+	0,0, 45,65, 63,255, 45,65, 0,0, 210,191, 192,1, 210,191,
+	0,0, 45,65, 63,255, 45,65, 0,0, 210,191, 192,1, 210,191,
+	0,0, 45,65, 63,255, 45,65, 0,0, 210,191, 192,1, 210,191,
+	0,0, 45,65, 63,255, 45,65, 0,0, 210,191, 192,1, 210,191,
+	0,0, 45,65, 63,255, 45,65, 0,0, 210,191, 192,1, 210,191,
+	0,0, 45,65, 63,255, 45,65, 0,0, 210,191, 192,1, 210,191,
+	0,0, 45,65, 63,255, 45,65, 0,0, 210,191, 192,1, 210,191
 };
 
 void top_main_sine_1khz (void) {
@@ -146,35 +157,41 @@ void top_main_sine_1khz (void) {
 extern volatile uint16_t available_play;
 extern volatile uint16_t available_record;
 uint8_t l16ctr = 1;
-	top_hook_update (bottom_phone_is_offhook ());
 	bottom_critical_region_end ();
-	bottom_codec_play_samplerate (0, 8000);
-	bottom_codec_record_samplerate (0, 8000); // Both MUST be called for now
+	if (!bottom_soundchannel_acceptable_samplerate (PHONE_CHANNEL_TELEPHONY, 8000)) {
+		bottom_printf ("Failed to set sample rate");
+		bottom_show_fixed_msg (APP_LEVEL_ZERO, FIXMSG_CALL_ENDED);
+		exit (1);
+	}
+	bottom_soundchannel_set_samplerate (PHONE_CHANNEL_TELEPHONY, 8000, 64, 1, 1);
 	bottom_soundchannel_setvolume (PHONE_CHANNEL_TELEPHONY, 127);
-	bottom_show_fixed_msg (APP_LEVEL_ZERO, FIXMSG_RINGING); // TODO: Not really necessary
+	bottom_show_fixed_msg (APP_LEVEL_ZERO, FIXMSG_RINGING);
 	bottom_printf ("Playing 1 kHz tone to speaker or handset\n");
-	tobeplayed = 64;
+	top_hook_update (bottom_phone_is_offhook ());
 	while (true) {
-		uint16_t newplayed = tobeplayed;
-		uint16_t oldplayed = newplayed;
-		if (oldirqs != plyirqs) {
-			bottom_printf ("New playing IRQs detected; available_play=%d, available_record=%d\n", (intptr_t) available_play, (intptr_t) available_record);
-			oldirqs = plyirqs;
-		}
 #if 0
 if (SPCR2_1 & REGVAL_SPCR2_XRDY) { DXR1_1 = sinewaveL16 [l16ctr++]; if (l16ctr == 8) { l16ctr = 0; } }
 { uint16_t _ = DRR1_1; }
 #else
-		while (newplayed >= 8) {
-			bottom_codec_play (0, CODEC_L8, sinewaveL8, 8, 8);
-			newplayed -= 8;
-		}
-#endif
+		do {
+			int16_t *outbuf = bottom_play_claim (PHONE_CHANNEL_TELEPHONY);
+			uint16_t pcmlen, pktlen;
+			if (!outbuf) {
+				break;
+			}
 #if 1
-		if (oldplayed != newplayed) {
-			bottom_printf ("available_play := %d\n", (intptr_t) available_play);
-			// bottom_printf ("Playbuffer reduced from %d to %d\n", (intptr_t) oldplayed, (intptr_t) newplayed);
-		}
+			pcmlen = 64;
+			pktlen = 64;
+			// Note: No handle needed for stateless L8
+			l8_decode (NULL, outbuf, &pcmlen, sinewaveL8, &pktlen);
+#else
+			pcmlen = 64;
+			pktlen = 128;
+			// Note: No handle needed for stateless L16
+			l16_decode (NULL, outbuf, &pcmlen, sinewaveL16, &pktlen);
+#endif
+			bottom_play_release (PHONE_CHANNEL_TELEPHONY);
+		} while (true);
 #endif
 
 #ifdef CONFIG_FUNCTION_NETCONSOLE
@@ -216,80 +233,49 @@ uint16_t sampled = 0;
 uint8_t samples [10000];
 
 void top_main_delay_1sec (void) {
-	uint16_t prevsampled = 0;
-	uint16_t prevrecirqs = 0;
-	uint16_t prevplyirqs = 0;
-uint16_t oldspcr1 = 0xffff;
-uint16_t loop = 0;
+	uint16_t prepblocks = 0;
+	uint16_t playptr = 2000, recptr = 0;
+memset (samples, 0x33, sizeof (samples));
 	bottom_critical_region_end ();
-	top_hook_update (bottom_phone_is_offhook ());
-	bottom_codec_play_samplerate (PHONE_CHANNEL_TELEPHONY, 8000);
-	bottom_codec_record_samplerate (PHONE_CHANNEL_TELEPHONY, 8000);
+	if (!bottom_soundchannel_acceptable_samplerate (PHONE_CHANNEL_TELEPHONY, 8000)) {
+		bottom_printf ("Failed to set sample rate");
+		bottom_show_fixed_msg (APP_LEVEL_ZERO, FIXMSG_CALL_ENDED);
+		exit (1);
+	}
+	bottom_soundchannel_set_samplerate (PHONE_CHANNEL_TELEPHONY, 8000, 100, 1, 1);
 	bottom_soundchannel_setvolume (PHONE_CHANNEL_TELEPHONY, 127);
 	bottom_show_fixed_msg (APP_LEVEL_ZERO, FIXMSG_READY);
 	bottom_printf ("Running the development function \"echo\" (Test sound)\n");
+	top_hook_update (bottom_phone_is_offhook ());
 	while (true) {
-#if 0
-		if (recirqs != prevrecirqs) {
-			bottom_printf ("Record IRQs #%d, ", (intptr_t) recirqs);
-			bottom_printf ("available %d\n", (intptr_t) toberecorded);
-			prevrecirqs = recirqs;
+		int16_t *buf;
+		uint16_t pcmlen, pktlen;
+
+		do {
+			buf = bottom_play_claim (PHONE_CHANNEL_TELEPHONY);
+		} while (buf == NULL);
+		pcmlen = 100;
+		pktlen = 100;
+		// Note: No handle needed for stateless L8
+		l8_encode (NULL, buf, &pcmlen, samples + playptr, &pktlen);
+		bottom_play_release (PHONE_CHANNEL_TELEPHONY);
+
+		playptr += 100;
+		if (playptr >= 10000) {
+			playptr -= 10000;
 		}
-		if (plyirqs != prevplyirqs) {
-			bottom_printf ("Playbk IRQs #%d, ", (intptr_t) plyirqs);
-			bottom_printf ("available %d\n", (intptr_t) tobeplayed);
-			prevplyirqs = plyirqs;
-		}
-#endif
-{ uint16_t xor = oldspcr1 ^ SPCR1_1; if (xor) { oldspcr1 ^= xor; bottom_printf ("SPCR1_1 := 0x%04x\n", (intptr_t) oldspcr1); } }
-		if (sampled != prevsampled) {
-			bottom_printf ("Buffered %d samples\n", (intptr_t) sampled);
-			prevsampled = sampled;
-		}
-		if (toberecorded > 0) {
-			int16_t rec = toberecorded;
-bottom_led_set (LED_IDX_HANDSET, 1);
-			if (sampled + rec > 10000) {
-				rec = 10000 - sampled;
-			}
-			if (recpos + rec > 10000) {
-				rec = 10000 - recpos;
-			}
-			if (rec > 0) {
-				// bottom_printf ("Recording %d at %d extends buffer from %d to %d\n", (intptr_t) rec, (intptr_t) recpos, (intptr_t) sampled, (intptr_t) (rec+sampled));
-				// bottom_printf ("Recording %d at %d\n", (intptr_t) rec, (intptr_t) recpos);
-				// Codec implies that #samples and #bytes are the same
-				rec -= abs (bottom_codec_record (0, CODEC_L8, samples + recpos, rec, rec));
-				bottom_printf ("Got 0x%02x, 0x%02x, 0x%02x, ...\n", (intptr_t) samples [recpos], (intptr_t) samples [recpos+1], (intptr_t) samples [recpos+2]);
-				sampled += rec;
-				recpos += rec;
-				if (recpos >= 10000) {
-					recpos -= 10000;
-				}
-				bottom_critical_region_begin ();
-				//TODO:SPYING-ON-NEXT-LINE// toberecorded -= rec;
-				{ extern volatile uint16_t available_record; toberecorded = available_record; }
-				bottom_critical_region_end ();
-			}
-bottom_led_set (LED_IDX_SPEAKERPHONE, 0);
-		}
-		if (sampled > 8000) {
-			uint16_t ply = sampled - 8000;
-bottom_led_set (LED_IDX_SPEAKERPHONE, 1);
-			if (playpos + ply > 10000) {
-				ply = 10000 - playpos;
-			}
-			if (ply > 0) {
-				// bottom_printf ("Playback of %d samples at %d reduces buffer from %d to %d\n", (intptr_t) ply, (intptr_t) playpos, (intptr_t) sampled, (intptr_t) (sampled - ply));
-				// bottom_printf ("Playback of %d samples at %d\n", (intptr_t) ply, (intptr_t) playpos);
-				ply -= abs (bottom_codec_play (0, CODEC_L8, samples + playpos, ply, ply));
-				sampled -= ply;
-				playpos += ply;
-				if (playpos >= 10000) {
-					playpos -= 10000;
-				}
-bottom_led_set (LED_IDX_HANDSET, 0);
-			}
+
+		do {
+			buf = bottom_record_claim (PHONE_CHANNEL_TELEPHONY);
+		} while (buf == NULL);
+		pcmlen = 100;
+		pktlen = 100;
+		// Note: No handle needed for stateless L8
+		l8_decode (NULL, buf, &pcmlen, samples + recptr, &pktlen);
+
+		recptr += 100;
+		if (recptr >= 10000) {
+			recptr -= 10000;
 		}
 
 #ifdef CONFIG_FUNCTION_NETCONSOLE
@@ -314,6 +300,7 @@ bottom_led_set (LED_IDX_BACKLIGHT, 0);
 #if defined NEED_HOOK_SCANNER_WHEN_ONHOOK || defined NEED_HOOK_SCANNER_WHEN_OFFHOOK
 		bottom_hook_scan ();
 #endif
+
 	}
 }
 

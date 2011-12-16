@@ -55,11 +55,11 @@ void top_network_can_recv (void) {
 	/* Keep the linker happy */ ;
 }
 
-void top_can_play (uint16_t samples) {
+void top_codec_can_play (uint8_t chan) {
 	/* Keep the linker happy */ ;
 }
 
-void top_can_record (uint16_t samples) {
+void top_codec_can_record (uint8_t chan) {
 	/* Keep the linker happy */ ;
 }
 

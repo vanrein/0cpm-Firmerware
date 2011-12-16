@@ -22,7 +22,7 @@
 objs-top-$(CONFIG_FUNCTION_NETCONSOLE) += src/function/netconsole.o
 objs-top-$(CONFIG_MAINFUNCTION_NETCONSOLE) += src/net/llconly.o
 objs-top-$(CONFIG_MAINFUNCTION_DEVEL_NETWORK) += src/net/llconly.o
-objs-top-$(CONFIG_MAINFUNCTION_DEVEL_SOUND) += src/net/llconly.o
+objs-top-$(CONFIG_MAINFUNCTION_DEVEL_SOUND) += src/net/llconly.o src/codec/l8l16.o
 
 #
 # Actual targets and their constituent object files
