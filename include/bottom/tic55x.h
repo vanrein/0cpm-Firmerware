@@ -86,6 +86,10 @@ typedef uint32_t timing_t;
 #pragma CODE_SECTION(netinput, ".text_fast");
 
 
+/* Optimising included codecs: Speex, SpanDSP */
+#define CONFIG_TI_C55X 1
+
+
 /* Following definitions are only available if BOTTOM is defined */
 
 #ifdef BOTTOM

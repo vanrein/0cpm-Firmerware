@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!--
+	uac.sipp
+
+	This is a scenario file for SIPP version 2.3.  Invocation:
+
+	sipp [::1]:5060 -i [::1] -sf uac.sipp -m 1
+
+	Replace [::1]:5060 with the remote peer's SIP address/port.
+	Replace [::1] with any IPv6 address to use for SIP and RTP.
+
+	It sits and waits for incoming Realtime Text SIP calls,
+	and starts the test utility from the local directory
+	when one comes in.  The call ends when the remote end
+	takes the initiative to do so.
+
+	This is hardly a functional phone, it is just an RTP
+	wrapper for test purposes.
+
+	This file is part of 0cpm Firmerware.
+	
+	0cpm Firmerware is Copyright (c)2011 Rick van Rein, OpenFortress.
+	
+	0cpm Firmerware is free software: you can redistribute it and/or
+	modify it under the terms of the GNU General Public License as
+	published by the Free Software Foundation, version 3.
+	
+	0cpm Firmerware is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+	
+	You should have received a copy of the GNU General Public License
+	along with 0cpm Firmerware.  If not, see <http://www.gnu.org/licenses/>.
+
+-->
+<scenario name="Passive RTT UAS">
+
+<send>
+<![CDATA[
+
+	INVITE sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+	Via: SIP/2.0/UDP [local_ip]:[local_port]
+	From: <sip:rtt@[local_ip]:[local_port]>;tag=[call_number]
+	To: <sip:[service]@[remote_ip]:[remote_port]>
+	Call-ID: [call_id]
+	CSeq: 1 INVITE
+	Contact: sip:sipp@[local_ip]:[local_port]
+	Server: SIPP testing RTT
+	Max-Forwards: 70
+	Content-Type: application/sdp
+	Content-Length: [len]
+
+	v=0
+	o=user1 53655765 2353687637 IN IP6 [local_ip]
+	s=-
+	c=IN IP6 [local_ip]
+	t=0 0
+	m=text 12000 RTP/AVP 98 100
+	a=rtpmap:98 t140/1000
+	a=rtpmap:100 red/1000
+	a=fmtp:100 98/98/98
+
+]]>
+</send>
+
+<recv response="100" optional="true"/>
+
+<recv response="183" optional="true"/>
+
+<recv response="200">
+  <action>
+	<ereg regexp="c=IN IP6 ([^\r\n]+)" search_in="body" check_it="true" assign_to="whole,remote_media_ip"/>
+	<ereg regexp="m=text ([0-9]+)" search_in="body" check_it="true" assign_to="whole,remote_media_port"/>
+	<log message="RTT remote_media=[$remote_media_ip]:[$remote_media_port]"/>
+	<exec command="echo > ./rtp-setup-pipe [local_ip] 12000 [$remote_media_ip] [$remote_media_port]"/>
+  </action>
+</recv>
+
+<send>
+<![CDATA[
+
+	ACK sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+	Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+	From: <sip:rtt@[local_ip]:[local_port]>;tag=[call_number]
+	To: <sip:[service]@[remote_ip]:[remote_port]>;[peer_tag_param]
+	Call-ID: [call_id]
+	CSeq: 1 INVITE
+	Contact: sip:sipp@[local_ip]:[local_port]
+	Server: SIPP testing RTT
+	Max-Forwards: 70
+
+]]>
+</send>
+
+<recv request="BYE"/>
+
+<send>
+<![CDATA[
+
+	SIP/2.0 200 OK
+	Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+	From: <sip:rtt@[local_ip]:[local_port]>;tag=[call_number]
+	To: <sip:[service]@[remote_ip]:[remote_port]>;[peer_tag_param]
+	Call-ID: [call_id]
+	CSeq: [cseq] INVITE
+	Contact: <sip:[service]@[remote_ip]:[remote_port]>
+	Server: SIPP testing RTT
+	Max-Forwards: 70
+
+]]>
+</send>
+
+</scenario>

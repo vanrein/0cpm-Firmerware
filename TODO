@@ -50,6 +50,16 @@ look at:
 
 * RTT handling:
    - consider replacing the call to rtt_recv_keys() with a textapp wakeup
+   - show RTT on the display
 
 * Transcoding: Now supported in spandsp (for G.711) -- this can go.
+
+* T.38 fax support:
+   - exchange TIFF in fax-usable formats
+   - couple or drop logging
+   - link T.38 to the RTP stack
+   - link T.38 to the TFTP stack
+   - show on the interface what is going on
+   - figure out how much code is added for T.38 -- might be quite a lot
+
 

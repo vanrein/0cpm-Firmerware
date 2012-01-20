@@ -49,6 +49,6 @@
 		bottom_console_vprintf (fmt, argh);
 		va_end (argh);
 	}
-#endif
-
 #endif /* CONFIG_FUNCTION_NETCONSOLE */
+
+#endif /* HEADER_CONSOLE */

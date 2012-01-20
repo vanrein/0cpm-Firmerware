@@ -66,6 +66,35 @@ a quick IPv6 tunnel, you can use the 6bed4 mechanism, described on
 http://devel.0cpm.org/6bed4/
 
 
+Test with SIP using SIPP
+------------------------
+
+Some tests warrant a simple SIP client, for example compliance testing.  This
+can be achieved using SIPP, a tool that can send and receive scripted SIP
+messages.  Upon reception, it can also run commands.
+
+Use the uac.sipp or the uas-passive.sipp script.  These will send the RTP
+coordinates to a named pipe (./rtp-setip-pipe) that is created automatically
+and then listened to by the ./user-display.sh script.  As soon as an RTP
+setup is constructed by SIPP, it will send it to the pipe, and the script
+will start the RTT desktop test tool with the RTP parameters.
+
+The commands to run such tests are::
+
+	sipp -i [2001:db8:130::deaf] -sf uas-passive.sipp
+	sipp [2001:db8:130::deaf]:5060 -i [2001:db8:987::d00f] -sf uac.sipp -m 1
+
+It is even possible to run both client and server on the same host; there
+would also be two instances of ./user-display.sh running that each start
+one of the sides of the RTP session.
+
+This setup is really simple.  It does not register or authenticate, it won't
+handle exceptions, it will not tear down the connection, it will not even
+stop the RTT user session when SIP signals BYE.  Much more may be causing
+trouble.  This is not an end user application, but just a demo to help with
+RTT codec compliancy tests.
+
+
 Have fun!
 
 Rick van Rein

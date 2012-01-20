@@ -51,11 +51,11 @@
 #define NEED_KBD_SCANNER_DURING_KEYPRESS 1
 
 
-inline bool bottom_soundchannel_acceptable_samplerate (uint8_t chan, uint32_t samplerate) {
+static inline bool bottom_soundchannel_acceptable_samplerate (uint8_t chan, uint32_t samplerate) {
 	return (samplerate >= 1875) && (samplerate <= 52000);
 }
 
-inline bool bottom_soundchannel_preferred_samplerate (uint8_t chan, uint32_t samplerate) {
+static inline bool bottom_soundchannel_preferred_samplerate (uint8_t chan, uint32_t samplerate) {
 	return bottom_acceptable_samplerate (chan, samplerate)
 		&& ( ( ( 30720000 / 16 ) % ( 1 * 2 * samplerate)) == 0);
 }

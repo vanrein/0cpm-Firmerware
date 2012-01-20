@@ -113,7 +113,11 @@ bin/bottom.o: $(objs-bottom-y)
 # Create a "tags" file for easy Vim navigation
 #
 tags: src/net/6bed4.c
-	ctags $(objs-top-kernel-y:.o=.c) $(objs-top-net-y:.o=.c) $(objs-top-phone-y:.o=.c) $(objs-bottom-y:.o=.c) include/0cpm/*.h include/config.h
+	# [ ! -f src/driver/tic55x/isrmap.c ] && touch src/driver/tic55x/isrmap.c
+	# ctags $(objs-top-kernel-y:.o=.c) $(objs-top-net-y:.o=.c) $(objs-top-phone-y:.o=.c) include/0cpm/*.h include/config.h $(objs-bottom-y:.o=.c)
+	# [ ! -s src/driver/tic55x/isrmap.c ] && rm src/driver/tic55x/isrmap.c
+	rm -f tags
+	for f in $(objs-top-kernel-y:.o=.c) $(objs-top-net-y:.o=.c) $(objs-top-phone-y:.o=.c) include/0cpm/*.h include/config.h $(objs-bottom-y:.o=.c); do if [ -s "$$f" ] ; then ctags --append=yes "$$f" ; fi ; done
 
 #
 # Create API documentation with doxygen

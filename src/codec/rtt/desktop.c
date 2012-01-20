@@ -271,9 +271,17 @@ int main (int argc, char *argv []) {
 	bzero (&remot, sizeof (remot));
 	local.sin6_family = AF_INET6;
 	remot.sin6_family = AF_INET6;
+	if ((*argv [1] == '[') && argv [1] [strlen (argv [1])-1] == ']') {
+		argv [1] [strlen (argv [1])-1] = 0;
+		argv [1]++;
+	}
 	if (inet_pton (AF_INET6, argv [1], &local.sin6_addr) != 1) {
 		fprintf (stderr, "Failed to parse local IPv6 address\n");
 		exit (1);
+	}
+	if ((*argv [3] == '[') && argv [3] [strlen (argv [3])-1] == ']') {
+		argv [3] [strlen (argv [3])-1] = 0;
+		argv [3]++;
 	}
 	if (inet_pton (AF_INET6, argv [3], &remot.sin6_addr) != 1) {
 		fprintf (stderr, "Failed to parse remote IPv6 address\n");

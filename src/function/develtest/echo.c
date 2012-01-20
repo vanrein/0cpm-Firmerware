@@ -62,12 +62,14 @@ void top_hook_update (bool offhook) {
 	}
 }
 
+bool online;
+
 void top_network_online (void) {
-        /* Keep the linker happy */ ;
+        online = true;
 }
 
 void top_network_offline (void) {
-        /* Keep the linker happy */ ;
+        online = false;
 }
 
 void top_network_can_send (void) {
@@ -154,14 +156,13 @@ int8_t sinewaveL16 [128] = {
 
 void top_main_sine_1khz (void) {
 	uint16_t oldirqs = 0;
-extern volatile uint16_t available_play;
-extern volatile uint16_t available_record;
-uint8_t l16ctr = 1;
 	bottom_critical_region_end ();
 	if (!bottom_soundchannel_acceptable_samplerate (PHONE_CHANNEL_TELEPHONY, 8000)) {
 		bottom_printf ("Failed to set sample rate");
 		bottom_show_fixed_msg (APP_LEVEL_ZERO, FIXMSG_CALL_ENDED);
-		exit (1);
+		while (1) {
+			;
+		}
 	}
 	bottom_soundchannel_set_samplerate (PHONE_CHANNEL_TELEPHONY, 8000, 64, 1, 1);
 	bottom_soundchannel_setvolume (PHONE_CHANNEL_TELEPHONY, 127);
@@ -169,16 +170,10 @@ uint8_t l16ctr = 1;
 	bottom_printf ("Playing 1 kHz tone to speaker or handset\n");
 	top_hook_update (bottom_phone_is_offhook ());
 	while (true) {
-#if 0
-if (SPCR2_1 & REGVAL_SPCR2_XRDY) { DXR1_1 = sinewaveL16 [l16ctr++]; if (l16ctr == 8) { l16ctr = 0; } }
-{ uint16_t _ = DRR1_1; }
-#else
-		do {
-			int16_t *outbuf = bottom_play_claim (PHONE_CHANNEL_TELEPHONY);
+		/* First play as many samples as possible */
+		int16_t *outbuf;
+		while ((outbuf = bottom_play_claim (PHONE_CHANNEL_TELEPHONY))) {
 			uint16_t pcmlen, pktlen;
-			if (!outbuf) {
-				break;
-			}
 #if 1
 			pcmlen = 64;
 			pktlen = 64;
@@ -191,22 +186,26 @@ if (SPCR2_1 & REGVAL_SPCR2_XRDY) { DXR1_1 = sinewaveL16 [l16ctr++]; if (l16ctr =
 			l16_decode (NULL, outbuf, &pcmlen, sinewaveL16, &pktlen);
 #endif
 			bottom_play_release (PHONE_CHANNEL_TELEPHONY);
-		} while (true);
-#endif
+		}
+		/* Now let the bottom think that recordings have been processed */
+		while (bottom_record_claim (PHONE_CHANNEL_TELEPHONY)) {
+			bottom_record_release (PHONE_CHANNEL_TELEPHONY);
+		}
+{extern volatile uint16_t bufofs_play0, bufofs_dma0, bufofs_rec0;
+bottom_printf ("p/d/r = %d, %d, %d\n", (intptr_t) bufofs_play0, (intptr_t) bufofs_dma0, (intptr_t) bufofs_rec0);
+}
 
 #ifdef CONFIG_FUNCTION_NETCONSOLE
-		// { uint32_t ctr = 10000; while (ctr--) ; }
-		trysend ();
-		// { uint32_t ctr = 10000; while (ctr--) ; }
 bottom_led_set (LED_IDX_BACKLIGHT, 1);
-		netinputlen = sizeof (netinput);
-		if (bottom_network_recv (netinput, &netinputlen)) {
-			nethandler_llconly (netinput, netinputlen);
-bottom_led_set (LED_IDX_BACKLIGHT, 0);
-			{ uint32_t ctr = 10000; while (ctr--) ; }
+		if (online) {
+			netinputlen = sizeof (netinput);
+			if (bottom_network_recv (netinput, &netinputlen)) {
+				nethandler_llconly (netinput, netinputlen);
+				{ uint32_t ctr = 10000; while (ctr--) ; }
+			}
+			trysend ();
 		}
 bottom_led_set (LED_IDX_BACKLIGHT, 0);
-		trysend ();
 #endif
 
 #if defined NEED_KBD_SCANNER_BETWEEN_KEYS || defined NEED_KBD_SCANNER_DURING_KEYPRESS
@@ -272,6 +271,7 @@ memset (samples, 0x33, sizeof (samples));
 		pktlen = 100;
 		// Note: No handle needed for stateless L8
 		l8_decode (NULL, buf, &pcmlen, samples + recptr, &pktlen);
+		bottom_record_release (PHONE_CHANNEL_TELEPHONY);
 
 		recptr += 100;
 		if (recptr >= 10000) {

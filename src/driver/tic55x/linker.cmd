@@ -15,11 +15,14 @@ SECTIONS {
 	// .text			> ROM
 	.text			> RAM
 	.text_quick		> DARAM
-	.switch			> ROM
-	.const			> ROM
+	// .switch			> ROM
+	.switch			> CONSTRAM
+	// .const			> ROM
+	.const			> CONSTRAM
 	// .const			> CONSTRAM
 	.const_codec2_codebook	> CONSTRAM
-	.cinit			> ROM
+	// .cinit			> ROM
+	.cinit			> CONSTRAM
 	.interrupts		> VECTOR
 	.isrmap			> ISRMAP
 	.data			> RAM

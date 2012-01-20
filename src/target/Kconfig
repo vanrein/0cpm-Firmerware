@@ -28,5 +28,8 @@ source "src/target/Kconfig.platform"
 # 4. Intended functionality
 source "src/function/Kconfig"
 
+# 5. Codec support
+source "src/codec/Kconfig"
+
 source "src/net/Kconfig"
 source "src/phone/Kconfig"

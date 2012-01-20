@@ -18,7 +18,12 @@
  */
 
 
+#ifndef HEADER_BOOL
+#define HEADER_BOOL
+
 typedef enum {
 	false = 0,
 	true  = 1
 } bool;
+
+#endif

@@ -101,7 +101,9 @@ static void rtt_skipheader (uint8_t **msg, uint16_t *len, uint16_t *newseqptr, u
 
 void rtp_paytype_text_t140 (uint8_t *msg, uint16_t len) {
 	uint16_t newseq;
-	//TODO:WAKEUP-TEXTSHOW-PROCESS// void rtt_recv_keys (uint8_t *text, uint16_t len);
+#ifdef TODO_WAKEUP_TEXTSHOW_PROCESS
+	void rtt_recv_keys (uint8_t *text, uint16_t len);
+#endif
 	rtt_skipheader (&msg, &len, &newseq, NULL);
 	switch ((int16_t) (newseq - rtt_seqnr)) {
 	case -2:
@@ -111,11 +113,15 @@ void rtp_paytype_text_t140 (uint8_t *msg, uint16_t len) {
 		return;
 	default:
 		/* Packets out of sync, report missing text */
-		//TODO:WAKEUP-TEXTSHOW-PROCESS// rtt_recv_keys (rtt_missing_text, sizeof (rtt_missing_text));
+#ifdef TODO_WAKEUP_TEXTSHOW_PROCESS
+		rtt_recv_keys (rtt_missing_text, sizeof (rtt_missing_text));
+#endif
 		// ...continue into handling the one extension...
 	case 1:
 		/* Packets properly ordered */
-		//TODO:WAKEUP-TEXTSHOW-PROCESS// rtt_recv_keys (msg, len);
+#ifdef TODO_WAKEUP_TEXTSHOW_PROCESS
+		rtt_recv_keys (msg, len);
+#endif
 		rtt_seqnr = newseq;
 	}
 }
@@ -124,13 +130,17 @@ void rtp_paytype_text_t140 (uint8_t *msg, uint16_t len) {
 void rtp_paytype_text_red (uint8_t *msg, uint16_t len) {
 	uint16_t newseq;
 	uint16_t gencount, skipcount, skipbytes;
-	//TODO:WAKEUP-TEXTSHOW-PROCESS// void rtt_recv_keys (uint8_t *text, uint16_t len);
+#ifdef TODO_WAKEUP_TEXTSHOW_PROCESS
+	void rtt_recv_keys (uint8_t *text, uint16_t len);
+#endif
 	rtt_skipheader (&msg, &len, &newseq, &gencount);
 	//
 	// Skip the redundant parts that were processed before
 	if (gencount < (newseq - rtt_seqnr)) {
 		/* Packets are missing -- report and use what is supplied */
-		//TODO:WAKEUP-TEXTSHOW-PROCESS// rtt_recv_keys (rtt_missing_text, sizeof (rtt_missing_text));
+#ifdef TODO_WAKEUP_TEXTSHOW_PROCESS
+		rtt_recv_keys (rtt_missing_text, sizeof (rtt_missing_text));
+#endif
 		skipcount = 0;
 	} else {
 		/* No missing packets -- skip 0 or more redundant generations */
@@ -159,7 +169,9 @@ void rtp_paytype_text_red (uint8_t *msg, uint16_t len) {
 	//
 	// Copy the redundant parts that are new
 	if (((int16_t) len) > 0) {
-		//TODO:WAKEUP-TEXTSHOW-PROCESS// rtt_recv_keys (msg, len);
+#ifdef TODO_WAKEUP_TEXTSHOW_PROCESS
+		rtt_recv_keys (msg, len);
+#endif
 	}
 }
 

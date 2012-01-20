@@ -353,7 +353,7 @@ void speex_finish_encode (struct codec *hdl) {
 void speex_transform_encode (struct codec *hdl,
 			uint16_t *pcm, uint16_t *pcmlen,
 			uint8_t  *pkt, uint16_t *pktlen) {
-	speex_encode (&hdl->state.state_speex_encode, NULL /*TODO*/);
+	speex_encode (&hdl->state.state_speex_encode, NULL /*TODO*/, NULL /*TODO*/);
 }
 void speex_init_decode (struct codec *hdl, uint32_t samplerate) {
 	speex_decoder_init (&hdl->state.state_speex_decode);
@@ -362,7 +362,7 @@ void speex_finish_decode (struct codec *hdl) {
 	speex_decoder_destroy (&hdl->state.state_speex_decode);
 }
 void speex_transform_decode (struct codec *hdl, uint16_t *pktlen) {
-	speex_decode (&hdl->state.state_speex_decode, NULL /*TODO*/);
+	speex_decode (&hdl->state.state_speex_decode, NULL /*TODO*/, NULL /*TODO*/);
 }
 
 #endif
@@ -415,6 +415,7 @@ struct codec_fun decoder_speex_ultra = {
 
 /********** CODEC2 DEFINITIONS **********/
 
+#ifdef CONFIG_CODEC_CODEC2
 static void codec2_init (struct codec *hdl, uint32_t samplerate) {
 	//TODO// Static allocation
 	codec2_create (&hdl->state.codec2_state);
@@ -440,8 +441,6 @@ static void codec2_transform_decode (struct codec *hdl,
 	*pktlen = (CODEC2_BITS_PER_FRAME + 7) >> 3;
 }
 
-
-#ifdef CONFIG_CODEC_CODEC2
 struct codec_fun encoder_codec2_1500 = {
 	"audio", "x-codec2", NULL,
 	"CODEC2",

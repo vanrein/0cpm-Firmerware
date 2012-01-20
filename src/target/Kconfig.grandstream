@@ -70,6 +70,9 @@ config TARGET_GRANDSTREAM_GXP_OTHER
 	  this software.  And of course we will gladly integrate your
 	  changes, so you don't have to keep your own code forked.
 
+	  For the latest news on the support for these phones, visit
+	  http://reverse.0cpm.org/grandstream/gxp.html
+
 config TARGET_GRANDSTREAM_GXV
 	bool "Grandstream GXV series (video phones)"
 	select PLATFORM_TIC55X
@@ -83,7 +86,8 @@ config TARGET_GRANDSTREAM_GXV
 	   * camera
 	   * touch screen (on some models)
 
-	  Support for these models is not planned at this time.
+	  For the latest news on the support for these phones, visit
+	  http://reverse.0cpm.org/grandstream/gxv.html
 
 endchoice
 

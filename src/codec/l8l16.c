@@ -34,38 +34,38 @@
 
 void l8_decode (struct codec *hdl, int16_t *pcm, uint16_t *pcmlen, uint8_t *pkt, uint16_t *pktlen) {
 	while ((*pktlen >= 1) && (*pcmlen >= 1)) {
-		// Note: The 0xff masks away bits from 16-bit DSPs like tic55x
-		*pcm++ = (((*pkt++) & 0xff) ^ 0x80) << 8;
-		*pcmlen--;
-		*pktlen--;
+		// Note: The 0x00ff masks away extra bits from 16-bit DSPs like tic55x
+		*pcm++ = ((((uint16_t) *pkt++) & 0x00ff) ^ 0x0080) << 8;
+		(*pcmlen) --;
+		(*pktlen) --;
 	}
 }
 
 void l8_encode (struct codec *hdl, int16_t *pcm, uint16_t *pcmlen, uint8_t *pkt, uint16_t *pktlen) {
 	while ((*pktlen >= 1) && (*pcmlen >= 1)) {
-		// Note: The 0xff masks away bits from 16-bit DSPs like tic55x
+		// Note: The 0xff masks away extra bits from 16-bit DSPs like tic55x
 		*pkt++ = (((*pcm++) >> 8) ^ 0x80) & 0xff;
-		*pcmlen--;
-		*pktlen--;
+		(*pcmlen) --;
+		(*pktlen) --;
 	}
 }
 
 void l16_decode (struct codec *hdl, int16_t *pcm, uint16_t *pcmlen, uint8_t *pkt, uint16_t *pktlen) {
 	while ((*pktlen >= 2) && (*pcmlen >= 1)) {
-		// Note: The 0xff masks away bits from 16-bit DSPs like tic55x
-		*pcm++ = (int16_t) (((*pkt++) << 8) | ((*pkt++) & 0xff));
-		*pcmlen--;
-		*pktlen -= 2;
+		// Note: The 0xff masks away extra bits from 16-bit DSPs like tic55x
+		*pcm++ = (int16_t) ((((uint16_t) *pkt++) << 8) | ((*pkt++) & 0xff));
+		(*pcmlen) --;
+		(*pktlen) -= 2;
 	}
 }
 
 void l16_encode (struct codec *hdl, int16_t *pcm, uint16_t *pcmlen, uint8_t *pkt, uint16_t *pktlen) {
 	while ((*pktlen >= 2) && (*pcmlen >= 1)) {
-		// Note: The 0xff masks away bits from 16-bit DSPs like tic55x
+		// Note: The 0xff masks away extra bits from 16-bit DSPs like tic55x
 		*pkt++ = ((*pcm) >> 8) & 0xff;
 		*pkt++ = (*pcm++) & 0xff;
-		*pcmlen--;
-		*pktlen -= 2;
+		(*pcmlen) --;
+		(*pktlen) -= 2;
 	}
 }
 

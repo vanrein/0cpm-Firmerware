@@ -1,6 +1,6 @@
 # Function for the target image
 
-menu "5. Firmerware functions"
+menu "4. Firmerware functions"
 
 choice
 	prompt "Primary firmware function"
@@ -98,7 +98,7 @@ config FUNCTION_SOUND_PLAYER
 
 config FUNCTION_RADIO
 	bool "Internet radio (multicast reception)"
-	depends on UNIMPLEMENTED
+	depends on UNIMPLEMENTED && !MAINFUNCTION_DEVEL_GPIO && !MAINFUNCTION_DEVEL_TIMER && !MAINFUNCTION_DEVEL_KEYBOARD && !MAINFUNCTION_DEVEL_NETWORK && !MAINFUNCTION_DEVEL_SOUND
 	default y
 	help
 	  Enable Internet Radio functions.  This makes the phone pickup
@@ -185,7 +185,5 @@ config FUNCTION_FIRMWARE_UPGRADES_BOOTLOADER
 	  tightly controlled firewall to avoid this from being abused.
 
 	  TODO: a polling TFTP client may in fact be better?
-
-source "src/codec/Kconfig"
 
 endmenu

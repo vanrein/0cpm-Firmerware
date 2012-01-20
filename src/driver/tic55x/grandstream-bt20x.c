@@ -177,7 +177,7 @@ bottom_led_set (LED_IDX_MESSAGE, 1);
 // bottom_led_set (LED_IDX_SPEAKERPHONE, 1);
 	while (!(I2CSTR & REGVAL_I2CSTR_XRDY)) {
 		if (I2CSTR & REGVAL_I2CSTR_NACK) {
-			bottom_printf ("I2C received NACK\n");
+			// bottom_printf ("I2C received NACK\n");
 			I2CSTR = REGVAL_I2CSTR_NACK;
 			I2CMDR = REGVAL_I2CMDR_MST | REGVAL_I2CMDR_STP | REGVAL_I2CMDR_NORESET | REGVAL_I2CMDR_FREE | REGVAL_I2CMDR_BC_8;
 			return;
@@ -280,7 +280,7 @@ static uint16_t samplebuf_wrapindex = BUFSZ;
  *	recordable	rec0	dma0
  *
  * DMA is possible if the dmaready area is non-empty, so if
- * dma0 != play0.  When DMA has finished transferring a block,
+ * dma0 != play0.  After DMA has transferred a block,
  * the dma0 pointer is incremented, and this is checked.
  *
  * bottom_record_claim() succeeds if rec0 != dma0, and when
@@ -289,17 +289,18 @@ static uint16_t samplebuf_wrapindex = BUFSZ;
  * it returns the rec0 offset of the playbuf, instead of the
  * rec0 offset in the recbuf as is returned by record_claim.
  *
- * bottom_play_claim() succeeds if play0 != rec0 *or* if there
- * is no actual recordable area, that is, rec0 == dma0.  This
+ * bottom_play_claim() succeeds if play0 != rec0 *or* if the
+ * buffer is empty, which is noticed if DMA is not active. This
  * means that playback is the first thing to start when a new
  * set of index pointers is setup with zero values.  When the
  * bottom_play_release() is called, play0 increments, and the
  * DMA conditions are evaluated.
  */
 
-static volatile uint16_t bufofs_play0 = 0;
-static volatile uint16_t bufofs_dma0  = 0;
-static volatile uint16_t bufofs_rec0  = 0;
+volatile bool dma_active = false;
+/*TODO:static*/ volatile uint16_t bufofs_play0 = 0;
+/*TODO:static*/ volatile uint16_t bufofs_dma0  = 0;
+/*TODO:static*/ volatile uint16_t bufofs_rec0  = 0;
 
 
 inline void bottom_bufferdma_progress (uint8_t chan) {
@@ -307,6 +308,7 @@ inline void bottom_bufferdma_progress (uint8_t chan) {
 	bufofs_dma0 = (bufofs_dma0 + samplebuf_blocksize) % samplebuf_wrapindex;
 	if (bufofs_dma0 == bufofs_play0) {
 		SPCR2_1 &= ~REGVAL_SPCR2_FRST_NOTRESET;		// Stop DMA
+		dma_active = false;
 	}
 	if (recordinghint) {
 		top_codec_can_record (chan);
@@ -314,7 +316,7 @@ inline void bottom_bufferdma_progress (uint8_t chan) {
 }
 
 int16_t *bottom_play_claim (uint8_t chan) {
-	if ((bufofs_play0 != bufofs_rec0) || (bufofs_rec0 == bufofs_dma0)) {
+	if ((!dma_active) || (bufofs_play0 != bufofs_rec0)) {
 		return (int16_t *) &samplebuf_play [bufofs_play0];
 	} else {
 		return NULL;
@@ -332,6 +334,7 @@ void bottom_play_release (uint8_t chan) {
 		DXR1_1 = DXR1_1;	// Flag down XEMPTY
 		DMACCR_1 |= REGVAL_DMACCR_EN;
 		SPCR2_1 |= REGVAL_SPCR2_FRST_NOTRESET;		// Start DMA
+		dma_active = true;
 	}
 }
 
@@ -344,19 +347,19 @@ int16_t *bottom_record_claim (uint8_t chan) {
 }
 
 int16_t *bottom_echo_claim (uint8_t chan) {
-	bool playbackhint = (bufofs_rec0 == bufofs_play0);
 	if (bufofs_rec0 != bufofs_dma0) {
 		return (int16_t *) &samplebuf_play [bufofs_rec0];
 	} else {
 		return NULL;
 	}
-	if (playbackhint) {
-		top_codec_can_play (chan);
-	}
 }
 
 void bottom_record_release (uint8_t chan) {
+	bool playbackhint = (bufofs_rec0 == bufofs_play0);
 	bufofs_rec0 = (bufofs_rec0 + samplebuf_blocksize) % samplebuf_wrapindex;
+	if (playbackhint) {
+		top_codec_can_play (chan);
+	}
 }
 
 static int TODO_setratectr = 0;
@@ -365,13 +368,11 @@ static int TODO_setratectr = 0;
 //TODO// Not all this code is properly split between generic TLV and specific BT200
 void tlv320aic2x_set_samplerate (uint8_t chan, uint32_t samplerate) {
 	uint16_t m, n, p;
-#if 0
 	SPCR2_1 |= REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
 { uint32_t ctr = 100; while (ctr-- > 0) ; }
 	SPCR1_1 |= REGVAL_SPCR1_RRST_NOTRESET;
 	SPCR2_1 |= REGVAL_SPCR2_XRST_NOTRESET;
 { uint32_t ctr = 10000; while (ctr-- > 0) ; }
-#endif
 	DXR1_1 = DXR1_1;	// Flag down XEMPTY
 tlv320aic2x_setreg (chan, 3, 0x31);	// Channel offline
 { uint32_t ctr = 1000; while (ctr-- > 0) ; }
@@ -381,7 +382,7 @@ tlv320aic2x_setreg (chan, 3, 0x31);	// Channel offline
 	n = 1;
 	p = 2;
 	m = ( 30720000 / 16 ) / ( n * p * samplerate );
-	if (m & 0x03 == 0x00) {
+	if ((m & 0x03) == 0x00) {
 		// Save PLL energy without compromising accuracy
 		p = 8;		// Factor 2 -> 8 so multiplied by 4
 		m >>= 2;	// Divide by 4
@@ -391,7 +392,9 @@ tlv320aic2x_setreg (chan, 3, 0x31);	// Channel offline
 		n <<= 1;
 	}
 { uint8_t ip4 [4]; ip4 [0] = m; ip4 [1] = n; ip4 [2] = p; ip4 [3] = ++TODO_setratectr; bottom_show_ip4 (APP_LEVEL_CONNECTING, ip4); }
+#ifdef CONFIG_FUNCTION_NETCONSOLE
 bottom_printf ("TLV320AIC20K setting: M=%d, N=%d, P=%d\n", (intptr_t) m, (intptr_t) n, (intptr_t) p);
+#endif
 	m &= 0x7f;
 	n &= 0x0f;	// Ignore range problems?
 	p &= 0x07;
@@ -449,6 +452,7 @@ void bottom_soundchannel_set_samplerate (uint8_t chan, uint32_t samplerate,
 	tlv320aic2x_set_samplerate (chan, samplerate);
 	//
 	// Setup buffer index pointers at the start; effectively clearing all
+	dma_active = false;
 	bufofs_play0 = 0;
 	bufofs_dma0  = 0;
 	bufofs_rec0  = 0;
@@ -534,7 +538,9 @@ void dmahint_play (void) {
 	if ((available_play >= 64) && ! (DMACCR_1 & REGVAL_DMACCR_EN)) {
 		DXR1_1 = DXR1_1;	// Flag down XEMPTY
 		DMACCR_1 |= REGVAL_DMACCR_EN;
+#ifdef CONFIG_FUNCTION_NETCONSOLE
 bottom_printf ("dmahint_play() started playing DMA\n");
+#endif
 // #ifdef TODO_FS_ONLY_DURING_SOUND_IO
 		// SPCR2_1 |= REGVAL_SPCR2_XRST_NOTRESET | REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
 // #endif
@@ -1171,7 +1177,7 @@ EGCR2 = 0x0005;	//ECLKOUT2-DIV-2//
 	tic55x_setup_timers ();
 	tic55x_setup_interrupts ();
 	ht162x_setup_lcd ();
-	// tlv320aic2x_set_samplerate (0, 8000);
+	tlv320aic2x_set_samplerate (0, 8000);
 	tlv320aic2x_setup_sound ();
 	ksz8842_setup_network ();
 	// Enable INT0..INT3

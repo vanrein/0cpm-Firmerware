@@ -1,10 +1,10 @@
 TARGET=rtt_desktop_test
 OBJS=recvkeys.o sendkeys.o desktop.o
 
-# CFLAGS=-m32 -L.
-CFLAGS=-m64
+# CFLAGS=-m32 -L. -DTODO_WAKEUP_TEXTSHOW_PROCESS
+CFLAGS=-m64 -DTODO_WAKEUP_TEXTSHOW_PROCESS
 
-# CFLAGS+=-ggdb3
+CFLAGS+=-ggdb3
 
 all: tags $(TARGET)
 
@@ -21,3 +21,6 @@ $(TARGET): $(OBJS)
 
 tags:
 	ctags *.c
+
+rtp-setup-pipe:
+	mknod rtp-setup-pipe p
