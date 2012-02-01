@@ -369,13 +369,23 @@ static int TODO_setratectr = 0;
 void tlv320aic2x_set_samplerate (uint8_t chan, uint32_t samplerate) {
 	uint16_t m, n, p;
 	SPCR2_1 |= REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET;
-{ uint32_t ctr = 100; while (ctr-- > 0) ; }
+//TRY-WITHOUT// { uint32_t ctr = 100000; while (ctr-- > 0) ; }	// Helps to sync TLV --TODO-- wait4what?
 	SPCR1_1 |= REGVAL_SPCR1_RRST_NOTRESET;
 	SPCR2_1 |= REGVAL_SPCR2_XRST_NOTRESET;
-{ uint32_t ctr = 10000; while (ctr-- > 0) ; }
+//TRY-WITHOUT// { uint32_t ctr = 100000; while (ctr-- > 0) ; }	// Helps to sync TLV --TODO-- wait4what?
+// Getting in tune with the TLV probably means waiting
+// until it has picked up changes.  This means waiting
+// for a FS to occur.  One way of doing that is to see
+// when a server overrun (RFULL) occurs.
+#if 1
+(void) DRR1_1;		// Flag down RFULL
+while (! (SPCR1_1 & REGVAL_SPCR1_RFULL) ) {
+	;
+}
+#endif
 	DXR1_1 = DXR1_1;	// Flag down XEMPTY
 tlv320aic2x_setreg (chan, 3, 0x31);	// Channel offline
-{ uint32_t ctr = 1000; while (ctr-- > 0) ; }
+//TRY-WITHOUT// { uint32_t ctr = 10000; while (ctr-- > 0) ; }
 	(void) DRR1_1;		// Flag down RFULL
 	(void) DRR1_1;
 	// Determine the dividors m, n and p
@@ -410,7 +420,7 @@ bottom_printf ("TLV320AIC20K setting: M=%d, N=%d, P=%d\n", (intptr_t) m, (intptr
 	SPCR2_1 &= ~REGVAL_SPCR2_XRST_NOTRESET;
 { uint32_t ctr = 10000; while (ctr-- > 0) ; }
 	SPCR2_1 &= ~ ( REGVAL_SPCR2_GRST_NOTRESET | REGVAL_SPCR2_FRST_NOTRESET );
-{ uint32_t ctr = 10000; while (ctr-- > 0) ; }
+{ uint32_t ctr = 100000; while (ctr-- > 0) ; }	// Helps to sync TLV --TODO-- wait4what?
 	// SPCR2_1 &= ~ ( REGVAL_SPCR2_FRST_NOTRESET );
 { uint32_t ctr = 10000; while (ctr-- > 0) ; }
 // #endif

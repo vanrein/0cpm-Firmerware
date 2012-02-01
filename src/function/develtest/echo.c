@@ -160,7 +160,7 @@ void top_main_sine_1khz (void) {
 	if (!bottom_soundchannel_acceptable_samplerate (PHONE_CHANNEL_TELEPHONY, 8000)) {
 		bottom_printf ("Failed to set sample rate");
 		bottom_show_fixed_msg (APP_LEVEL_ZERO, FIXMSG_CALL_ENDED);
-		while (1) {
+		while (true) {
 			;
 		}
 	}
@@ -174,7 +174,7 @@ void top_main_sine_1khz (void) {
 		int16_t *outbuf;
 		while ((outbuf = bottom_play_claim (PHONE_CHANNEL_TELEPHONY))) {
 			uint16_t pcmlen, pktlen;
-#if 1
+#if 0
 			pcmlen = 64;
 			pktlen = 64;
 			// Note: No handle needed for stateless L8
@@ -228,18 +228,20 @@ uint16_t sampled = 0;
 
 #define abs(x) (((x)>0)?(x):(-(x)))
 
-/* 1 second at 8000 samples per second, plus 25% extra */
-uint8_t samples [10000];
+/* 1 second at 8000 samples per second, 2 bytes each, plus 25% extra */
+int8_t samples [20000];
 
 void top_main_delay_1sec (void) {
 	uint16_t prepblocks = 0;
-	uint16_t playptr = 2000, recptr = 0;
-memset (samples, 0x33, sizeof (samples));
+	uint16_t playptr = 4000, recptr = 0;
 	bottom_critical_region_end ();
+	memset (samples, 0x33, sizeof (samples));
 	if (!bottom_soundchannel_acceptable_samplerate (PHONE_CHANNEL_TELEPHONY, 8000)) {
 		bottom_printf ("Failed to set sample rate");
 		bottom_show_fixed_msg (APP_LEVEL_ZERO, FIXMSG_CALL_ENDED);
-		exit (1);
+		while (true) {
+			;
+		}
 	}
 	bottom_soundchannel_set_samplerate (PHONE_CHANNEL_TELEPHONY, 8000, 100, 1, 1);
 	bottom_soundchannel_setvolume (PHONE_CHANNEL_TELEPHONY, 127);
@@ -254,28 +256,30 @@ memset (samples, 0x33, sizeof (samples));
 			buf = bottom_play_claim (PHONE_CHANNEL_TELEPHONY);
 		} while (buf == NULL);
 		pcmlen = 100;
-		pktlen = 100;
-		// Note: No handle needed for stateless L8
-		l8_encode (NULL, buf, &pcmlen, samples + playptr, &pktlen);
+		pktlen = 200;
+		// Note: No handle needed for stateless L16
+bottom_printf ("Playing %d, %d, %d...\n", 0xffff & (intptr_t) buf [0], 0xffff & (intptr_t) buf [1], 0xffff & (intptr_t) buf [2]);
+		l16_encode (NULL, buf, &pcmlen, samples + playptr, &pktlen);
 		bottom_play_release (PHONE_CHANNEL_TELEPHONY);
 
-		playptr += 100;
-		if (playptr >= 10000) {
-			playptr -= 10000;
+		playptr += 200;
+		if (playptr >= 20000) {
+			playptr -= 20000;
 		}
 
 		do {
 			buf = bottom_record_claim (PHONE_CHANNEL_TELEPHONY);
 		} while (buf == NULL);
 		pcmlen = 100;
-		pktlen = 100;
-		// Note: No handle needed for stateless L8
-		l8_decode (NULL, buf, &pcmlen, samples + recptr, &pktlen);
+		pktlen = 200;
+		// Note: No handle needed for stateless L16
+		l16_decode (NULL, buf, &pcmlen, samples + recptr, &pktlen);
+bottom_printf ("Recorded %d, %d, %d...\n", 0xffff & (intptr_t) buf [0], 0xffff & (intptr_t) buf [1], 0xffff & (intptr_t) buf [2]);
 		bottom_record_release (PHONE_CHANNEL_TELEPHONY);
 
-		recptr += 100;
-		if (recptr >= 10000) {
-			recptr -= 10000;
+		recptr += 200;
+		if (recptr >= 20000) {
+			recptr -= 20000;
 		}
 
 #ifdef CONFIG_FUNCTION_NETCONSOLE
